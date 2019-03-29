@@ -82,6 +82,7 @@ int getBGPMessage (struct sockbuf *sb) {
       return 0;
    } else if (!isMarker(header)) {
       die("Failed to find BGP marker in msg header from peer");
+            return -1;
    } else {
       pl = ( header[16] << 8 ) + ( header[17] ) - 19 ;
       msgtype = header[18];
@@ -102,7 +103,7 @@ int getBGPMessage (struct sockbuf *sb) {
    } else {
       fprintf(stderr,"+");
    }
-   return 1;
+   return msgtype;
 }
 
 void simple(int sock, FILE * f ) {
@@ -118,16 +119,32 @@ void simple(int sock, FILE * f ) {
 }
 
 void session(int sock, FILE * f ) {
-  int res;
+  int msgtype;
   struct sockbuf sb;
   bufferInit(&sb,sock,0x100000);
-  getBGPMessage (&sb); // this is expected to be an Open
 
-  getBGPMessage (&sb); // this is expected to be a Keepalive
+  msgtype=getBGPMessage (&sb); // this is expected to be an Open
+  if (msgtype==1)
+      fprintf(stderr, "session: got Open\n");
+  else
+      fprintf(stderr, "session: expected Open, got %s (%d)\n",showtype(msgtype),msgtype);
+
+  msgtype=getBGPMessage (&sb); // this is expected to be a Keepalive
+  if (msgtype==4)
+      fprintf(stderr, "session: got Keepalive\n");
+  else
+      fprintf(stderr, "session: expected Keepalive, got %s (%d)\n",showtype(msgtype),msgtype);
 
   do {
-        res = getBGPMessage (&sb); // keepalive or updates from now on
-  } while (res>0);
+        msgtype = getBGPMessage (&sb); // keepalive or updates from now on
+        if (msgtype==4)
+            fprintf(stderr, "session: got Keepalive\n");
+        else if (msgtype==2)
+            fprintf(stderr, "session: got Update\n");
+        else
+            fprintf(stderr, "session: expected Keepalive, got %s (%d)\n",showtype(msgtype),msgtype);
+
+  } while (msgtype>0);
   close(sock);
   // bufferClose();
   fprintf(stderr, "session exit, msg cnt = %d\n",msgcount);
