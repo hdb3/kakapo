@@ -27,10 +27,12 @@ unsigned char * bufferedRead (struct sockbuf *sb, int rc) {
 
     if ((rc > sb->count) && ( sb->start + sb->count > sb->threshold)) {
         // reshuffle
+        fprintf(stderr,"sockbuf.c: reshuffle\n");
         memmove(sb->base, sb->base + sb->start, sb->count);
         sb->start = 0;
     }
     while ( rc > sb->count ) {
+        //fprintf(stderr,"sockbuf.c: waiting on recv, request=%d, available=%d\n",rc,sb->count);
         sockRead = recv( sb->sock, sb->base + sb->start, sb->top - sb->start, 0 );
         // if zero or worse, die...
         if ( sockRead < 0 ) {
