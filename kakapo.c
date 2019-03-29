@@ -17,7 +17,7 @@
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
-#define VERBOSE (1)
+#define VERBOSE (0)
 
 int die(char *mess) { perror(mess); exit(1); }
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
@@ -103,7 +103,7 @@ int getBGPMessage (struct sockbuf *sb) {
       fprintf(stderr, "%d: BGP msg type %s length %d received [%s]\n",pid, showtype(msgtype), pl , hex);
       free(hex);
    } else {
-      fprintf(stderr,"+");
+      // fprintf(stderr,"+");
    }
    return msgtype;
 }
@@ -139,6 +139,7 @@ void session(int sock, int fd1 , int fd2) {
 
   (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
 
+  msgtype=getBGPMessage (&sb); // this is expected to be a Keepalive
   report(4,msgtype);
 
   (0 < sendfile(sock, fd2, 0, 0x7ffff000)) || die("Failed to send fd2 to peer");
