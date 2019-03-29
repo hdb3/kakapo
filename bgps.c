@@ -11,7 +11,7 @@
 #include <netinet/tcp.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
-#include "bufferedread.c"
+#include "sockbuf.h"
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
