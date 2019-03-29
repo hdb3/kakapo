@@ -1,6 +1,12 @@
 
 
 // sockbuf.c
+
+#include <stdio.h>
+#include <sys/socket.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "sockbuf.h"
 
 void bufferInit (struct sockbuf *sb, int _sock, int size) {
