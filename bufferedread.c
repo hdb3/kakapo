@@ -14,10 +14,11 @@ Read ->
 
 */
 
-unsigned int start,count,top,threshold;
+unsigned int sock,start,count,top,threshold;
 unsigned char *base;
 
-bufferInit (int size) {
+void bufferInit (int _sock, int size) {
+    sock = _sock;
     start = 0;
     count = 0;
     top = size;
@@ -26,17 +27,31 @@ bufferInit (int size) {
 }
 
 unsigned char * bufferedRead (int rc) {
+    int sockRead;
 
-    if ( rc < count ) {
-        count = count - rc;
-        int tmp = start;
-        start = start + rc;
-        return ( base + start );
-    } else {
-        if (start + count > threshold) {
-            // reshoffle
-        }
-        sockRead = read(sock,base+start,top-start);
+    // first recv from socket until we can satisfy the request
+    // this may require a shuffle operation before the first read
+
+    if ((rc > count) && ( start + count > threshold)) {
+        // reshuffle
+        memmove(base,base+start,count);
+        start = 0;
+    }
+    while ( rc > count ) {
+        sockRead = recv( sock, base+start, top-start, 0 );
         // if zero or worse, die...
-        count = count + sockRead;
+        if ( sockRead < 0 ) {
+            perror(0);
+            return 0;
+        } else if ( sockRead == 0 )
+            return 0;
+        else
+            count = count + sockRead;
+    }
+    // if we get here then we know there is enough in the buffer to satisfy the request
+    count = count - rc;
+    int tmp = start;
+    start = start + rc;
+    return ( base + tmp );
+}
 //
