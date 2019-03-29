@@ -12,12 +12,12 @@
 #include <netinet/tcp.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
+#include "sockbuf.h"
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
-#define VERBOSE (0)
-#define FAST (0)
+#define VERBOSE (1)
 
 int die(char *mess) { perror(mess); exit(1); }
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
@@ -27,6 +27,7 @@ int isMarker (const unsigned char *buf) {
 }
 
 int msgcount = 0;
+int pid;
 
 char * showtype (unsigned char msgtype) {
    switch(msgtype) {
@@ -70,72 +71,89 @@ void printHex ( FILE * fd, unsigned char *buf, unsigned int l) {
       free(hex);
 }
 
-int getBGPMessage ( FILE * fsock) {
-  unsigned char header[19];
-  unsigned char payload[BUFFSIZE];
-  int received;
-  unsigned int pl;
-  unsigned char msgtype;
+int getBGPMessage (struct sockbuf *sb) {
+   char *header;
+   char *payload;
+   int received;
+   unsigned int pl;
+   unsigned char msgtype;
 
-  received = fread(header, 1,19,fsock);
-  if (0 == received ) {
-    fprintf(stderr, "end of stream\n");
-    return 0;
-  } else if (received < 19) {
-    die("Failed to receive msg header from peer");
-  } else if (!isMarker(header)) {
-    die("Failed to find BGP marker in msg header from peer");
-  } else {
-    pl = ( header[16] << 8 ) + ( header[17] ) - 19 ;
-    msgtype = header[18];
-    if (0 < pl) {
-        if ((received = fread(payload, 1, pl, fsock)) != pl) {
-          fprintf(stderr,"Failed to receive msg payload from peer (%d/%d)",received,pl);
-          exit(1);
-          }
-        } else
-          received = 0;
-    }
-    if VERBOSE {
-        unsigned char *hex = toHex (payload,pl) ;
-        fprintf(stderr, "BGP msg type %s length %d received [%s]\n", showtype(msgtype), pl , hex);
-        free(hex);
-    } else
-        msgcount++;
-        //fprintf(stderr,"+");
-  return 1;
+   header = bufferedRead(sb,19);
+   if (0 == header ) {
+      fprintf(stderr, "%d: end of stream\n",pid);
+      return 0;
+   } else if (!isMarker(header)) {
+      die("Failed to find BGP marker in msg header from peer");
+            return -1;
+   } else {
+      pl = ( header[16] << 8 ) + ( header[17] ) - 19 ;
+      msgtype = header[18];
+      if (0 < pl) {
+         payload=bufferedRead(sb,pl);
+         if (0 == payload) {
+            fprintf(stderr, "%d: end of stream\n",pid);
+            return 0;
+         }
+     } else
+         payload = 0;
+   }
+   msgcount++;
+   if VERBOSE {
+      unsigned char *hex = toHex (payload,pl) ;
+      fprintf(stderr, "%d: BGP msg type %s length %d received [%s]\n",pid, showtype(msgtype), pl , hex);
+      free(hex);
+   } else {
+      fprintf(stderr,"+");
+   }
+   return msgtype;
 }
 
+void report (int expected, int got) {
+
+   if VERBOSE {
+      if (expected == got) {
+         fprintf(stderr, "%d: session: OK, got %s\n",pid,showtype(expected));
+      } else {
+         fprintf(stderr, "%d: session: expected %s, got %s (%d)\n",pid,showtype(expected),showtype(got),got);
+      }
+   } else {
+      if (expected != got) 
+         fprintf(stderr, "%d: session: expected %s, got %s (%d)\n",pid,showtype(expected),showtype(got),got);
+   }
+}
 
 void session(int sock, int fd1 , int fd2) {
-  int i = 1;
+  int i,msgtype;
+  struct sockbuf sb;
+
   msgcount = 0;
   setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
   lseek(fd1,0,0);
   lseek(fd2,0,0);
-  FILE *fsock = fdopen(sock,"r");
+  bufferInit(&sb,sock,BUFFSIZE);
 
   (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
-  getBGPMessage (fsock); // this is expected to be an Open
+  msgtype=getBGPMessage (&sb); // this is expected to be an Open
+  report(1,msgtype);
 
   (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
 
-  getBGPMessage (fsock); // this is expected to be a Keepalive
+  report(4,msgtype);
 
   (0 < sendfile(sock, fd2, 0, 0x7ffff000)) || die("Failed to send fd2 to peer");
 
-  int res;
-  unsigned char *b = malloc(0x10000);
   do {
-      if FAST {
-        res = recv (sock,b,0x10000,0); // keepalive or updates from now on
-        msgcount++;
-      } else
-        res = getBGPMessage (fsock); // keepalive or updates from now on
-  } while (res>0);
+        msgtype = getBGPMessage (&sb); // keepalive or updates from now on
+        report(2,msgtype);
+        if (msgtype==3){
+            fprintf(stderr, "%d: session: got Notification\n",pid);
+            break;
+        }
+  } while (msgtype>0);
   close(sock);
-  fprintf(stderr, "session exit, msg cnt = %d\n",msgcount);
+  // bufferClose();
+  fprintf(stderr, "%d: session exit, msg cnt = %d\n",pid,msgcount);
   msgcount = 0;
 }
 
@@ -143,7 +161,8 @@ int main(int argc, char *argv[]) {
   int serversock, peersock, fd1,fd2;
   struct sockaddr_in peeraddr;
 
-  fprintf(stderr, "bgpc\n");
+  pid = getpid();
+  fprintf(stderr, "%d: bgpc\n",pid);
   if (3 > argc) {
       fprintf(stderr, "USAGE: bgpc <open_message_file> <update_message_file> {IP address}\n");
       exit(1);
@@ -184,18 +203,18 @@ int main(int argc, char *argv[]) {
 
     while (1) {
       unsigned int addrsize;
-      fprintf(stderr, "waiting for connection\n");
+      fprintf(stderr, "%d: waiting for connection\n",pid);
       if ((peersock = accept(serversock, (struct sockaddr *) &peeraddr, &addrsize )) < 0) {
         die("Failed to accept peer connection");
       }
       if ( addrsize != SOCKADDRSZ || AF_INET != peeraddr.sin_family) {
         die("bad sockaddr");
       }
-      fprintf(stderr, "Peer connected: %s\n", inet_ntoa(peeraddr.sin_addr));
+      fprintf(stderr, "%d: Peer connected: %s\n",pid, inet_ntoa(peeraddr.sin_addr));
       session(peersock,fd1,fd2);
     }
   } else { // client mode
-      fprintf(stderr, "Connecting to: %s\n", argv[3]);
+      fprintf(stderr, "%d: Connecting to: %s\n",pid, argv[3]);
       memset(&peeraddr, 0, SOCKADDRSZ );
       peeraddr.sin_family = AF_INET;
       peeraddr.sin_addr.s_addr = inet_addr(argv[3]);
@@ -205,7 +224,7 @@ int main(int argc, char *argv[]) {
       } else if (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ ) < 0) {
         die("Failed to connect with peer");
       } else {
-          fprintf(stderr, "Peer connected: %s\n", argv[3]);
+          fprintf(stderr, "%d: Peer connected: %s\n",pid, argv[3]);
           session(peersock,fd1,fd2);
       }
   }

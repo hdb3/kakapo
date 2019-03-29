@@ -139,8 +139,11 @@ void session(int sock, FILE * f ) {
             fprintf(stderr, "session: got Keepalive\n");
         else if (msgtype==2)
             fprintf(stderr, "session: got Update\n");
-        else
-            fprintf(stderr, "session: expected Keepalive, got %s (%d)\n",showtype(msgtype),msgtype);
+        else if (msgtype==3){
+            fprintf(stderr, "session: got Notification\n");
+            break;
+        } else
+            fprintf(stderr, "session: established, unexpected message, got %s (%d)\n",showtype(msgtype),msgtype);
 
   } while (msgtype>0);
   close(sock);
