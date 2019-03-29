@@ -16,8 +16,7 @@
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
-#define VERBOSE (0)
-#define FAST (0)
+#define VERBOSE (1)
 
 int die(char *mess) { perror(mess); exit(1); }
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
@@ -70,14 +69,14 @@ void printHex ( FILE * fd, unsigned char *buf, unsigned int l) {
       free(hex);
 }
 
-int getBGPMessage () {
+int getBGPMessage (struct sockbuf *sb) {
    char *header;
    char *payload;
    int received;
    unsigned int pl;
    unsigned char msgtype;
 
-   header = bufferedRead(19);
+   header = bufferedRead(sb,19);
    if (0 == header ) {
       fprintf(stderr, "end of stream\n");
       return 0;
@@ -87,7 +86,7 @@ int getBGPMessage () {
       pl = ( header[16] << 8 ) + ( header[17] ) - 19 ;
       msgtype = header[18];
       if (0 < pl) {
-         payload=bufferedRead(pl);
+         payload=bufferedRead(sb,pl);
          if (0 == payload) {
             fprintf(stderr, "end of stream\n");
             return 0;
@@ -95,38 +94,42 @@ int getBGPMessage () {
      } else
          payload = 0;
    }
+   msgcount++;
    if VERBOSE {
       unsigned char *hex = toHex (payload,pl) ;
       fprintf(stderr, "BGP msg type %s length %d received [%s]\n", showtype(msgtype), pl , hex);
       free(hex);
-   } else
-      msgcount++;
-   //fprintf(stderr,"+");
+   } else {
+      fprintf(stderr,"+");
+   }
    return 1;
 }
 
 void simple(int sock, FILE * f ) {
   char *buf;
-  bufferInit(sock,0x100000);
-  buf = bufferedRead(10);
+  struct sockbuf sb;
+  bufferInit(&sb,sock,0x100000);
+  buf = bufferedRead(&sb,10);
   while (NULL != buf) {
         printHex(stderr,buf,10);
         fwrite(buf,1,10,f);
-        buf = bufferedRead(10);
+        buf = bufferedRead(&sb,10);
   }
 }
 
 void session(int sock, FILE * f ) {
   int res;
-  bufferInit(sock,0x100000);
-  getBGPMessage (); // this is expected to be an Open
+  struct sockbuf sb;
+  bufferInit(&sb,sock,0x100000);
+  getBGPMessage (&sb); // this is expected to be an Open
 
-  getBGPMessage (); // this is expected to be a Keepalive
+  getBGPMessage (&sb); // this is expected to be a Keepalive
 
   do {
-        res = getBGPMessage (); // keepalive or updates from now on
+        res = getBGPMessage (&sb); // keepalive or updates from now on
   } while (res>0);
   close(sock);
+  // bufferClose();
   fprintf(stderr, "session exit, msg cnt = %d\n",msgcount);
   msgcount = 0;
 }

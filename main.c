@@ -15,9 +15,10 @@
 
 int main(int argc, char *argv[]) {
     char *buf;
-    bufferInit(99,100);
+    struct sockbuf sb;
+    bufferInit(&sb,99,100);
     do {
-        buf = bufferedRead(10);
+        buf = bufferedRead(&sb,10);
     } while (NULL != buf);
     return 0;
 }
