@@ -108,10 +108,12 @@ int getBGPMessage () {
 void simple(int sock, FILE * f ) {
   char *buf;
   bufferInit(sock,0x100000);
-  do {
-        buf = bufferedRead(10);
+  buf = bufferedRead(10);
+  while (NULL != buf) {
+        printHex(stderr,buf,10);
         fwrite(buf,1,10,f);
-  } while (NULL != buf);
+        buf = bufferedRead(10);
+  }
 }
 
 void session(int sock, FILE * f ) {
@@ -139,10 +141,6 @@ int main(int argc, char *argv[]) {
    if (2 > argc) {
       fprintf(stderr, "USAGE: bgpc <dump_file>\n");
       exit(1);
-   }
-
-   if ((f = fopen(argv[1],"w")) < 0) {
-      die("Failed to open outputfile");
    }
 
    memset(&peeraddr, 0, SOCKADDRSZ );
@@ -179,6 +177,11 @@ int main(int argc, char *argv[]) {
          die("bad sockaddr");
       }
       fprintf(stderr, "Peer connected: %s\n", inet_ntoa(peeraddr.sin_addr));
+      if ((f = fopen(argv[1],"w")) < 0) {
+         die("Failed to open outputfile");
+      }
+      //simple(peersock,f);
       session(peersock,f);
+      fclose(f);
    }
 }
