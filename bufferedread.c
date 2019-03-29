@@ -39,3 +39,4 @@ unsigned char * bufferedRead (int rc) {
         sockRead = read(sock,base+start,top-start);
         // if zero or worse, die...
         count = count + sockRead;
+//
