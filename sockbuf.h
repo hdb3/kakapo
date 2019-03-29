@@ -3,7 +3,8 @@
 // sockbuf.h
 
 struct sockbuf {
-    int sock,start,count,top,threshold;
+    int sock;
+    unsigned int start,count,top,threshold;
     char *base;
 };
 

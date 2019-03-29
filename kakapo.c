@@ -13,11 +13,13 @@
 #include <sys/sendfile.h>
 #include <fcntl.h>
 #include "sockbuf.h"
+#include "util.h"
 
 #define MAXPENDING 5    // Max connection requests
-#define BUFFSIZE 0x10000
+#define BUFFSIZE 512
+//#define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
-#define VERBOSE (0)
+#define VERBOSE (1)
 
 int die(char *mess) { perror(mess); exit(1); }
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
@@ -42,7 +44,7 @@ char * showtype (unsigned char msgtype) {
       default : return "UNKNOWN";
     }
 }
-
+/*
 unsigned char *toHex (unsigned char *buf, unsigned int l) {
 
   unsigned char     hex_str[]= "0123456789abcdef";
@@ -70,6 +72,7 @@ void printHex ( FILE * fd, unsigned char *buf, unsigned int l) {
       fprintf(fd, "[%s]\n",hex);
       free(hex);
 }
+*/
 
 int getBGPMessage (struct sockbuf *sb) {
    char *header;
@@ -146,11 +149,13 @@ void session(int sock, int fd1 , int fd2) {
 
   do {
         msgtype = getBGPMessage (&sb); // keepalive or updates from now on
-        report(2,msgtype);
         if (msgtype==3){
             fprintf(stderr, "%d: session: got Notification\n",pid);
             break;
-        }
+        } else if (msgtype==4){
+            (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
+        } else
+            report(2,msgtype);
   } while (msgtype>0);
   close(sock);
   // bufferClose();
