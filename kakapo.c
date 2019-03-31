@@ -16,8 +16,7 @@
 #include "util.h"
 
 #define MAXPENDING 5    // Max connection requests
-#define BUFFSIZE 512
-//#define BUFFSIZE 0x10000
+#define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 #define VERBOSE (1)
 
