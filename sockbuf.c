@@ -29,10 +29,6 @@ unsigned char * bufferedRead (struct sockbuf *sb, int rc) {
 
     assert(rc<sb->top);
 
-    fprintf(stderr,"sockbuf.c: rc: %d\n",rc);
-    fprintf(stderr,"sockbuf.c: step 0 : %d / %d\n",sb->start,sb->count);
-    printHex(stderr,sb->base+sb->start,sb->count);
-
     // can reset the buffer cursor for free when there is no data in it
     if (0 == sb->count)
         sb->start=0;
@@ -40,21 +36,12 @@ unsigned char * bufferedRead (struct sockbuf *sb, int rc) {
     if ((rc > sb->count) && ( sb->start + sb->count > sb->threshold)) {
         // reshuffle
         // //fprintf(stderr,"sockbuf.c: reshuffle\n");
-        // //char * to = sb->base;
-        // //char * from = sb->base+sb->start;
-        // //int i=0;
-        // //int c=sb->count;
-        // //for ( ; i<c ; i++)
-            // //to[i] = from[i];
         memmove(sb->base, sb->base + sb->start, sb->count);
         sb->start = 0;
     }
-    fprintf(stderr,"sockbuf.c: step 1 : %d / %d\n",sb->start,sb->count);
-    printHex(stderr,sb->base+sb->start,sb->count);
     while ( rc > sb->count ) {
-        //fprintf(stderr,"sockbuf.c: waiting on recv, request=%d, available=%d\n",rc,sb->count);
         int request = sb->top - sb->start - sb->count;
-        sockRead = recv( sb->sock, sb->base + sb->start, request, 0 );
+        sockRead = recv( sb->sock, sb->base + sb->start + sb->count, request, 0 );
         // if zero or worse, die...
         if ( sockRead < 0 ) {
             perror(0);
@@ -63,17 +50,11 @@ unsigned char * bufferedRead (struct sockbuf *sb, int rc) {
             return 0;
         else {
             sb->count = sb->count + sockRead;
-            fprintf(stderr,"sockbuf.c: recv request / got : %d / %d\n",request, sockRead);
         }
     }
-    fprintf(stderr,"sockbuf.c: step 2 : %d / %d\n",sb->start,sb->count);
-    printHex(stderr,sb->base+sb->start,sb->count);
     // if we get here then we know there is enough in the buffer to satisfy the request
     sb->count = sb->count - rc;
     int tmp = sb->start;
     sb->start = sb->start + rc;
-    fprintf(stderr,"sockbuf.c: step 3 : %d / %d\n",sb->start,sb->count);
-    printHex(stderr,sb->base+sb->start,sb->count);
-    printHex(stderr,sb->base+tmp,rc);
     return ( sb->base + tmp );
 }
