@@ -18,7 +18,7 @@
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
-#define VERBOSE (1)
+#define VERBOSE (0)
 
 int die(char *mess) { perror(mess); exit(1); }
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
@@ -145,6 +145,8 @@ void session(int sock, int fd1 , int fd2) {
   report(4,msgtype);
 
   (0 < sendfile(sock, fd2, 0, 0x7ffff000)) || die("Failed to send fd2 to peer");
+
+  fprintf(stderr, "%d: session: sendfile complete\n",pid);
 
   do {
         msgtype = getBGPMessage (&sb); // keepalive or updates from now on
