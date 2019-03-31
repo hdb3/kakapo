@@ -30,6 +30,9 @@ int isMarker (const unsigned char *buf) {
 }
 
 int msgcount = 0;
+int update_count = 0;
+int update_nlri_count = 0;
+int update_withdrawn_count = 0;
 int pid;
 
 char * showtype (unsigned char msgtype) {
@@ -114,7 +117,11 @@ void doupdate(char *msg, int length) {
         uc = spnlri(nlri,nlril);
    else
         uc = 0;
-   fprintf(stderr, "%d: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",pid,wc,tpal,uc);
+   if VERBOSE
+       fprintf(stderr, "%d: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",pid,wc,tpal,uc);
+   update_count ++;
+   update_nlri_count += uc;
+   update_withdrawn_count += wc;
 };
 
 void donotification(char *msg, int length) {
@@ -189,6 +196,10 @@ void session(int sock, int fd1 , int fd2) {
   struct sockbuf sb;
 
   msgcount = 0;
+  update_count = 0;
+  update_nlri_count = 0;
+  update_withdrawn_count = 0;
+
   setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
   lseek(fd1,0,0);
   lseek(fd2,0,0);
@@ -220,7 +231,7 @@ void session(int sock, int fd1 , int fd2) {
   } while (msgtype>0);
   close(sock);
   // bufferClose();
-  fprintf(stderr, "%d: session exit, msg cnt = %d\n",pid,msgcount);
+  fprintf(stderr, "%d: session exit, msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count);
   msgcount = 0;
 }
 
