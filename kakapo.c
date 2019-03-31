@@ -13,6 +13,7 @@
 #include <sys/sendfile.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #include "sockbuf.h"
 #include "util.h"
@@ -34,6 +35,7 @@ int update_count = 0;
 int update_nlri_count = 0;
 int update_withdrawn_count = 0;
 int pid;
+struct timeval t0, t1 , td;
 
 char * showtype (unsigned char msgtype) {
    switch(msgtype) {
@@ -215,9 +217,14 @@ void session(int sock, int fd1 , int fd2) {
   msgtype=getBGPMessage (&sb); // this is expected to be a Keepalive
   report(4,msgtype);
 
+  gettimeofday(&t0, NULL);
+
   (0 < sendfile(sock, fd2, 0, 0x7ffff000)) || die("Failed to send fd2 to peer");
 
-  fprintf(stderr, "%d: session: sendfile complete\n",pid);
+  gettimeofday(&t1, NULL);
+  timeval_subtract(&td,&t1,&t0);
+
+  fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
 
   do {
         msgtype = getBGPMessage (&sb); // keepalive or updates from now on
