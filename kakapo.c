@@ -12,6 +12,8 @@
 #include <netinet/tcp.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
+#include <assert.h>
+
 #include "sockbuf.h"
 #include "util.h"
 
@@ -54,14 +56,25 @@ void doopen(char *msg, int length) {
    struct in_addr routerid = (struct in_addr) {* (uint32_t*) (msg+5)};
    unsigned char opl = * (unsigned char*) (msg+9);
    unsigned char *hex = toHex (msg+10,opl) ;
-   fprintf(stderr, "%d: BGP Open as =  %d, routerid = %s , holdtime = %d, opt params = %s\n",pid,as,inet_ntoa(routerid),holdtime,hex);
+   fprintf(stderr, "%d: BGP Open: as =  %d, routerid = %s , holdtime = %d, opt params = %s\n",pid,as,inet_ntoa(routerid),holdtime,hex);
    free(hex);
 };
 
 void doupdate(char *msg, int length) {
+   uint16_t wrl = ntohs ( * (uint16_t*) msg);
+   assert (wrl < length-1);
+   uint16_t tpal = ntohs ( * (uint16_t*) (msg+wrl+2));
+   char *pa = msg+wrl+4;
+   assert (wrl + tpal < length-3);
+   char *nlri = msg+wrl+tpal+4;
+   uint16_t nlril = length - wrl - tpal - 4;
+   fprintf(stderr, "%d: BGP Update: withdrawn length =  %d, path attributes length = %d , NLRI length = %d\n",pid,wrl,tpal,nlril);
 };
 
 void donotification(char *msg, int length) {
+   unsigned char ec  = * (unsigned char*) (msg+0);
+   unsigned char esc = * (unsigned char*) (msg+1);
+   fprintf(stderr, "%d: BGP Notification: error code =  %d, error subcode = %d\n",pid,ec,esc);
 };
 
 int getBGPMessage (struct sockbuf *sb) {
