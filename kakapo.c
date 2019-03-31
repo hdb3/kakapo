@@ -44,6 +44,26 @@ char * showtype (unsigned char msgtype) {
     }
 }
 
+void doopen(char *msg, int length) {
+   unsigned char version = * (unsigned char*) msg;
+   if (version != 4) {
+      fprintf(stderr, "%d: unexpected version in BGP Open %d\n",pid,version);
+   }
+   uint16_t as       = ntohs ( * (uint16_t*) (msg+1));
+   uint16_t holdtime = ntohs ( * (uint16_t*) (msg+3));
+   struct in_addr routerid = (struct in_addr) {* (uint32_t*) (msg+5)};
+   unsigned char opl = * (unsigned char*) (msg+9);
+   unsigned char *hex = toHex (msg+10,opl) ;
+   fprintf(stderr, "%d: BGP Open as =  %d, routerid = %s , holdtime = %d, opt params = %s\n",pid,as,inet_ntoa(routerid),holdtime,hex);
+   free(hex);
+};
+
+void doupdate(char *msg, int length) {
+};
+
+void donotification(char *msg, int length) {
+};
+
 int getBGPMessage (struct sockbuf *sb) {
    char *header;
    char *payload;
@@ -78,6 +98,16 @@ int getBGPMessage (struct sockbuf *sb) {
    } else {
       // fprintf(stderr,"+");
    }
+   switch (msgtype) {
+      case 1:doopen(payload,pl);
+             break;
+      case 2:doupdate(payload,pl);
+             break;
+      case 3:donotification(payload,pl);
+             break;
+      case 4: // keepalive, no analysis required
+             break;
+   };
    return msgtype;
 }
 
