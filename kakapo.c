@@ -60,6 +60,42 @@ void doopen(char *msg, int length) {
    free(hex);
 };
 
+void printPrefix(char *pfx, int length) {
+    uint32_t addr = ntohl(* ((uint32_t*) pfx));
+    uint32_t mask = (0xffffffff >> (32-length)) << (32-length);
+    uint32_t maskedaddr = htonl( addr & mask);
+    struct in_addr inaddr = (struct in_addr) {maskedaddr};
+    // fprintf(stderr,"%s/%d\n",inet_ntoa(inaddr),length);
+};
+
+//simpleParseNLRI
+int spnlri (char *nlri, int length) {
+    int count = 0;
+    int offset = 0;
+    for (;offset<length;) {
+        count++;
+        if (nlri[offset] == 0)
+            offset += 1;
+        else if (nlri[offset] < 9)
+            offset += 2;
+        else if (nlri[offset] < 17)
+            offset += 3;
+        else if (nlri[offset] < 25)
+            offset += 4;
+        else if (nlri[offset] < 33)
+            offset += 5;
+        else {
+            unsigned char *hex = toHex (nlri,length) ;
+            fprintf(stderr, "**** %d %d %d %d %s \n",nlri[offset],offset,count,length,hex);
+            assert(0);
+        }
+        if (offset<length)
+            printPrefix(nlri+offset+1,nlri[offset]);
+    }
+    assert (offset==length);
+    return count;
+}
+
 void doupdate(char *msg, int length) {
    uint16_t wrl = ntohs ( * (uint16_t*) msg);
    assert (wrl < length-1);
@@ -68,7 +104,17 @@ void doupdate(char *msg, int length) {
    assert (wrl + tpal < length-3);
    char *nlri = msg+wrl+tpal+4;
    uint16_t nlril = length - wrl - tpal - 4;
-   fprintf(stderr, "%d: BGP Update: withdrawn length =  %d, path attributes length = %d , NLRI length = %d\n",pid,wrl,tpal,nlril);
+   //fprintf(stderr, "%d: BGP Update: withdrawn length =  %d, path attributes length = %d , NLRI length = %d\n",pid,wrl,tpal,nlril);
+   int wc,uc;
+   if ( wrl > 0 )
+        wc = spnlri(msg,wrl);
+   else
+        wc = 0;
+   if ( nlril > 0 )
+        uc = spnlri(nlri,nlril);
+   else
+        uc = 0;
+   fprintf(stderr, "%d: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",pid,wc,tpal,uc);
 };
 
 void donotification(char *msg, int length) {
