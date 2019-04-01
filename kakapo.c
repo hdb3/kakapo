@@ -36,7 +36,9 @@ int update_count = 0;
 int update_nlri_count = 0;
 int update_withdrawn_count = 0;
 int pid;
-struct timeval t0, t1 , td;
+struct timeval t0, t1 , _td;
+struct timeval t_active, t_idle;
+int active = 0;
 
 char * showtype (unsigned char msgtype) {
    switch(msgtype) {
@@ -153,11 +155,19 @@ int getBGPMessage (struct sockbuf *sb) {
       return -1;
    } else if (0 == header ) {
       // zero is simply a timeout: -1 is eof
+      if (active) {
+          active = 0;
+          gettimeofday(&t_idle, NULL);
+      };
       return 0;
    } else if (!isMarker(header)) {
       die("Failed to find BGP marker in msg header from peer");
             return -1;
    } else {
+      if (0==active) {
+          active = 1;
+          gettimeofday(&t_active, NULL);
+      };
       pl = ( ntohs ( * (uint16_t*) (header+16))) - 19;
       msgtype = * (unsigned char *) (header+18);
       if (0 < pl) {
@@ -206,7 +216,12 @@ void report (int expected, int got) {
 void session(int sock, int fd1 , int fd2) {
   int i,msgtype;
   struct sockbuf sb;
-  void showstats ()  { fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count); };
+  //void showstats ()  { fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count); };
+  void showstats ()  {
+      struct timeval td;
+      timeval_subtract(&td,&t_idle,&t_active);
+      fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td));
+  };
 
   msgcount = 0;
   reported_update_count = 0;
@@ -240,8 +255,11 @@ void session(int sock, int fd1 , int fd2) {
   (0 < sendfile(sock, fd2, 0, 0x7ffff000)) || die("Failed to send fd2 to peer");
 
   gettimeofday(&t1, NULL);
-  timeval_subtract(&td,&t1,&t0);
 
+  //timeval_subtract(&td,&t1,&t0);
+  //fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
+  struct timeval td;
+  timeval_subtract(&td,&t1,&t0);
   fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
 
   while (1) {
