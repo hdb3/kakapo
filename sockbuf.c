@@ -4,14 +4,24 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "sockbuf.h"
 #include "util.h"
 
+void setsocktimeout (int sock, int timeout) {
+    struct timeval tv;
+    tv.tv_sec = timeout;
+    tv.tv_usec = 0;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+};
+
 void bufferInit (struct sockbuf *sb, int _sock, int size) {
+    setsocktimeout(_sock,1);
     sb->sock = _sock;
     sb->start = 0;
     sb->count = 0;
@@ -20,7 +30,7 @@ void bufferInit (struct sockbuf *sb, int _sock, int size) {
     sb->base = malloc(size);
 };
 
-unsigned char * bufferedRead (struct sockbuf *sb, int rc) {
+char * bufferedRead (struct sockbuf *sb, int rc) {
 
     int sockRead;
 
@@ -44,10 +54,14 @@ unsigned char * bufferedRead (struct sockbuf *sb, int rc) {
         sockRead = recv( sb->sock, sb->base + sb->start + sb->count, request, 0 );
         // if zero or worse, die...
         if ( sockRead < 0 ) {
-            perror(0);
-            return 0;
+            if (errno == EAGAIN)
+                return 0;
+            else {
+                perror(0);
+                return (char *) -1;
+            }
         } else if ( sockRead == 0 )
-            return 0;
+            return (char *) -1;
         else {
             sb->count = sb->count + sockRead;
         }

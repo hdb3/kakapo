@@ -31,6 +31,7 @@ int isMarker (const unsigned char *buf) {
 }
 
 int msgcount = 0;
+int reported_update_count = 0;
 int update_count = 0;
 int update_nlri_count = 0;
 int update_withdrawn_count = 0;
@@ -140,8 +141,11 @@ int getBGPMessage (struct sockbuf *sb) {
    unsigned char msgtype;
 
    header = bufferedRead(sb,19);
-   if (0 == header ) {
+   if (header == (char *) -1 ) {
       fprintf(stderr, "%d: end of stream\n",pid);
+      return -1;
+   } else if (0 == header ) {
+      // zero is simply a timeout: -1 is eof
       return 0;
    } else if (!isMarker(header)) {
       die("Failed to find BGP marker in msg header from peer");
@@ -152,7 +156,7 @@ int getBGPMessage (struct sockbuf *sb) {
       if (0 < pl) {
          payload=bufferedRead(sb,pl);
          if (0 == payload) {
-            fprintf(stderr, "%d: end of stream\n",pid);
+            fprintf(stderr, "%d: unexpected end of stream after header received\n",pid);
             return 0;
          }
      } else
@@ -196,8 +200,10 @@ void report (int expected, int got) {
 void session(int sock, int fd1 , int fd2) {
   int i,msgtype;
   struct sockbuf sb;
+  void showstats ()  { fprintf(stderr, "%d: session exit, msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count); };
 
   msgcount = 0;
+  reported_update_count = 0;
   update_count = 0;
   update_nlri_count = 0;
   update_withdrawn_count = 0;
@@ -209,12 +215,18 @@ void session(int sock, int fd1 , int fd2) {
 
   (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
-  msgtype=getBGPMessage (&sb); // this is expected to be an Open
+  do
+      msgtype=getBGPMessage (&sb); // this is expected to be an Open
+  while (msgtype==0);
+
   report(1,msgtype);
 
   (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
 
-  msgtype=getBGPMessage (&sb); // this is expected to be a Keepalive
+  do
+      msgtype=getBGPMessage (&sb); // this is expected to be a Keepalive
+  while (msgtype==0);
+
   report(4,msgtype);
 
   gettimeofday(&t0, NULL);
@@ -226,20 +238,37 @@ void session(int sock, int fd1 , int fd2) {
 
   fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
 
-  do {
+  while (1) {
         msgtype = getBGPMessage (&sb); // keepalive or updates from now on
-        if (msgtype==3){
-            fprintf(stderr, "%d: session: got Notification\n",pid);
+        switch (msgtype) {
+        case 2: // Update
             break;
-        } else if (msgtype==4){
+        case 4: // Keepalive
             (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
-        } else
-            report(2,msgtype);
-  } while (msgtype>0);
+            break;
+        case 0: // this is an idle recv timeout event
+            if (reported_update_count != update_count) {
+                reported_update_count = update_count;
+                showstats();
+            }
+            break;
+        case 3: // Notification
+            fprintf(stderr, "%d: session: got Notification\n",pid);
+            goto exit;
+        default:
+            if (msgtype<0){ // all non message events except recv timeout
+                fprintf(stderr, "%d: session: end of stream\n",pid);
+            } else { // unexpected BGP message - unless BGP++ it must be an Open....
+                report(2,msgtype);
+            }
+            goto exit;
+        }
+  };
+exit:
   close(sock);
   // bufferClose();
-  fprintf(stderr, "%d: session exit, msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count);
-  msgcount = 0;
+  showstats();
+  //fprintf(stderr, "%d: session exit, msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count);
 }
 
 int main(int argc, char *argv[]) {
@@ -247,7 +276,7 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in peeraddr;
 
   pid = getpid();
-  fprintf(stderr, "%d: bgpc\n",pid);
+  fprintf(stderr, "%d: kakapo\n",pid);
   if (3 > argc) {
       fprintf(stderr, "USAGE: bgpc <open_message_file> <update_message_file> {IP address}\n");
       exit(1);
