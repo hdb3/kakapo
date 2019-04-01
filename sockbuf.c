@@ -37,6 +37,7 @@ char * bufferedRead (struct sockbuf *sb, int rc) {
     // first recv from socket until we can satisfy the request
     // this may require a shuffle operation before the first read
 
+    // this assertion prevents requests which cannot be met because the entire buffer is smaller than the request
     assert(rc<sb->top);
 
     // can reset the buffer cursor for free when there is no data in it

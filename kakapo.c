@@ -98,6 +98,12 @@ int spnlri (char *nlri, int length) {
         if (offset<length)
             printPrefix(nlri+offset+1,nlri[offset]);
     }
+
+    // debug only
+    if (offset != length) {
+        unsigned char *hex = toHex (nlri,length) ;
+        fprintf(stderr, "**** %d %d %d %d %s \n",nlri[offset],offset,count,length,hex);
+    }
     assert (offset==length);
     return count;
 }
@@ -105,6 +111,7 @@ int spnlri (char *nlri, int length) {
 void doupdate(char *msg, int length) {
    uint16_t wrl = ntohs ( * (uint16_t*) msg);
    assert (wrl < length-1);
+   char *withdrawn = msg+2;
    uint16_t tpal = ntohs ( * (uint16_t*) (msg+wrl+2));
    char *pa = msg+wrl+4;
    assert (wrl + tpal < length-3);
@@ -113,7 +120,7 @@ void doupdate(char *msg, int length) {
    //fprintf(stderr, "%d: BGP Update: withdrawn length =  %d, path attributes length = %d , NLRI length = %d\n",pid,wrl,tpal,nlril);
    int wc,uc;
    if ( wrl > 0 )
-        wc = spnlri(msg,wrl);
+        wc = spnlri(withdrawn,wrl);
    else
         wc = 0;
    if ( nlril > 0 )
@@ -137,7 +144,7 @@ int getBGPMessage (struct sockbuf *sb) {
    char *header;
    char *payload;
    int received;
-   unsigned int pl;
+   uint16_t pl;
    unsigned char msgtype;
 
    header = bufferedRead(sb,19);
@@ -151,8 +158,8 @@ int getBGPMessage (struct sockbuf *sb) {
       die("Failed to find BGP marker in msg header from peer");
             return -1;
    } else {
-      pl = ( header[16] << 8 ) + ( header[17] ) - 19 ;
-      msgtype = header[18];
+      pl = ( ntohs ( * (uint16_t*) (header+16))) - 19;
+      msgtype = * (unsigned char *) (header+18);
       if (0 < pl) {
          payload=bufferedRead(sb,pl);
          if (0 == payload) {
@@ -167,9 +174,8 @@ int getBGPMessage (struct sockbuf *sb) {
       unsigned char *hex = toHex (payload,pl) ;
       fprintf(stderr, "%d: BGP msg type %s length %d received [%s]\n",pid, showtype(msgtype), pl , hex);
       free(hex);
-   } else {
-      // fprintf(stderr,"+");
    }
+      
    switch (msgtype) {
       case 1:doopen(payload,pl);
              break;
@@ -200,7 +206,7 @@ void report (int expected, int got) {
 void session(int sock, int fd1 , int fd2) {
   int i,msgtype;
   struct sockbuf sb;
-  void showstats ()  { fprintf(stderr, "%d: session exit, msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count); };
+  void showstats ()  { fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count); };
 
   msgcount = 0;
   reported_update_count = 0;
@@ -267,8 +273,8 @@ void session(int sock, int fd1 , int fd2) {
 exit:
   close(sock);
   // bufferClose();
+  fprintf(stderr, "%d: session exit\n",pid);
   showstats();
-  //fprintf(stderr, "%d: session exit, msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count);
 }
 
 int main(int argc, char *argv[]) {
