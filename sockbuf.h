@@ -9,4 +9,4 @@ struct sockbuf {
 };
 
 void bufferInit (struct sockbuf *sb, int _sock, int size);
-unsigned char * bufferedRead (struct sockbuf *sb, int rc);
+char * bufferedRead (struct sockbuf *sb, int rc);
