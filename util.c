@@ -11,6 +11,7 @@
 
 #include "util.h"
 
+int die(char *mess) { perror(mess); exit(1); }
 
 unsigned char *toHex (unsigned char *buf, unsigned int l) {
 
