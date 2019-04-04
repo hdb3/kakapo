@@ -23,7 +23,7 @@
 
 // setting sleep enables a millisecond based repeat loop
 #ifndef SLEEP
-#define SLEEP (1000000000)
+#define SLEEP (1000000)
 #endif
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
@@ -348,7 +348,7 @@ void *sendupdates (void *fd) {
      gettimeofday(&t1, NULL);
      timeval_subtract(&td,&t1,&t0);
      fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
-     usleep(SLEEP*1000);
+     usleep(1000 * SLEEP);
      lseek(*(int *)fd,0,0);
    };
 };
