@@ -333,14 +333,9 @@ void report (int expected, int got) {
       timeval_subtract(&td0,&t_idle,&t_active);
       timeval_subtract(&td1,&td0,&delay);
       fprintf(stderr, "%s: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",tid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
-      //displaylograterecord ( getlograterecord ())
-      //struct lograterecord lrr = getlograterecord ();
-      //displaylograterecord (lrr)
-      //displaylogrecord ()
       fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord ());
       fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (getlograterecord ()));
       fprintf(stderr, "\e[4A\r\e[K\n");
-      //fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (lrr));
   };
 
 
@@ -432,7 +427,7 @@ long int threadmain() {
   };
 exit:
   close(sock);
-  fprintf(stderr, "%s: session exit\n",tid);
+  fprintf(stderr, "\n\n\n\n\n%s: session exit\n",tid);
   showstats();
 }
 
