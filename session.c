@@ -25,8 +25,6 @@
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
-//void session(int sock, char * fn1 , char * fn2) {
-//*void session(struct sessiondata *sd);
 void *session(void *x){
 struct sessiondata *sd = (struct sessiondata *) x;
 
@@ -36,7 +34,7 @@ int isMarker (const unsigned char *buf) {
    return ( 0 == memcmp(buf,marker,16));
 }
 
-int i,msgtype;
+int tid,i,msgtype;
 struct sockbuf sb;
 int msgcount = 0;
 int reported_update_count = 0;
@@ -238,6 +236,17 @@ void report (int expected, int got) {
       fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
   };
 
+
+void *sendupdates (void *fd) {
+  struct timeval t0, t1 , td;
+  gettimeofday(&t0, NULL);
+  (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
+  gettimeofday(&t1, NULL);
+  timeval_subtract(&td,&t1,&t0);
+  fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
+};
+
+long int threadmain() {
   int fd1,fd2;
   if ((fd1 = open(sd->fn1,O_RDONLY)) < 0) {
     die("Failed to open BGP Open message file");
@@ -273,15 +282,6 @@ void report (int expected, int got) {
   while (msgtype==0);
 
   report(4,msgtype);
-
-void *sendupdates (void *fd) {
-  struct timeval t0, t1 , td;
-  gettimeofday(&t0, NULL);
-  (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
-  gettimeofday(&t1, NULL);
-  timeval_subtract(&td,&t1,&t0);
-  fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
-};
 
   //*sendupdates((void *)&fd2);
   pthread_t thrd;
@@ -320,4 +320,8 @@ exit:
   // bufferClose();
   fprintf(stderr, "%d: session exit\n",pid);
   showstats();
+}
+
+tid = (int) pthread_self();
+pthread_exit((void*) threadmain());
 }
