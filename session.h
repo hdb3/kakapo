@@ -3,6 +3,7 @@
 
 struct sessiondata {
  int sock;
+ int tidx;
  char * fn1;
  char * fn2;
 };

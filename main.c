@@ -29,6 +29,7 @@ int pid;
 
 int main(int argc, char *argv[]) {
   int serversock, peersock, fd1,fd2;
+  int tidx = 0;
   struct sockaddr_in peeraddr;
 
   pid = getpid();
@@ -78,10 +79,7 @@ int main(int argc, char *argv[]) {
       }
       fprintf(stderr, "%d: Peer connected: %s\n",pid, inet_ntoa(peeraddr.sin_addr));
 
-      //*void session(void *x);
-      //session(peersock,argv[1],argv[2]);
-      struct sessiondata sd = { peersock , argv[1] , argv[2] };
-      //(int*) session( (void *) &sd);
+      struct sessiondata sd = { peersock , tidx++, argv[1] , argv[2] };
       pthread_t thrd;
       pthread_create(&thrd, NULL, session, &sd);
     }
@@ -97,9 +95,8 @@ int main(int argc, char *argv[]) {
         die("Failed to connect with peer");
       } else {
           fprintf(stderr, "%d: Peer connected: %s\n",pid, argv[3]);
-          struct sessiondata sd = { peersock , argv[1] , argv[2] };
+          struct sessiondata sd = { peersock , tidx++, argv[1] , argv[2] };
           (int*) session( (void *) &sd);
-          //session(peersock,argv[1],argv[2]);
       }
   }
 }
