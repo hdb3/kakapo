@@ -77,7 +77,13 @@ int main(int argc, char *argv[]) {
         die("bad sockaddr");
       }
       fprintf(stderr, "%d: Peer connected: %s\n",pid, inet_ntoa(peeraddr.sin_addr));
-      session(peersock,argv[1],argv[2]);
+
+      //*void session(void *x);
+      //session(peersock,argv[1],argv[2]);
+      struct sessiondata sd = { peersock , argv[1] , argv[2] };
+      (int*) session( (void *) &sd);
+      //pthread_t thrd;
+      //pthread_create(&thrd, NULL, session, &sd);
     }
   } else { // client mode
       fprintf(stderr, "%d: Connecting to: %s\n",pid, argv[3]);
@@ -91,7 +97,9 @@ int main(int argc, char *argv[]) {
         die("Failed to connect with peer");
       } else {
           fprintf(stderr, "%d: Peer connected: %s\n",pid, argv[3]);
-          session(peersock,argv[1],argv[2]);
+          struct sessiondata sd = { peersock , argv[1] , argv[2] };
+          (int*) session( (void *) &sd);
+          //session(peersock,argv[1],argv[2]);
       }
   }
 }

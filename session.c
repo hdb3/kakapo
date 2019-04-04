@@ -18,13 +18,17 @@
 
 #include "sockbuf.h"
 #include "util.h"
+#include "session.h"
 #include "kakapo.h"
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
-void session(int sock, char * fn1 , char * fn2) {
+//void session(int sock, char * fn1 , char * fn2) {
+//*void session(struct sessiondata *sd);
+void *session(void *x){
+struct sessiondata *sd = (struct sessiondata *) x;
 
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
 unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -41,6 +45,7 @@ int update_nlri_count = 0;
 int update_withdrawn_count = 0;
 struct timeval t_active, t_idle;
 int active = 0;
+int sock = sd->sock;
 
 void setactive () {
     active = 1;
@@ -234,11 +239,11 @@ void report (int expected, int got) {
   };
 
   int fd1,fd2;
-  if ((fd1 = open(fn1,O_RDONLY)) < 0) {
+  if ((fd1 = open(sd->fn1,O_RDONLY)) < 0) {
     die("Failed to open BGP Open message file");
   }
 
-  if ((fd2 = open(fn2,O_RDONLY)) < 0) {
+  if ((fd2 = open(sd->fn2,O_RDONLY)) < 0) {
     die("Failed to open BGP Update message file");
   }
 
