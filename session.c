@@ -339,6 +339,7 @@ void report (int expected, int got) {
       //displaylogrecord ()
       fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord ());
       fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (getlograterecord ()));
+      fprintf(stderr, "\e[4A\r\e[K\n");
       //fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (lrr));
   };
 
