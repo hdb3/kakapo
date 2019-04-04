@@ -23,13 +23,99 @@
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
-//#ifndef TIMEOUT
-//#define TIMEOUT 10
-//#endif
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 void *session(void *x){
 struct sessiondata *sd = (struct sessiondata *) x;
+
+struct logrecord {
+    long long ts;
+    int updates,nlri,withdrawn;
+};
+
+struct logrecord cumulative,current;
+
+void initlogrecord () {
+    cumulative.ts = getinttime();
+    cumulative.updates=0;
+    cumulative.nlri=0;
+    cumulative.withdrawn=0;
+    current.ts=cumulative.ts;
+    current.updates=0;
+    current.nlri=0;
+    current.withdrawn=0;
+};
+
+void updatelogrecord (int count, int nlri, int withdrawn) {
+    current.updates += count;
+    current.nlri += nlri;
+    current.withdrawn += withdrawn;
+};
+
+struct lograterecord {
+    struct logrecord cumulative,current;
+};
+
+char _s_displaylogrecord [1000];
+char * displaylogrecord () {
+   snprintf(_s_displaylogrecord,999,"elapsed time : %f (%f) update msg cnt %d (%d) NLRI cnt %d (%d) withdrawn cnt %d (%d)" , 
+      current.ts / 1000000.0 ,
+      cumulative.ts / 1000000.0 ,
+      current.updates ,
+      cumulative.updates ,
+      current.nlri ,
+      cumulative.nlri ,
+      current.withdrawn ,
+      cumulative.withdrawn);
+   return _s_displaylogrecord;
+};
+
+char _s_displaylograterecord [1000];
+char * displaylograterecord (struct lograterecord l) {
+   snprintf(_s_displaylograterecord,999,"elapsed time : %f (%f) update msg rate %d (%d) NLRI rate %d (%d) withdrawn rate %d (%d)" , 
+      l.current.ts / 1000000.0 ,
+      l.cumulative.ts / 1000000.0 ,
+      l.current.updates ,
+      l.cumulative.updates ,
+      l.current.nlri ,
+      l.cumulative.nlri ,
+      l.current.withdrawn ,
+      l.cumulative.withdrawn);
+   return _s_displaylograterecord;
+};
+
+struct lograterecord getlograterecord () {
+
+// ends the current interval as well as reporting on it
+
+    long long int now = getinttime();
+    long long int deltaCumulative = now-cumulative.ts;
+    long long int deltaCurrent = now-current.ts; 
+
+// update cumulative counters from current
+    cumulative.updates += current.updates;
+    cumulative.nlri += current.nlri;
+    cumulative.withdrawn += current.withdrawn;
+
+// calculate current rates
+    struct lograterecord this;
+    this.current.updates = current.updates * 1e6 / deltaCurrent / 1e6; //all integer arithmetic!
+    this.current.nlri = current.nlri * 1e6 / deltaCurrent / 1e6; //all integer arithmetic!
+    this.current.withdrawn = current.withdrawn * 1e6 / deltaCurrent / 1e6; //all integer arithmetic!
+
+// calculate cumulative rates
+    this.cumulative.updates = cumulative.updates * 1e6 / deltaCumulative / 1e6; //all integer arithmetic!
+    this.cumulative.nlri = cumulative.nlri * 1e6 / deltaCumulative / 1e6; //all integer arithmetic!
+    this.cumulative.withdrawn = cumulative.withdrawn * 1e6 / deltaCumulative / 1e6; //all integer arithmetic!
+
+// reset the current counters
+    current.ts = now;
+    current.updates=0;
+    current.nlri=0;
+    current.withdrawn=0;
+
+    return this;
+};
 
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
 unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
