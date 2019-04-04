@@ -93,9 +93,13 @@ struct lograterecord getlograterecord () {
 
 // ends the current interval as well as reporting on it
 
+    struct lograterecord this;
+
     long long int now = getinttime();
     long long int deltaCumulative = now-cumulative.ts;
     long long int deltaCurrent = now-current.ts;
+    this.cumulative.ts = deltaCumulative;
+    this.current.ts = deltaCurrent;
 
 // update cumulative counters from current
     cumulative.updates += current.updates;
@@ -103,15 +107,14 @@ struct lograterecord getlograterecord () {
     cumulative.withdrawn += current.withdrawn;
 
 // calculate current rates
-    struct lograterecord this;
-    this.current.updates = current.updates * 1e6 / deltaCurrent / 1e6; //all integer arithmetic!
-    this.current.nlri = current.nlri * 1e6 / deltaCurrent / 1e6; //all integer arithmetic!
-    this.current.withdrawn = current.withdrawn * 1e6 / deltaCurrent / 1e6; //all integer arithmetic!
+    this.current.updates = current.updates * 1e6 / deltaCurrent; //all integer arithmetic!
+    this.current.nlri = current.nlri * 1e6 / deltaCurrent; //all integer arithmetic!
+    this.current.withdrawn = current.withdrawn * 1e6 / deltaCurrent; //all integer arithmetic!
 
 // calculate cumulative rates
-    this.cumulative.updates = cumulative.updates * 1e6 / deltaCumulative / 1e6; //all integer arithmetic!
-    this.cumulative.nlri = cumulative.nlri * 1e6 / deltaCumulative / 1e6; //all integer arithmetic!
-    this.cumulative.withdrawn = cumulative.withdrawn * 1e6 / deltaCumulative / 1e6; //all integer arithmetic!
+    this.cumulative.updates = cumulative.updates * 1e6 / deltaCumulative; //all integer arithmetic!
+    this.cumulative.nlri = cumulative.nlri * 1e6 / deltaCumulative; //all integer arithmetic!
+    this.cumulative.withdrawn = cumulative.withdrawn * 1e6 / deltaCumulative; //all integer arithmetic!
 
 // reset the current counters
     current.ts = now;
@@ -335,7 +338,7 @@ void report (int expected, int got) {
       //displaylograterecord (lrr)
       //displaylogrecord ()
       fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord ());
-      //fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (getlograterecord ()));
+      fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (getlograterecord ()));
       //fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (lrr));
   };
 
