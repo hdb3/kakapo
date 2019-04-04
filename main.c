@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "sockbuf.h"
 #include "util.h"
@@ -36,14 +37,10 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "USAGE: bgpc <open_message_file> <update_message_file> {IP address}\n");
       exit(1);
   }
-  if ((fd1 = open(argv[1],O_RDONLY)) < 0) {
-    die("Failed to open BGP Open message file");
-  }
 
-  if ((fd2 = open(argv[2],O_RDONLY)) < 0) {
-    die("Failed to open BGP Update message file");
-  }
-
+ (0 == access(argv[1],R_OK) || die ("Failed to open BGP Open message file"));
+ (0 == access(argv[2],R_OK) || die ("Failed to open BGP Update message file"));
+ 
   if (3 == argc) { // server mode.....
 
     memset(&peeraddr, 0, SOCKADDRSZ );
@@ -80,7 +77,7 @@ int main(int argc, char *argv[]) {
         die("bad sockaddr");
       }
       fprintf(stderr, "%d: Peer connected: %s\n",pid, inet_ntoa(peeraddr.sin_addr));
-      session(peersock,fd1,fd2);
+      session(peersock,argv[1],argv[2]);
     }
   } else { // client mode
       fprintf(stderr, "%d: Connecting to: %s\n",pid, argv[3]);
@@ -94,7 +91,7 @@ int main(int argc, char *argv[]) {
         die("Failed to connect with peer");
       } else {
           fprintf(stderr, "%d: Peer connected: %s\n",pid, argv[3]);
-          session(peersock,fd1,fd2);
+          session(peersock,argv[1],argv[2]);
       }
   }
 }
