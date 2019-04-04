@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #include "sockbuf.h"
 #include "util.h"
@@ -31,12 +32,13 @@ int isMarker (const unsigned char *buf) {
    return ( 0 == memcmp(buf,marker,16));
 }
 
+int i,msgtype;
+struct sockbuf sb;
 int msgcount = 0;
 int reported_update_count = 0;
 int update_count = 0;
 int update_nlri_count = 0;
 int update_withdrawn_count = 0;
-struct timeval t0, t1 , _td;
 struct timeval t_active, t_idle;
 int active = 0;
 
@@ -221,10 +223,6 @@ void report (int expected, int got) {
    }
 }
 
-//void session(int sock, int fd1 , int fd2) {
-  int i,msgtype;
-  struct sockbuf sb;
-  //void showstats ()  { fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count); };
   void showstats ()  {
       struct timeval td0,td1,onesec;
       onesec.tv_sec = 1;
@@ -262,17 +260,18 @@ void report (int expected, int got) {
 
   report(4,msgtype);
 
+void *sendupdates (void *fd) {
+  struct timeval t0, t1 , td;
   gettimeofday(&t0, NULL);
-
-  (0 < sendfile(sock, fd2, 0, 0x7ffff000)) || die("Failed to send fd2 to peer");
-
-
-  //timeval_subtract(&td,&t1,&t0);
-  //fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
+  (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
   gettimeofday(&t1, NULL);
-  struct timeval td;
   timeval_subtract(&td,&t1,&t0);
   fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
+};
+
+  //*sendupdates((void *)&fd2);
+  pthread_t thrd;
+  pthread_create(&thrd, NULL, sendupdates, &fd2);
 
   setidle();
 
