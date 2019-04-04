@@ -47,6 +47,12 @@ void printHex ( FILE * fd, unsigned char *buf, unsigned int l) {
    Return 1 if the difference is negative, otherwise 0. */
 
 
+long long int getinttime () {
+   struct timeval tv;
+   gettimeofday(&tv,NULL);
+   return timeval_to_int(&tv);
+};
+
 long long int
 timeval_to_int (struct timeval *tval)
 {
