@@ -23,6 +23,9 @@
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
+//#ifndef TIMEOUT
+//#define TIMEOUT 10
+//#endif
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 void *session(void *x){
@@ -34,7 +37,7 @@ int isMarker (const unsigned char *buf) {
    return ( 0 == memcmp(buf,marker,16));
 }
 
-int tid,i,msgtype;
+int i,msgtype;
 struct sockbuf sb;
 int msgcount = 0;
 int reported_update_count = 0;
@@ -44,6 +47,8 @@ int update_withdrawn_count = 0;
 struct timeval t_active, t_idle;
 int active = 0;
 int sock = sd->sock;
+char *tid;
+int tmp=asprintf(&tid,"%d-%d: ",pid,sd->tidx);
 
 void setactive () {
     active = 1;
@@ -72,14 +77,14 @@ char * showtype (unsigned char msgtype) {
 void doopen(char *msg, int length) {
    unsigned char version = * (unsigned char*) msg;
    if (version != 4) {
-      fprintf(stderr, "%d: unexpected version in BGP Open %d\n",pid,version);
+      fprintf(stderr, "%s: unexpected version in BGP Open %d\n",tid,version);
    }
    uint16_t as       = ntohs ( * (uint16_t*) (msg+1));
    uint16_t holdtime = ntohs ( * (uint16_t*) (msg+3));
    struct in_addr routerid = (struct in_addr) {* (uint32_t*) (msg+5)};
    unsigned char opl = * (unsigned char*) (msg+9);
    unsigned char *hex = toHex (msg+10,opl) ;
-   fprintf(stderr, "%d: BGP Open: as =  %d, routerid = %s , holdtime = %d, opt params = %s\n",pid,as,inet_ntoa(routerid),holdtime,hex);
+   fprintf(stderr, "%s: BGP Open: as =  %d, routerid = %s , holdtime = %d, opt params = %s\n",tid,as,inet_ntoa(routerid),holdtime,hex);
    free(hex);
 };
 
@@ -88,7 +93,7 @@ void printPrefix(char *pfx, int length) {
     uint32_t mask = (0xffffffff >> (32-length)) << (32-length);
     uint32_t maskedaddr = htonl( addr & mask);
     struct in_addr inaddr = (struct in_addr) {maskedaddr};
-    // fprintf(stderr,"%s/%d\n",inet_ntoa(inaddr),length);
+    fprintf(stderr,"%s/%d\n",inet_ntoa(inaddr),length);
 };
 
 //simpleParseNLRI
@@ -112,7 +117,7 @@ int spnlri (char *nlri, int length) {
             fprintf(stderr, "**** %d %d %d %d %s \n",nlri[offset],offset,count,length,hex);
             assert(0);
         }
-        if (offset<length)
+        if (VERBOSE && (offset<length))
             printPrefix(nlri+offset+1,nlri[offset]);
     }
 
@@ -134,7 +139,6 @@ void doupdate(char *msg, int length) {
    assert (wrl + tpal < length-3);
    char *nlri = msg+wrl+tpal+4;
    uint16_t nlril = length - wrl - tpal - 4;
-   //fprintf(stderr, "%d: BGP Update: withdrawn length =  %d, path attributes length = %d , NLRI length = %d\n",pid,wrl,tpal,nlril);
    int wc,uc;
    if ( wrl > 0 )
         wc = spnlri(withdrawn,wrl);
@@ -145,7 +149,7 @@ void doupdate(char *msg, int length) {
    else
         uc = 0;
    if VERBOSE
-       fprintf(stderr, "%d: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",pid,wc,tpal,uc);
+       fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",tid,wc,tpal,uc);
    update_count ++;
    update_nlri_count += uc;
    update_withdrawn_count += wc;
@@ -154,7 +158,7 @@ void doupdate(char *msg, int length) {
 void donotification(char *msg, int length) {
    unsigned char ec  = * (unsigned char*) (msg+0);
    unsigned char esc = * (unsigned char*) (msg+1);
-   fprintf(stderr, "%d: BGP Notification: error code =  %d, error subcode = %d\n",pid,ec,esc);
+   fprintf(stderr, "%s: BGP Notification: error code =  %d, error subcode = %d\n",tid,ec,esc);
 };
 
 int getBGPMessage (struct sockbuf *sb) {
@@ -166,7 +170,7 @@ int getBGPMessage (struct sockbuf *sb) {
 
    header = bufferedRead(sb,19);
    if (header == (char *) -1 ) {
-      fprintf(stderr, "%d: end of stream\n",pid);
+      fprintf(stderr, "%s: end of stream\n",tid);
       return -1;
    } else if (0 == header ) {
       // zero is simply a timeout: -1 is eof
@@ -186,7 +190,7 @@ int getBGPMessage (struct sockbuf *sb) {
       if (0 < pl) {
          payload=bufferedRead(sb,pl);
          if (0 == payload) {
-            fprintf(stderr, "%d: unexpected end of stream after header received\n",pid);
+            fprintf(stderr, "%s: unexpected end of stream after header received\n",tid);
             return 0;
          }
      } else
@@ -195,7 +199,7 @@ int getBGPMessage (struct sockbuf *sb) {
    msgcount++;
    if VERBOSE {
       unsigned char *hex = toHex (payload,pl) ;
-      fprintf(stderr, "%d: BGP msg type %s length %d received [%s]\n",pid, showtype(msgtype), pl , hex);
+      fprintf(stderr, "%s: BGP msg type %s length %d received [%s]\n",tid, showtype(msgtype), pl , hex);
       free(hex);
    }
       
@@ -216,24 +220,24 @@ void report (int expected, int got) {
 
    if VERBOSE {
       if (expected == got) {
-         fprintf(stderr, "%d: session: OK, got %s\n",pid,showtype(expected));
+         fprintf(stderr, "%s: session: OK, got %s\n",tid,showtype(expected));
       } else {
-         fprintf(stderr, "%d: session: expected %s, got %s (%d)\n",pid,showtype(expected),showtype(got),got);
+         fprintf(stderr, "%s: session: expected %s, got %s (%d)\n",tid,showtype(expected),showtype(got),got);
       }
    } else {
       if (expected != got) 
-         fprintf(stderr, "%d: session: expected %s, got %s (%d)\n",pid,showtype(expected),showtype(got),got);
+         fprintf(stderr, "%s: session: expected %s, got %s (%d)\n",tid,showtype(expected),showtype(got),got);
    }
 }
 
   void showstats ()  {
-      struct timeval td0,td1,onesec;
-      onesec.tv_sec = 1;
-      onesec.tv_usec = 0;
+      struct timeval td0,td1,delay;
+      delay.tv_sec = TIMEOUT;
+      delay.tv_usec = 0;
 
       timeval_subtract(&td0,&t_idle,&t_active);
-      timeval_subtract(&td1,&td0,&onesec);
-      fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
+      timeval_subtract(&td1,&td0,&delay);
+      fprintf(stderr, "%s: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",tid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
   };
 
 
@@ -243,10 +247,11 @@ void *sendupdates (void *fd) {
   (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
   gettimeofday(&t1, NULL);
   timeval_subtract(&td,&t1,&t0);
-  fprintf(stderr, "%d: session: sendfile complete in %s\n",pid,timeval_to_str(&td));
+  fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
 };
 
 long int threadmain() {
+
   int fd1,fd2;
   if ((fd1 = open(sd->fn1,O_RDONLY)) < 0) {
     die("Failed to open BGP Open message file");
@@ -265,7 +270,7 @@ long int threadmain() {
   setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
   lseek(fd1,0,0);
   lseek(fd2,0,0);
-  bufferInit(&sb,sock,BUFFSIZE);
+  bufferInit(&sb,sock,BUFFSIZE,TIMEOUT);
 
   (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
@@ -283,7 +288,6 @@ long int threadmain() {
 
   report(4,msgtype);
 
-  //*sendupdates((void *)&fd2);
   pthread_t thrd;
   pthread_create(&thrd, NULL, sendupdates, &fd2);
 
@@ -304,11 +308,11 @@ long int threadmain() {
             }
             break;
         case 3: // Notification
-            fprintf(stderr, "%d: session: got Notification\n",pid);
+            fprintf(stderr, "%s: session: got Notification\n",tid);
             goto exit;
         default:
             if (msgtype<0){ // all non message events except recv timeout
-                fprintf(stderr, "%d: session: end of stream\n",pid);
+                fprintf(stderr, "%s: session: end of stream\n",tid);
             } else { // unexpected BGP message - unless BGP++ it must be an Open....
                 report(2,msgtype);
             }
@@ -317,11 +321,10 @@ long int threadmain() {
   };
 exit:
   close(sock);
-  // bufferClose();
-  fprintf(stderr, "%d: session exit\n",pid);
+  fprintf(stderr, "%s: session exit\n",tid);
   showstats();
 }
 
-tid = (int) pthread_self();
-pthread_exit((void*) threadmain());
+
+return (int*)threadmain();
 }

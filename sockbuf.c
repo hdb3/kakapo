@@ -20,9 +20,10 @@ void setsocktimeout (int sock, int timeout) {
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 };
 
-void bufferInit (struct sockbuf *sb, int _sock, int size) {
-    setsocktimeout(_sock,1);
-    sb->sock = _sock;
+void bufferInit (struct sockbuf *sb, int sock, int size, int timeout) {
+    setsocktimeout(sock,timeout);
+    sb->sock = sock;
+    sb->timeout = timeout;
     sb->start = 0;
     sb->count = 0;
     sb->top = size;
