@@ -81,9 +81,9 @@ int main(int argc, char *argv[]) {
       //*void session(void *x);
       //session(peersock,argv[1],argv[2]);
       struct sessiondata sd = { peersock , argv[1] , argv[2] };
-      (int*) session( (void *) &sd);
-      //pthread_t thrd;
-      //pthread_create(&thrd, NULL, session, &sd);
+      //(int*) session( (void *) &sd);
+      pthread_t thrd;
+      pthread_create(&thrd, NULL, session, &sd);
     }
   } else { // client mode
       fprintf(stderr, "%d: Connecting to: %s\n",pid, argv[3]);
