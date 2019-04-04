@@ -24,7 +24,7 @@
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
-void session(int sock, int fd1 , int fd2) {
+void session(int sock, char * fn1 , char * fn2) {
 
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
 unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -232,6 +232,15 @@ void report (int expected, int got) {
       timeval_subtract(&td1,&td0,&onesec);
       fprintf(stderr, "%d: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",pid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
   };
+
+  int fd1,fd2;
+  if ((fd1 = open(fn1,O_RDONLY)) < 0) {
+    die("Failed to open BGP Open message file");
+  }
+
+  if ((fd2 = open(fn2,O_RDONLY)) < 0) {
+    die("Failed to open BGP Update message file");
+  }
 
   msgcount = 0;
   reported_update_count = 0;
