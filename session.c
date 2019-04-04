@@ -21,6 +21,10 @@
 #include "session.h"
 #include "kakapo.h"
 
+// setting sleep enables a millisecond based repeat loop
+#ifndef SLEEP
+#define SLEEP (1000000000)
+#endif
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
@@ -46,8 +50,8 @@ void initlogrecord () {
     current.withdrawn=0;
 };
 
-void updatelogrecord (int count, int nlri, int withdrawn) {
-    current.updates += count;
+void updatelogrecord (int nlri, int withdrawn) {
+    current.updates++;
     current.nlri += nlri;
     current.withdrawn += withdrawn;
 };
@@ -58,9 +62,10 @@ struct lograterecord {
 
 char _s_displaylogrecord [1000];
 char * displaylogrecord () {
-   snprintf(_s_displaylogrecord,999,"elapsed time : %f (%f) update msg cnt %d (%d) NLRI cnt %d (%d) withdrawn cnt %d (%d)" , 
-      current.ts / 1000000.0 ,
-      cumulative.ts / 1000000.0 ,
+   long long int now = getinttime();
+   snprintf(_s_displaylogrecord,999,"elapsed time : %f (%f) update msg cnt %d (%d) NLRI cnt %d (%d) withdrawn cnt %d (%d)" ,
+      (now - current.ts ) / 1000000.0 ,
+      (now - cumulative.ts ) / 1000000.0 ,
       current.updates ,
       cumulative.updates ,
       current.nlri ,
@@ -72,7 +77,7 @@ char * displaylogrecord () {
 
 char _s_displaylograterecord [1000];
 char * displaylograterecord (struct lograterecord l) {
-   snprintf(_s_displaylograterecord,999,"elapsed time : %f (%f) update msg rate %d (%d) NLRI rate %d (%d) withdrawn rate %d (%d)" , 
+   snprintf(_s_displaylograterecord,999,"elapsed time : %f (%f) update msg rate %d (%d) NLRI rate %d (%d) withdrawn rate %d (%d)" ,
       l.current.ts / 1000000.0 ,
       l.cumulative.ts / 1000000.0 ,
       l.current.updates ,
@@ -90,7 +95,7 @@ struct lograterecord getlograterecord () {
 
     long long int now = getinttime();
     long long int deltaCumulative = now-cumulative.ts;
-    long long int deltaCurrent = now-current.ts; 
+    long long int deltaCurrent = now-current.ts;
 
 // update cumulative counters from current
     cumulative.updates += current.updates;
@@ -203,7 +208,7 @@ int spnlri (char *nlri, int length) {
             fprintf(stderr, "**** %d %d %d %d %s \n",nlri[offset],offset,count,length,hex);
             assert(0);
         }
-        if (VERBOSE && (offset<length))
+        if ((1 == VERBOSE) && (offset<length))
             printPrefix(nlri+offset+1,nlri[offset]);
     }
 
@@ -234,11 +239,12 @@ void doupdate(char *msg, int length) {
         uc = spnlri(nlri,nlril);
    else
         uc = 0;
-   if VERBOSE
+   if (1 == VERBOSE)
        fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",tid,wc,tpal,uc);
    update_count ++;
    update_nlri_count += uc;
    update_withdrawn_count += wc;
+   updatelogrecord (uc, wc);
 };
 
 void donotification(char *msg, int length) {
@@ -283,12 +289,12 @@ int getBGPMessage (struct sockbuf *sb) {
          payload = 0;
    }
    msgcount++;
-   if VERBOSE {
+   if (1 == VERBOSE) {
       unsigned char *hex = toHex (payload,pl) ;
       fprintf(stderr, "%s: BGP msg type %s length %d received [%s]\n",tid, showtype(msgtype), pl , hex);
       free(hex);
    }
-      
+
    switch (msgtype) {
       case 1:doopen(payload,pl);
              break;
@@ -304,14 +310,14 @@ int getBGPMessage (struct sockbuf *sb) {
 
 void report (int expected, int got) {
 
-   if VERBOSE {
+   if (1 == VERBOSE) {
       if (expected == got) {
          fprintf(stderr, "%s: session: OK, got %s\n",tid,showtype(expected));
       } else {
          fprintf(stderr, "%s: session: expected %s, got %s (%d)\n",tid,showtype(expected),showtype(got),got);
       }
    } else {
-      if (expected != got) 
+      if (expected != got)
          fprintf(stderr, "%s: session: expected %s, got %s (%d)\n",tid,showtype(expected),showtype(got),got);
    }
 }
@@ -324,16 +330,27 @@ void report (int expected, int got) {
       timeval_subtract(&td0,&t_idle,&t_active);
       timeval_subtract(&td1,&td0,&delay);
       fprintf(stderr, "%s: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",tid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
+      //displaylograterecord ( getlograterecord ())
+      //struct lograterecord lrr = getlograterecord ();
+      //displaylograterecord (lrr)
+      //displaylogrecord ()
+      fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord ());
+      //fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (getlograterecord ()));
+      //fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (lrr));
   };
 
 
 void *sendupdates (void *fd) {
   struct timeval t0, t1 , td;
-  gettimeofday(&t0, NULL);
-  (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
-  gettimeofday(&t1, NULL);
-  timeval_subtract(&td,&t1,&t0);
-  fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
+  while (1) {
+     gettimeofday(&t0, NULL);
+     (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
+     gettimeofday(&t1, NULL);
+     timeval_subtract(&td,&t1,&t0);
+     fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
+     usleep(SLEEP*1000);
+     lseek(*(int *)fd,0,0);
+   };
 };
 
 long int threadmain() {
@@ -346,6 +363,7 @@ long int threadmain() {
   if ((fd2 = open(sd->fn2,O_RDONLY)) < 0) {
     die("Failed to open BGP Update message file");
   }
+
 
   msgcount = 0;
   reported_update_count = 0;
@@ -378,6 +396,9 @@ long int threadmain() {
   pthread_create(&thrd, NULL, sendupdates, &fd2);
 
   setidle();
+  initlogrecord();  // implies that the rate display is based at first recv request call rather than return......
+                    // for more precision consider moving to either getBGPMessage
+                    // would be too late otherwise anywhere in here, as getBGPMessage will call updatelog
 
   while (1) {
         msgtype = getBGPMessage (&sb); // keepalive or updates from now on
