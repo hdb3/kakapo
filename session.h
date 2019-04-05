@@ -4,6 +4,9 @@
 struct sessiondata {
  int sock;
  int tidx;
+ int localip;
+ int peerip;
+ int as;
  char * fn1;
  char * fn2;
 };

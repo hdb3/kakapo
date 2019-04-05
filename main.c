@@ -24,15 +24,28 @@
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 
+#ifndef MYAS
+#define MYAS 65001
+#endif
+
 int pid;
 int tidx = 0;
 
 char * fnOpen, * fnUpdate;
 
 void startsession(int sock, int tid, char * fn1, char * fn2) {
+  struct sockaddr_in peeraddr,myaddr;
+  // get the local address that is being used for this session
+  int socklen;
+  ((0 == getsockname(sock,&myaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address"));
+  ((0 == getpeername(sock,&peeraddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find peer address"));
+  fprintf(stderr, "%d: local address %s\n",pid, inet_ntoa(myaddr.sin_addr));
+  fprintf(stderr, "%d: peer address %s\n",pid, inet_ntoa(peeraddr.sin_addr));
+
   struct sessiondata *sd;
   sd = malloc (sizeof(struct sessiondata));
-  *sd = (struct sessiondata) { sock , tid, fnOpen , fnUpdate };
+  *sd = (struct sessiondata) { sock , tid, myaddr.sin_addr.s_addr, peeraddr.sin_addr.s_addr, MYAS, fnOpen , fnUpdate };
+
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
 };
@@ -73,6 +86,7 @@ void client (char *s) {
   fprintf(stderr, "%d: using peer address %s\n",pid, inet_ntoa(peeraddr.sin_addr));
 
   (0 == (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ) ) || die ("Failed to connect with peer"));
+
   fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
   startsession(peersock , tidx++, fnOpen , fnUpdate);
 };
