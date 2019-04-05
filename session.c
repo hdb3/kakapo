@@ -126,6 +126,14 @@ struct lograterecord getlograterecord () {
 
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
 unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+
+char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
+    char * hexmessage = concat (hex8(4), hex16(as), hex16(holdtime), hex32(routerid), hex8(strlen(hexoptions)/2), hexoptions, NULL);
+    int messagelength = strlen(hexmessage) / 2 + 19;
+    return concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
+};
+
 int isMarker (const unsigned char *buf) {
    return ( 0 == memcmp(buf,marker,16));
 }
@@ -374,7 +382,11 @@ long int threadmain() {
   lseek(fd2,0,0);
   bufferInit(&sb,sock,BUFFSIZE,TIMEOUT);
 
-  (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
+  // (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
+
+  char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
+  int ml = fromHex(m);
+  (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
 
   do
       msgtype=getBGPMessage (&sb); // this is expected to be an Open
