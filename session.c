@@ -389,7 +389,7 @@ long int threadmain() {
   // (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
   //char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
-  char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),NULL); // let the code build the optional parameter :: capability
+  char * m = bgpopen(sd->as,180,htonl(sd->localip),NULL); // let the code build the optional parameter :: capability
   int ml = fromHex(m);
   (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
 
