@@ -2,7 +2,9 @@
 
 // util.h
 
+#include <sys/time.h>
 int die(char *mess);
+int fromHex (char* s);
 void printHex ( FILE * fd, unsigned char *buf, unsigned int l);
 unsigned char *toHex (unsigned char *buf, unsigned int l);
 

@@ -13,6 +13,16 @@
 
 int die(char *mess) { perror(mess); exit(1); }
 
+// warning - this function replaces in situ!!!!!
+// safe option w.r.t. length as the output is shorter than the input
+int fromHex (char* s) {
+    int i;
+    for (i = 0; s[i+i] != 0 && s[i+i+1] != 0; i++) {
+        sscanf(s+i+i, "%2hhx", s+i);
+    }
+    return i;
+};
+
 unsigned char *toHex (unsigned char *buf, unsigned int l) {
 
   unsigned char     hex_str[]= "0123456789abcdef";
