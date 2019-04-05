@@ -342,13 +342,13 @@ void report (int expected, int got) {
 void *sendupdates (void *fd) {
   struct timeval t0, t1 , td;
   while (1) {
+     lseek(*(int *)fd,0,0);
      gettimeofday(&t0, NULL);
      (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
      gettimeofday(&t1, NULL);
      timeval_subtract(&td,&t1,&t0);
      fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
      usleep(1000 * SLEEP);
-     lseek(*(int *)fd,0,0);
    };
 };
 
@@ -382,6 +382,8 @@ long int threadmain() {
   while (msgtype==0);
 
   report(1,msgtype);
+  if (1 != msgtype)
+    goto exit;
 
   (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
 
@@ -390,6 +392,8 @@ long int threadmain() {
   while (msgtype==0);
 
   report(4,msgtype);
+  if (4 != msgtype)
+    goto exit;
 
   pthread_t thrd;
   pthread_create(&thrd, NULL, sendupdates, &fd2);
@@ -426,11 +430,14 @@ long int threadmain() {
         }
   };
 exit:
+  pthread_cancel(thrd);
   close(sock);
+  close(fd1);
+  close(fd2);
   fprintf(stderr, "\n\n\n\n\n%s: session exit\n",tid);
   showstats();
+  free(sd);
 }
-
 
 return (int*)threadmain();
 }

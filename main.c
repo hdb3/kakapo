@@ -26,23 +26,40 @@
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 int pid;
+int tidx = 0;
 
-int main(int argc, char *argv[]) {
-  int serversock, peersock, fd1,fd2;
-  int tidx = 0;
+char * fnOpen, * fnUpdate;
+
+void startsession(int sock, int tid, char * fn1, char * fn2) {
+  struct sessiondata *sd;
+  sd = malloc (sizeof(struct sessiondata));
+  *sd = (struct sessiondata) { sock , tid, fnOpen , fnUpdate };
+  pthread_t thrd;
+  pthread_create(&thrd, NULL, session, sd);
+};
+
+void client (char *s) {
+  int peersock;
   struct sockaddr_in peeraddr;
-
-  pid = getpid();
-  fprintf(stderr, "%d: kakapo\n",pid);
-  if (3 > argc) {
-      fprintf(stderr, "USAGE: bgpc <open_message_file> <update_message_file> {IP address}\n");
-      exit(1);
+  fprintf(stderr, "%d: Connecting to: %s\n",pid, s);
+  memset(&peeraddr, 0, SOCKADDRSZ );
+  peeraddr.sin_family = AF_INET;
+  peeraddr.sin_addr.s_addr = inet_addr(s);
+  peeraddr.sin_port = htons(179);
+  if ((peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+    die("Failed to create socket");
+  } else if (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ ) < 0) {
+    die("Failed to connect with peer");
+  } else {
+    fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
+    startsession(peersock , tidx++, fnOpen , fnUpdate);
   }
+};
 
- (0 == access(argv[1],R_OK) || die ("Failed to open BGP Open message file"));
- (0 == access(argv[2],R_OK) || die ("Failed to open BGP Update message file"));
- 
-  if (3 == argc) { // server mode.....
+
+void server() {
+  int serversock, peersock;
+  struct sockaddr_in peeraddr;
 
     memset(&peeraddr, 0, SOCKADDRSZ );
     peeraddr.sin_family = AF_INET;
@@ -79,24 +96,32 @@ int main(int argc, char *argv[]) {
       }
       fprintf(stderr, "%d: Peer connected: %s\n",pid, inet_ntoa(peeraddr.sin_addr));
 
-      struct sessiondata sd = { peersock , tidx++, argv[1] , argv[2] };
-      pthread_t thrd;
-      pthread_create(&thrd, NULL, session, &sd);
+      startsession(peersock , tidx++, fnOpen , fnUpdate);
     }
-  } else { // client mode
-      fprintf(stderr, "%d: Connecting to: %s\n",pid, argv[3]);
-      memset(&peeraddr, 0, SOCKADDRSZ );
-      peeraddr.sin_family = AF_INET;
-      peeraddr.sin_addr.s_addr = inet_addr(argv[3]);
-      peeraddr.sin_port = htons(179);
-      if ((peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-        die("Failed to create socket");
-      } else if (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ ) < 0) {
-        die("Failed to connect with peer");
-      } else {
-          fprintf(stderr, "%d: Peer connected: %s\n",pid, argv[3]);
-          struct sessiondata sd = { peersock , tidx++, argv[1] , argv[2] };
-          (int*) session( (void *) &sd);
-      }
+};
+
+int main(int argc, char *argv[]) {
+
+  pid = getpid();
+  fprintf(stderr, "%d: kakapo\n",pid);
+  if (3 > argc) {
+      fprintf(stderr, "USAGE: bgpc <open_message_file> <update_message_file> {IP address}\n");
+      exit(1);
   }
+
+  fnOpen = argv[1];
+  fnUpdate = argv[2];
+
+ (0 == access(fnOpen,R_OK) || die ("Failed to open BGP Open message file"));
+ (0 == access(fnUpdate,R_OK) || die ("Failed to open BGP Update message file"));
+
+  if (3 == argc) { // server mode.....
+    server();
+  } else { // client mode
+     int argn;
+     for (argn=4 ; argn <= argc ; argn++)
+         client(argv[argn-1]);
+  }
+  while (1)
+    sleep(100);
 }
