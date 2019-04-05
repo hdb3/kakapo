@@ -40,20 +40,42 @@ void startsession(int sock, int tid, char * fn1, char * fn2) {
 
 void client (char *s) {
   int peersock;
-  struct sockaddr_in peeraddr;
+  struct sockaddr_in peeraddr,myaddr;
+
   fprintf(stderr, "%d: Connecting to: %s\n",pid, s);
+
+  // parse the parameter string for optional source address
+
   memset(&peeraddr, 0, SOCKADDRSZ );
   peeraddr.sin_family = AF_INET;
-  peeraddr.sin_addr.s_addr = inet_addr(s);
   peeraddr.sin_port = htons(179);
-  if ((peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-    die("Failed to create socket");
-  } else if (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ ) < 0) {
-    die("Failed to connect with peer");
-  } else {
-    fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
-    startsession(peersock , tidx++, fnOpen , fnUpdate);
-  }
+
+
+  memset(&myaddr, 0, SOCKADDRSZ );
+  myaddr.sin_family = AF_INET;
+  myaddr.sin_port = 0; // allow the OS to choose the outbound port (redundant as we did a memset)
+
+  (0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP) ) || die ("Failed to create socket"));
+
+  if (0 == inet_aton(s,&peeraddr.sin_addr)) { // failed to parse as a single address..
+  // if there is no comma, it fails
+  // if there is a comma then only if aton on both halves works is it ok...
+    char * commaloc;
+    if ( 0 != (commaloc = strchr (s,','))) {
+        *commaloc = 0;
+        if (inet_aton(s,&peeraddr.sin_addr) && inet_aton(commaloc+1,&myaddr.sin_addr)) {
+            (0 == bind(peersock,&myaddr,SOCKADDRSZ) || die ("Failed to bind local address"));
+            fprintf(stderr, "%d: success using local address %s\n",pid, inet_ntoa(myaddr.sin_addr));
+        } else
+            die ("Failed to parse address(es)");
+    } else
+        die ("Failed to parse address(es)");
+  };
+  fprintf(stderr, "%d: using peer address %s\n",pid, inet_ntoa(peeraddr.sin_addr));
+
+  (0 == (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ) ) || die ("Failed to connect with peer"));
+  fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
+  startsession(peersock , tidx++, fnOpen , fnUpdate);
 };
 
 
