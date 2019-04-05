@@ -129,6 +129,10 @@ unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
 char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
+    if (NULL==hexoptions) { // then we should build our own AS4 capability using the provided AS number
+        hexoptions = concat ("02064104",hex32(as));
+    };
+ 
     char * hexmessage = concat (hex8(4), hex16(as), hex16(holdtime), hex32(routerid), hex8(strlen(hexoptions)/2), hexoptions, NULL);
     int messagelength = strlen(hexmessage) / 2 + 19;
     return concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
@@ -384,7 +388,8 @@ long int threadmain() {
 
   // (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
-  char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
+  //char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
+  char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),NULL); // let the code build the optional parameter :: capability
   int ml = fromHex(m);
   (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
 
