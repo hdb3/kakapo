@@ -2,3 +2,6 @@ tag 1.1 /branch threads
 This version supports continuous rate reporting and a simple looping sendfile.
 It is not yet optimal for reporting burst duration.
 Compile time options (gcc -D....) are used for various program options.
+
+tag 1.2 /branch threads
+merged multithreaded ckients from explicitsourceaddress
