@@ -8,4 +8,6 @@
 #define TIMEOUT 10
 #endif
 
+#define SOCKADDRSZ (sizeof (struct sockaddr_in))
+
 extern int pid;
