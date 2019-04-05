@@ -27,7 +27,6 @@
 #endif
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
-#define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 void *session(void *x){
 struct sessiondata *sd = (struct sessiondata *) x;

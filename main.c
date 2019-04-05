@@ -23,7 +23,6 @@
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
-#define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 int pid;
 int tidx = 0;
