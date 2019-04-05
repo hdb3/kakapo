@@ -2,6 +2,8 @@
 //util.c
 
 #include <stdio.h>
+#include <stdint.h>
+#include <stdarg.h>
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +23,31 @@ int fromHex (char* s) {
         sscanf(s+i+i, "%2hhx", s+i);
     }
     return i;
+};
+
+
+char * hex8(uint8_t n) {
+    char * s;
+    int tmp = asprintf(&s,"%02hhX",n);
+    return s;
+};
+
+char * hex16(uint16_t n) {
+    char * s;
+    int tmp = asprintf(&s,"%04hX",n);
+    return s;
+};
+
+char * hex32(uint32_t n) {
+    char * s;
+    int tmp = asprintf(&s,"%08X",n);
+    return s;
+};
+
+char * hex64(uint64_t n) {
+    char * s;
+    int tmp = asprintf(&s,"%016lX",n);
+    return s;
 };
 
 unsigned char *toHex (unsigned char *buf, unsigned int l) {
@@ -101,3 +128,55 @@ timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y)
   return x->tv_sec < y->tv_sec;
 }
 
+// the following function copied directly from the glibc manual
+
+char *
+concat (const char *str,...)
+{
+  va_list ap;
+  size_t allocated = 100;
+  char *result = (char *) malloc (allocated);
+
+  if (result != NULL)
+    {
+      char *newp;
+      char *wp;
+      const char *s;
+
+      va_start (ap, str);
+
+      wp = result;
+      for (s = str; s != NULL; s = va_arg (ap, const char *))
+        {
+          size_t len = strlen (s);
+
+          /* Resize the allocated memory if necessary.  */
+          if (wp + len + 1 > result + allocated)
+            {
+              allocated = (allocated + len) * 2;
+              newp = (char *) realloc (result, allocated);
+              if (newp == NULL)
+                {
+                  free (result);
+                  return NULL;
+                }
+              wp = newp + (wp - result);
+              result = newp;
+            }
+
+          wp = mempcpy (wp, s, len);
+        }
+
+      /* Terminate the result string.  */
+      *wp++ = '\0';
+
+      /* Resize memory to the optimal size.  */
+      newp = realloc (result, wp - result);
+      if (newp != NULL)
+        result = newp;
+
+      va_end (ap);
+    }
+
+  return result;
+}
