@@ -1,3 +1,5 @@
+//origin: https://github.com/solemnwarning/timespec
+
 /* Functions for working with timespec structures
  * Written by Daniel Collins (2017)
  * 
