@@ -1,6 +1,5 @@
 #include <time.h>
 #include <stdio.h>
-//#include <pthread.h>
 #include "timespec.h"
 
 int f (int p) {
@@ -24,11 +23,9 @@ void timedloop (struct timespec duration, int (action) (int)) {
        ts_target = timespec_add (ts_target,duration);
        i++;
        gettime(&now);
-       // while (delay > 0)
        while (timespec_gt(ts_target,now)) {
            struct timespec delay = timespec_sub(ts_target,now);
            nanosleep(&delay,&now);
-           //nanosleep(timespec_sub(ts_target,now),&now);
            gettime(&now);
        };
    };
