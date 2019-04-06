@@ -50,13 +50,13 @@ char * hex64(uint64_t n) {
     return s;
 };
 
-unsigned char *toHex (unsigned char *buf, unsigned int l) {
+char *toHex (char *buf, int l) {
 
-  unsigned char     hex_str[]= "0123456789abcdef";
-  unsigned int      i;
-  unsigned char *result;
+  char     hex_str[]= "0123456789abcdef";
+  int      i;
+  char *result;
 
-  if (!(result = (unsigned char *)malloc(l * 2 + 1)))
+  if (!(result = (char *)malloc(l * 2 + 1)))
     return (NULL);
 
   (result)[l * 2] = 0;
@@ -72,8 +72,8 @@ unsigned char *toHex (unsigned char *buf, unsigned int l) {
   return (result);
 }
 
-void printHex ( FILE * fd, unsigned char *buf, unsigned int l) {
-      unsigned char *hex = toHex (buf,l) ;
+void printHex ( FILE * fd, char *buf, int l) {
+      char *hex = toHex (buf,l) ;
       fprintf(fd, "[%s]\n",hex);
       free(hex);
 }
