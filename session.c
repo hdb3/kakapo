@@ -29,7 +29,21 @@
 #define BUFFSIZE 0x10000
 
 void *session(void *x){
+// from here on down all variables are function, and thus thread, local.
 struct sessiondata *sd = (struct sessiondata *) x;
+
+int localip,peerip;
+
+void getsockaddresses () {
+  struct sockaddr_in sockaddr;
+  int socklen;
+  ((0 == getsockname(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address"));
+  localip = sockaddr.sin_addr.s_addr;
+  fprintf(stderr, "%d: local address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
+  ((0 == getpeername(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find peer address"));
+  peerip = sockaddr.sin_addr.s_addr;
+  fprintf(stderr, "%d: peer address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
+};
 
 struct logrecord {
     long long ts;
@@ -366,6 +380,7 @@ void *sendupdates (void *fd) {
 long int threadmain() {
 
   int fd1,fd2;
+  getsockaddresses();
   if ((fd1 = open(sd->fn1,O_RDONLY)) < 0) {
     die("Failed to open BGP Open message file");
   }
@@ -389,7 +404,7 @@ long int threadmain() {
   // (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
   //char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
-  char * m = bgpopen(sd->as,180,htonl(sd->localip),NULL); // let the code build the optional parameter :: capability
+  char * m = bgpopen(sd->as,180,htonl(localip),NULL); // let the code build the optional parameter :: capability
   int ml = fromHex(m);
   (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
 
@@ -453,7 +468,11 @@ exit:
   fprintf(stderr, "\n\n\n\n\n%s: session exit\n",tid);
   showstats();
   free(sd);
-}
+} // end of threadmain
 
-return (int*)threadmain();
+  // effective start of 'main, i.e. function 'session'
+  // code and variables are defined within 'session' to ensure that the variables are thread local,
+  // and to allow inner functions access to those local variables
+
+  return (int*)threadmain();
 }
