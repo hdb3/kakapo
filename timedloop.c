@@ -1,10 +1,14 @@
 #include <time.h>
 #include <stdio.h>
 #include "timespec.h"
+#include "timedloop.h"
 
-int f (int p) {
-    fprintf(stderr,"f(%d)\n",p);
-    return (p > 100);
+void timedloopms (int duration, int (action) (int)) {
+    timedloop ( (struct timespec) { duration / 1000 , 1000000000 * ( duration % 1000)}, action);
+};
+
+void timedloopsec (int duration, int (action) (int)) {
+    timedloop ( (struct timespec) { duration , 0}, action);
 };
 
 void timedloop (struct timespec duration, int (action) (int)) {
@@ -29,10 +33,4 @@ void timedloop (struct timespec duration, int (action) (int)) {
            gettime(&now);
        };
    };
-};
-
-int main (int argc, char** argv) {
-
-   struct timespec duration = {1,0};
-   timedloop(duration,f);
 };

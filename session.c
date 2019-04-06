@@ -17,6 +17,7 @@
 #include <pthread.h>
 
 #include "sockbuf.h"
+#include "timedloop.h"
 #include "util.h"
 #include "session.h"
 #include "kakapo.h"
@@ -364,20 +365,27 @@ void report (int expected, int got) {
   };
 
 
-void *sendupdates (void *fd) {
-  struct timeval t0, t1 , td;
-  while (1) {
-     lseek(*(int *)fd,0,0);
-     gettimeofday(&t0, NULL);
-     (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
-     gettimeofday(&t1, NULL);
-     timeval_subtract(&td,&t1,&t0);
-     fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
-     if (0 == SLEEP)
-        break;
-     else
-        usleep(1000 * SLEEP);
+void *sendthread (void *fd) {
+  struct timeval t0, t1, td;
+
+   int sendupdates (int seq) {
+      struct timeval t0, t1 , td;
+      lseek(*(int *)fd,0,0);
+      gettimeofday(&t0, NULL);
+      (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
+      gettimeofday(&t1, NULL);
+      timeval_subtract(&td,&t1,&t0);
+      fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
+      return 0; // ask to be restarted...
    };
+
+  if (0 == SLEEP)
+     sendupdates(0);
+  else {
+     if (VERBOSE)
+        fprintf(stderr,"sendupdates looping at %f\n", SLEEP / 1000.0);
+     timedloopms ( SLEEP ,sendupdates);
+  };
 };
 
 long int threadmain() {
@@ -430,7 +438,7 @@ long int threadmain() {
     goto exit;
 
   pthread_t thrd;
-  pthread_create(&thrd, NULL, sendupdates, &fd2);
+  pthread_create(&thrd, NULL, sendthread, &fd2);
 
   setidle();
   initlogrecord();  // implies that the rate display is based at first recv request call rather than return......
