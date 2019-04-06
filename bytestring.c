@@ -4,26 +4,9 @@
 #include <string.h>
 #include <malloc.h>
 #include "util.h"
+#include "bytestring.h"
 
-struct bytestring { uint16_t length ; char* data; };
-//typedef struct { uint16_t length ; char* data; } bytestring;
-
-///struct bytestring EOS  = (struct bytestring) { 0xffff , 0 };
-///struct bytestring BS0  = (struct bytestring) { 0 , 0 };
-///struct bytestring BS1  = (struct bytestring) { 1 , { 1 } };
-///struct bytestring BS10  = (struct bytestring) { 10 , { 0,1,2,3,4,5,6,7,8,9 } };
-struct bytestring EOS  = { 0xffff , 0 };
-struct bytestring BS0  = { 0 , 0 };
-struct bytestring BS1  = { 1 , "\x1" };
-struct bytestring BS10  = { 10 , "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09" };
-struct bytestring BS10a  = { 10 , "\x09\x08\x07\x06\x05\x04\x03\x02\x01\x00" };
-
-char * hexbytestring ( struct bytestring bs );
-
-struct bytestring concatbytestring(struct bytestring bs0 , ...);
-
-char *toHex (char *buf, int l);
-
+struct bytestring EOS = { 0xffff , 0 };
 char * hexbytestring ( struct bytestring bs ) {
     return toHex (bs.data,bs.length);
 };
@@ -61,13 +44,4 @@ struct bytestring concatbytestring(struct bytestring bs0 , ...) {
        bs = va_arg(ap1,struct bytestring);
     } while (0xffff != bs.length);
     return (struct bytestring) {length,buf};
-};
-
-int main(int argc, char** argv) {
-    printf("BS0 %s\n",hexbytestring(BS0));
-    printf("BS1 %s\n",hexbytestring(BS1));
-    printf("BS10 %s\n",hexbytestring(BS10));
-    struct bytestring cbs = concatbytestring(BS0,BS1,BS10,EOS);
-    printf("concat result %s\n",hexbytestring(cbs));
-    printf("concat BS10 ++ BS10a %s\n",hexbytestring(concatbytestring(BS10,BS10a,EOS)));
 };
