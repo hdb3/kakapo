@@ -21,9 +21,9 @@
 #include "session.h"
 #include "kakapo.h"
 
-// setting sleep enables a millisecond based repeat loop
+// setting SLEEP nonzero when compiling enables a millisecond denominated repeat loop
 #ifndef SLEEP
-#define SLEEP (1000000)
+#define SLEEP (0)
 #endif
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
@@ -373,7 +373,10 @@ void *sendupdates (void *fd) {
      gettimeofday(&t1, NULL);
      timeval_subtract(&td,&t1,&t0);
      fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
-     usleep(1000 * SLEEP);
+     if (0 == SLEEP)
+        break;
+     else
+        usleep(1000 * SLEEP);
    };
 };
 
