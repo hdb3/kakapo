@@ -4,7 +4,7 @@
 #include <byteswap.h>
 #include <assert.h>
 #include "bytestring.h"
-#include "update.h"
+#include "pathattributes.h"
 
 #define Optional (0x80)
 #define Transitive (0x40)
