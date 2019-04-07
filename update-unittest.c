@@ -11,8 +11,10 @@ struct in_addr ip;
 inet_aton("192.168.0.1",&ip);
 uint32_t asns [] = {65001,0};
 uint32_t asnsa [] = {65001,172,0};
-//uint32_t asns [] = {0xffffffff,0};
-//uint32_t asnsa [] = {0x01020304,0xffffffff,0};
+
+   printf("nlri 192.168.0.0/24 , 4 %s\n", hexbytestring(nlris(ip.s_addr,24,4)));
+
+   return 0;
 
    printf("paOrigin %s\n", hexbytestring(pa2bytestring(paOrigin)));
    printf("paLocalPref %s\n", hexbytestring(pa2bytestring(paLocalPref)));
