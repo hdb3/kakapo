@@ -2,7 +2,8 @@
 #include <stdint.h>
 #include <arpa/inet.h>
 #include "bytestring.h"
-#include "update.h"
+#include "pathattributes.h"
+#include "nlri.h"
 
 int main (int argc, char** argv) {
 
