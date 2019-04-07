@@ -7,7 +7,10 @@
 #include "util.h"
 #include "bytestring.h"
 
+struct bytestring empty = { 0 , 0 };
+
 struct bytestring EOS = { 0xffff , 0 };
+
 char * hexbytestring ( struct bytestring bs ) {
     return toHex (bs.data,bs.length);
 };

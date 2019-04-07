@@ -9,6 +9,7 @@
 #define _BYTESTRING_H
 
 struct bytestring { uint16_t length ; char* data; };
+struct bytestring empty;
 struct bytestring EOS;
 char * hexbytestring ( struct bytestring bs );
 struct bytestring concatbytestring(struct bytestring bs0 , ...);

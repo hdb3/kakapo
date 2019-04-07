@@ -4,6 +4,7 @@
 #include "bytestring.h"
 #include "pathattributes.h"
 #include "nlri.h"
+#include "update.h"
 
 int main (int argc, char** argv) {
 
@@ -12,9 +13,20 @@ inet_aton("192.168.0.1",&ip);
 uint32_t asns [] = {65001,0};
 uint32_t asnsa [] = {65001,172,0};
 
-   printf("nlri 192.168.0.0/24 , 4 %s\n", hexbytestring(nlris(ip.s_addr,24,4)));
+struct bytestring nlri = nlris(ip.s_addr,24,4);
+struct bytestring withdrawn = empty;
+struct bytestring attributes = pas2bytestring( paOrigin,
+                                               paLocalPref,
+                                               paNextHop(ip.s_addr),
+                                               paASPATH(asnsa),
+                                               NULL );
+
+   printf("update (nlri 192.168.0.0/24 , 4) (empty) paOrigin ++ paLocalPref ++ paNextHop(%s) ++ paASPATH([65001,172,0]) %s\n", inet_ntoa(ip) ,
+           hexbytestring(update (nlri,withdrawn,attributes)));
 
    return 0;
+
+   printf("nlri 192.168.0.0/24 , 4 %s\n", hexbytestring(nlris(ip.s_addr,24,4)));
 
    printf("paOrigin %s\n", hexbytestring(pa2bytestring(paOrigin)));
    printf("paLocalPref %s\n", hexbytestring(pa2bytestring(paLocalPref)));
