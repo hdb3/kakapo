@@ -17,14 +17,14 @@ struct bytestring concatbytestring(struct bytestring bs0 , ...) {
     if (bs0.length == 0xffff)
         return EOS;
     int length = bs0.length;
-    printf(" 0: %d/%d\n",length,length);
+    // DEBUG // printf(" 0: %d/%d\n",length,length);
     va_list ap0;
     va_start(ap0,bs0);
     struct bytestring bs = va_arg(ap0,struct bytestring);
     int i = 1;
     while (0xffff != bs.length) {
         length += bs.length;
-        printf("%2d: %d/%d\n",i,bs.length,length);
+        // DEBUG // printf("%2d: %d/%d\n",i,bs.length,length);
         bs = va_arg(ap0,struct bytestring);
         i++;
     };
@@ -44,5 +44,6 @@ struct bytestring concatbytestring(struct bytestring bs0 , ...) {
        j++;
        bs = va_arg(ap1,struct bytestring);
     } while (0xffff != bs.length);
+    va_end(ap1);
     return (struct bytestring) {length,buf};
 };

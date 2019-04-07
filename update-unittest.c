@@ -27,4 +27,13 @@ uint32_t asnsa [] = {65001,172,0};
                                 pa2bytestring(paASPATH(asnsa)),
                                 EOS
                                 )));
+   printf("(quick) paOrigin ++ paLocalPref ++ paNextHop(%s) ++ paASPATH([65001,172,0]) %s\n", inet_ntoa(ip),
+          hexbytestring(
+              pas2bytestring( paOrigin,
+                             paLocalPref,
+                             paNextHop(ip.s_addr),
+                             paASPATH(asnsa),
+                             NULL
+         )));
+   printf("rewrite (2,deadbeef) paASPATH([65001,172,0]) %s\n", hexbytestring(pa2bytestring(rewriteASPATH(paASPATH(asnsa),0xdeadbeef,1))));
 };
