@@ -19,4 +19,12 @@ uint32_t asnsa [] = {65001,172,0};
    printf("paNextHop(%s) %s\n", inet_ntoa(ip), hexbytestring(pa2bytestring(paNextHop(ip.s_addr))));
    printf("paASPATH([65001,0]) %s\n", hexbytestring(pa2bytestring(paASPATH(asns))));
    printf("paASPATH([65001,172,0]) %s\n", hexbytestring(pa2bytestring(paASPATH(asnsa))));
+   printf("paOrigin ++ paLocalPref ++ paNextHop(%s) ++ paASPATH([65001,172,0]) %s\n", inet_ntoa(ip),
+          hexbytestring(
+              concatbytestring( pa2bytestring(paOrigin),
+                                pa2bytestring(paLocalPref),
+                                pa2bytestring(paNextHop(ip.s_addr)),
+                                pa2bytestring(paASPATH(asnsa)),
+                                EOS
+                                )));
 };
