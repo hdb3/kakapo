@@ -12,7 +12,8 @@ int main (int argc, char** argv) {
 
   socklen_t addrsize;
   int serversock,
-      peersock;
+      peersock,
+      l;
   struct sockaddr_in sockaddr;
 
   sockaddr.sin_family = AF_INET;
@@ -39,7 +40,10 @@ int main (int argc, char** argv) {
     addrsize = SOCKADDRSIZE;
     getpeername(peersock,&sockaddr,&addrsize);
     printf("peer address %s\n", inet_ntoa(sockaddr.sin_addr));
-
+    do {
+        char s [20];
+        l = recv(peersock,s,20,0);
+    } while (l>0);
     close(peersock);
   };
 };
