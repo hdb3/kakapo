@@ -68,13 +68,13 @@ char paLocalPref [] = {  Transitive , LOCAL_PREF , 4 , 0,0,0,100 };
 char paMED [] = {  Optional , MULTI_EXIT_DISC , 4 , 0,0,0,100 };
 
 char *paNextHop (uint32_t nexthop) {
-    static char b [] = { 0 , NEXT_HOP , 4 , 0, 0, 0, 0 };
+    static char b [] = { Transitive , NEXT_HOP , 4 , 0, 0, 0, 0 };
     * ((uint32_t *) (b+3)) = nexthop;
     return  b;
 };
 
 char *paASPATH(uint32_t *asn) {
-    static char b [4096] = { ExtendedLength , AS_PATH , 0, 2 , AS_SEQUENCE , 0 };
+    static char b [4096] = { ExtendedLength | Transitive , AS_PATH , 0, 2 , AS_SEQUENCE , 0 };
     uint8_t i = 0;
     uint32_t *from = asn;
     uint32_t *to = (uint32_t*) (b+6);

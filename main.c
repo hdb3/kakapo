@@ -87,42 +87,39 @@ void client (char *s) {
 
 void server() {
   int serversock, peersock;
-  struct sockaddr_in peeraddr;
+  int reuse = 1;
+  socklen_t socklen;
 
-    memset(&peeraddr, 0, SOCKADDRSZ );
-    peeraddr.sin_family = AF_INET;
-    peeraddr.sin_addr.s_addr = htonl(INADDR_ANY);   // local server addr - wildcard - could be a specific interface
-    peeraddr.sin_port = htons(179);       // BGP server port
+  struct sockaddr_in acceptaddr,localaddr, peeraddr,hostaddr;
 
-    if ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-      die("Failed to create socket");
-    }
+    memset(&hostaddr, 0, SOCKADDRSZ );
+    hostaddr.sin_family = AF_INET;
+    hostaddr.sin_addr.s_addr = htonl(INADDR_ANY);   // local server addr - wildcard - could be a specific interface
+    hostaddr.sin_port = htons(179);       // BGP server port
 
-    int reuse = 1;
-    if (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-      die("Failed to set server socket option SO_REUSEADDR");
+    0 == ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) || die("Failed to create socket");
 
-    if (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0)
-      die("Failed to set server socket option SO_REUSEPORT");
+    0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0) || die("Failed to set server socket option SO_REUSEADDR");
 
-    if (bind(serversock, (struct sockaddr *) &peeraddr, SOCKADDRSZ ) < 0) {
-      die("Failed to bind the server socket");
-    }
+    0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) || die("Failed to set server socket option SO_REUSEPORT");
 
-    if (listen(serversock, MAXPENDING) < 0) {
-      die("Failed to listen on server socket");
-    }
+    0 == (bind(serversock, (struct sockaddr *) &hostaddr, SOCKADDRSZ ) < 0) || die("Failed to bind the server socket");
+
+    0 == (listen(serversock, MAXPENDING) < 0) || die("Failed to listen on server socket");
 
     while (1) {
-      unsigned int addrsize;
+
       fprintf(stderr, "%d: waiting for connection\n",pid);
-      if ((peersock = accept(serversock, (struct sockaddr *) &peeraddr, &addrsize )) < 0) {
-        die("Failed to accept peer connection");
-      }
-      if ( addrsize != SOCKADDRSZ || AF_INET != peeraddr.sin_family) {
-        die("bad sockaddr");
-      }
-      fprintf(stderr, "%d: Peer connected: %s\n",pid, inet_ntoa(peeraddr.sin_addr));
+      memset(&acceptaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; 0 <  ( peersock = accept(serversock, &acceptaddr, &socklen )) || die("Failed to accept peer connection");
+      fprintf(stderr, "%d: acceptaddr %s\n",pid, inet_ntoa(acceptaddr.sin_addr));
+
+      ( SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
+
+      memset(&localaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getsockname(peersock, &localaddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
+      fprintf(stderr, "%d: localaddr %s\n",pid, inet_ntoa(localaddr.sin_addr));
+
+      memset(&peeraddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getpeername(peersock, &peeraddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
+      fprintf(stderr, "%d: peeraddr %s\n",pid, inet_ntoa(peeraddr.sin_addr));
 
       startsession(peersock , fnOpen , fnUpdate);
     }
