@@ -15,6 +15,9 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <linux/sockios.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 //#include "sockbuf.h"
 //#include "timedloop.h"
@@ -34,17 +37,23 @@ void *session(void *x){
 // from here on down all variables are function, and thus thread, local.
 struct sessiondata *sd = (struct sessiondata *) x;
 
-int localip,peerip;
+uint32_t  localip,peerip;
 
 void getsockaddresses () {
   struct sockaddr_in sockaddr;
   int socklen;
-  ((0 == getsockname(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address"));
+
+  memset(&sockaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ((0 == getsockname(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address"));
   localip = sockaddr.sin_addr.s_addr;
   fprintf(stderr, "%d: local address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
-  ((0 == getpeername(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find peer address"));
+
+  memset(&sockaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ((0 == getpeername(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find peer address"));
   peerip = sockaddr.sin_addr.s_addr;
   fprintf(stderr, "%d: peer address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
+
+  //fprintf(stderr, "%d: connection info: %s/%s\n",pid, fromHostAddress(localip),fromHostAddress(peerip));
+  fprintf(stderr, "%d: connection info: %s/",pid, fromHostAddress(localip));
+  fprintf(stderr, "%s\n",fromHostAddress(peerip));
 };
 
 struct logrecord {
@@ -145,13 +154,18 @@ unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
 char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
+    // //fprintf(stderr,"===%s,%04x\n", fromHostAddress(routerid), routerid);
+    // //fprintf(stderr,"===%s,%04x\n", fromHostAddress(localip), localip);
     if (NULL==hexoptions) { // then we should build our own AS4 capability using the provided AS number
         hexoptions = concat ("02064104",hex32(as));
     };
  
     char * hexmessage = concat (hex8(4), hex16(as), hex16(holdtime), hex32(routerid), hex8(strlen(hexoptions)/2), hexoptions, NULL);
     int messagelength = strlen(hexmessage) / 2 + 19;
-    return concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
+    // return concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
+    char* ret = concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
+    // //fprintf(stderr,"===%s,%s==%s===\n", fromHostAddress(routerid), hex32(routerid), ret);
+    return ret;
 };
 
 int isMarker (const unsigned char *buf) {
@@ -371,21 +385,23 @@ void *sendthread (void *fd) {
 
    int sendupdates (int seq) {
       struct timeval t0, t1 , td;
-      lseek(*(int *)fd,0,0);
-      gettimeofday(&t0, NULL);
+      if (VERBOSE)
+          gettimeofday(&t0, NULL);
 
-      (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
-      sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4),
-                           empty,
-                           iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0})));
+      // lseek(*(int *)fd,0,0);
+      // (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
+      if (0 == (seq % 2))
+          sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4),
+                               empty,
+                               iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0})));
+      else
+          sendbs(sock,update ( empty, nlris(toHostAddress("10.0.0.0"),30,4), empty));
 
-      sendbs(sock,update ( empty, nlris(toHostAddress("10.0.0.0"),30,4), empty));
-/*
-*/
-
-      gettimeofday(&t1, NULL);
-      timeval_subtract(&td,&t1,&t0);
-      fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
+      if (VERBOSE) {
+         gettimeofday(&t1, NULL);
+         timeval_subtract(&td,&t1,&t0);
+         fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
+      };
       return 0; // ask to be restarted...
    };
 
