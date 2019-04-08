@@ -7,3 +7,4 @@ gcc -D_GNU_SOURCE -O3 -o bytestring-unittest bytestring-unittest.c libutil.c
 gcc -D_GNU_SOURCE -O3 libutil.c update-unittest.c -o update-unittest
 #gcc -D_GNU_SOURCE -O3 -o update-unittest update-unittest.c pathattributes.c bytestring.c util.c nlri.c update.c
 #gcc -pthread -O3 -DSLEEP=5000 -DVERBOSE=1 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo.loop main.c session.c util.c sockbuf.c
+gcc -I. test/hostaddress.c util.c -o test/hostaddress
