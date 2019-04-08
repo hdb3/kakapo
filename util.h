@@ -4,8 +4,10 @@
 #define __UTIL_H
 #include <sys/time.h>
 #include <stdint.h>
+#include <stdio.h>
 
 int die(char *mess);
+char * fromHostAddress (uint32_t ip);
 uint32_t toHostAddress (char * s );
 int fromHex (char* s);
 char * hex8(uint8_t n);

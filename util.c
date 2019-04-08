@@ -17,12 +17,16 @@
 
 int die(char *mess) { perror(mess); exit(1); }
 
+char * fromHostAddress (uint32_t ip) {
+   // static char s [5];
+   return inet_ntoa( (struct in_addr) { ip });
+};
+
+
 uint32_t toHostAddress (char * s ) {
-   //struct sockaddr_in addr;
    struct in_addr addr;
    inet_aton(s,&addr);
    return addr.s_addr;
-   //return addr.sin_addr.s_addr;
 };
 
 // warning - this function replaces in situ!!!!!
