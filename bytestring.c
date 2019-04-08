@@ -4,8 +4,12 @@
 #include <stdarg.h>
 #include <string.h>
 #include <malloc.h>
-#include "util.h"
-#include "bytestring.h"
+#include <sys/socket.h>
+#include "libutil.h"
+
+void sendbs(int sock, struct bytestring msg ) {
+   assert (0 < send(sock, msg.data, msg.length, 0));
+};
 
 struct bytestring empty = { 0 , 0 };
 

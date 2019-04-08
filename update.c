@@ -19,7 +19,7 @@ struct bytestring updatehdr (uint16_t length ) {
 struct bytestring update (struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
 
    uint16_t
-   payloadlength = nlri.length + withdrawn.length + pathattributes.length;
+   payloadlength = nlri.length + withdrawn.length + pathattributes.length + 4;
 
    struct
    bytestring hdr = updatehdr ( payloadlength );
@@ -40,3 +40,10 @@ struct bytestring update (struct bytestring nlri, struct bytestring withdrawn, s
    return (struct bytestring) { messagelength , buf};
 };
 
+struct bytestring iBGPpath (uint32_t nexthop, uint32_t *asn) {
+   return pas2bytestring( paOrigin,
+                          paLocalPref,
+                          paNextHop(nexthop),
+                          paASPATH(asn),
+                          NULL );
+};

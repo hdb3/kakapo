@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -14,6 +16,14 @@
 #include "util.h"
 
 int die(char *mess) { perror(mess); exit(1); }
+
+uint32_t toHostAddress (char * s ) {
+   //struct sockaddr_in addr;
+   struct in_addr addr;
+   inet_aton(s,&addr);
+   return addr.s_addr;
+   //return addr.sin_addr.s_addr;
+};
 
 // warning - this function replaces in situ!!!!!
 // safe option w.r.t. length as the output is shorter than the input
