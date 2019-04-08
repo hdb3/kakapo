@@ -61,21 +61,15 @@ struct bytestring pas2bytestring (char* pa,...) {
 
 struct bytestring pa2bytestring (char* pa) {
    return (struct bytestring) { palength(pa) , pa };
-   //if ((*pa) & ExtendedLength)
-      //return (struct bytestring) { 4 + pa[3] + (pa[2] *256) , pa };
-   ////else
-      //return (struct bytestring) { 3 + pa[2] , pa };
 };
 
 char paOrigin [] = {  Transitive , ORIGIN , 1 , INCOMPLETE };
-char paLocalPref [] = {  Transitive , LOCAL_PREF , 1 , 100 };
-char paMED [] = {  Optional , MULTI_EXIT_DISC , 1 , 100 };
+char paLocalPref [] = {  Transitive , LOCAL_PREF , 4 , 0,0,0,100 };
+char paMED [] = {  Optional , MULTI_EXIT_DISC , 4 , 0,0,0,100 };
 
 char *paNextHop (uint32_t nexthop) {
     static char b [] = { 0 , NEXT_HOP , 4 , 0, 0, 0, 0 };
-    //memcpy ( b+3 , &nexthop,4);
-    uint32_t swappednexthop = __bswap_32 (nexthop);
-    memcpy ( b+3 , &swappednexthop,4);
+    * ((uint32_t *) (b+3)) = nexthop;
     return  b;
 };
 
@@ -85,7 +79,7 @@ char *paASPATH(uint32_t *asn) {
     uint32_t *from = asn;
     uint32_t *to = (uint32_t*) (b+6);
     while (0 != *from) {
-        memcpy (to,from,4);
+        *to = __bswap_32(*from);
         i++;  from++; to++;
     };
     memcpy (b + 5 , (char*) (&i) , 1);
