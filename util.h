@@ -1,11 +1,12 @@
-
-
 // util.h
 
+#ifndef __UTIL_H
+#define __UTIL_H
 #include <sys/time.h>
 #include <stdint.h>
 
 int die(char *mess);
+uint32_t toHostAddress (char * s );
 int fromHex (char* s);
 char * hex8(uint8_t n);
 char * hex16(uint16_t n);
@@ -21,3 +22,4 @@ char* timeval_to_str (struct timeval *tval);
 
 int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
 char * concat (const char *str,...);
+#endif

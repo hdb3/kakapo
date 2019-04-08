@@ -16,9 +16,10 @@
 #include <sys/time.h>
 #include <pthread.h>
 
-#include "sockbuf.h"
-#include "timedloop.h"
-#include "util.h"
+//#include "sockbuf.h"
+//#include "timedloop.h"
+//#include "util.h"
+#include "libutil.h"
 #include "session.h"
 #include "kakapo.h"
 
@@ -372,7 +373,14 @@ void *sendthread (void *fd) {
       struct timeval t0, t1 , td;
       lseek(*(int *)fd,0,0);
       gettimeofday(&t0, NULL);
-      (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
+      // (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
+
+      sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4),
+                           empty,
+                           iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0})));
+
+      sendbs(sock,update ( empty, nlris(toHostAddress("10.0.0.0"),30,4), empty));
+
       gettimeofday(&t1, NULL);
       timeval_subtract(&td,&t1,&t0);
       fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
