@@ -24,13 +24,15 @@ struct bytestring nlris (uint32_t ipstart , uint8_t length, int count) {
    int bufsize = chunksize * count;
    char * buf = malloc(bufsize);
    char * next = buf;
-   uint32_t ip = ipstart;
+   uint32_t ip = __bswap_32(ipstart);
    uint32_t increment = 1 << (32-length);
    uint32_t x [2];
-   x[0] = length; 
+   uint8_t * lptr = 3 + (uint8_t*) x;
+   uint32_t * addrptr = x+1;
+   *lptr = length;
    char * loc = 3 + (char *) x;
    for (int i = 0 ; i < count ; i++ ) {
-      x[1] = ip;
+      *addrptr = __bswap_32(ip);
       memcpy( next , loc , chunksize );
       ip += increment;
       next += chunksize;
