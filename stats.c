@@ -70,8 +70,7 @@ char * displaylogrecord (slp_t slp) {
     char *s;
     inttime now = getinttime();
     pthread_mutex_lock(&slp->mutex);
-    int tmp = asprintf(&s,"elapsed time : %f (%f) update msg cnt %ld (%ld) NLRI cnt %ld (%ld) withdrawn cnt %ld (%ld)" ,
-      (now - slp->current.ts ) / 1e6,
+    int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld)" ,
       (now - slp->cumulative.ts ) / 1e6,
       slp->current.updates ,
       slp->cumulative.updates ,
@@ -86,8 +85,7 @@ char * displaylogrecord (slp_t slp) {
 char * displaysessionlog (slp_t slp) {
     char *s;
     pthread_mutex_lock(&slp->mutex);
-    int tmp = asprintf(&s,"elapsed time : %f (%f) update msg rate %ld (%ld) NLRI rate %ld (%ld) withdrawn rate %ld (%ld)" ,
-      slp->current.ts / 1e6,
+    int tmp = asprintf(&s,"elapsed time : %f update msg rate %6ld (%6ld) NLRI rate %6ld (%6ld) withdrawn rate %6ld (%6ld)" ,
       slp->cumulative.ts / 1e6,
       slp->current.updates ,
       slp->cumulative.updates ,
@@ -145,11 +143,12 @@ static void statsreport () {
             active++;
             fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
             getsessionlog(slp,&tmp);
-            fprintf(stderr, "%s: rate: %s\e[K\n",slp->tids,displaysessionlog (&tmp));
+            fprintf(stderr, "%s: rate:     %s\e[K\n",slp->tids,displaysessionlog (&tmp));
         };
         slp=slp->next;
     };
-    fprintf(stderr, "\e[%dA",active*2);
+    if (active)
+        fprintf(stderr, "\e[%dA",active*2);
 };
 
 void startstatsrunner () {
