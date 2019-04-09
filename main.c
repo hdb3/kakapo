@@ -76,11 +76,11 @@ void client (char *s) {
     } else
         die ("Failed to parse address(es)");
   };
-  fprintf(stderr, "%d: using peer address %s\n",pid, inet_ntoa(peeraddr.sin_addr));
+  //fprintf(stderr, "%d: using peer address %s\n",pid, inet_ntoa(peeraddr.sin_addr));
 
   (0 == (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ) ) || die ("Failed to connect with peer"));
 
-  fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
+  //fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
   startsession(peersock , fnOpen , fnUpdate);
 };
 
@@ -109,17 +109,17 @@ void server() {
 
     while (1) {
 
-      fprintf(stderr, "%d: waiting for connection\n",pid);
+      //fprintf(stderr, "%d: waiting for connection\n",pid);
       memset(&acceptaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; 0 <  ( peersock = accept(serversock, &acceptaddr, &socklen )) || die("Failed to accept peer connection");
-      fprintf(stderr, "%d: acceptaddr %s\n",pid, inet_ntoa(acceptaddr.sin_addr));
+      //fprintf(stderr, "%d: acceptaddr %s\n",pid, inet_ntoa(acceptaddr.sin_addr));
 
       ( SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
 
-      memset(&localaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getsockname(peersock, &localaddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
-      fprintf(stderr, "%d: localaddr %s\n",pid, inet_ntoa(localaddr.sin_addr));
+      // //memset(&localaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getsockname(peersock, &localaddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
+      // //fprintf(stderr, "%d: localaddr %s\n",pid, inet_ntoa(localaddr.sin_addr));
 
-      memset(&peeraddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getpeername(peersock, &peeraddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
-      fprintf(stderr, "%d: peeraddr %s\n",pid, inet_ntoa(peeraddr.sin_addr));
+      // //memset(&peeraddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getpeername(peersock, &peeraddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
+      // //fprintf(stderr, "%d: peeraddr %s\n",pid, inet_ntoa(peeraddr.sin_addr));
 
       startsession(peersock , fnOpen , fnUpdate);
     }

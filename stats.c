@@ -11,7 +11,6 @@
 #include <netinet/tcp.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
-#include <assert.h>
 #include <sys/time.h>
 #include <linux/sockios.h>
 #include <net/if.h>
@@ -26,9 +25,16 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <assert.h>
 #include "libutil.h"
 #define _1e6 (1000000L)
 static slp_t statsbase = NULL;
+
+void closelogrecord (slp_t slp, int tid) {
+    assert (tid == slp->tid);
+    // rather than free resources we simply mark the record closed
+    slp->closed = 1;
+};
 
 slp_t initlogrecord (int tid, char* tids) {
     slp_t slp = malloc(sizeof(struct sessionlog));
@@ -37,6 +43,7 @@ slp_t initlogrecord (int tid, char* tids) {
     slp->tid = tid;
     slp->tids = strdup(tids);
     slp->changed = 1;
+    slp->closed = 0;
     slp->cumulative.ts = now;
     slp->cumulative.updates=0;
     slp->cumulative.nlri=0;
@@ -132,12 +139,17 @@ void getsessionlog (slp_t slp, slp_t slog) {
 static void statsreport () {
     struct sessionlog tmp;
     slp_t slp=statsbase;
+    int active=0;
     while (slp) {
-        fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
-        getsessionlog(slp,&tmp);
-        fprintf(stderr, "%s: rate: %s\n",slp->tids,displaysessionlog (&tmp));
+        if (0==slp->closed) {
+            active++;
+            fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
+            getsessionlog(slp,&tmp);
+            fprintf(stderr, "%s: rate: %s\e[K\n",slp->tids,displaysessionlog (&tmp));
+        };
         slp=slp->next;
     };
+    fprintf(stderr, "\e[%dA",active*2);
 };
 
 void startstatsrunner () {

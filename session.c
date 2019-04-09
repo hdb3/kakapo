@@ -34,20 +34,33 @@ slp_t slp;
 
 uint32_t  localip,peerip;
 
+int i,msgtype;
+struct sockbuf sb;
+int msgcount = 0;
+int reported_update_count = 0;
+int update_count = 0;
+int update_nlri_count = 0;
+int update_withdrawn_count = 0;
+struct timeval t_active, t_idle;
+int active = 0;
+int sock = sd->sock;
+char *tid;
+int tmp=asprintf(&tid,"%d-%d: ",pid,sd->tidx);
+
 void getsockaddresses () {
   struct sockaddr_in sockaddr;
   int socklen;
 
   memset(&sockaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ((0 == getsockname(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address"));
   localip = sockaddr.sin_addr.s_addr;
-  fprintf(stderr, "%d: local address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
+  //fprintf(stderr, "%d: local address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
 
   memset(&sockaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ((0 == getpeername(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find peer address"));
   peerip = sockaddr.sin_addr.s_addr;
-  fprintf(stderr, "%d: peer address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
+  //fprintf(stderr, "%d: peer address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
 
   //fprintf(stderr, "%d: connection info: %s/%s\n",pid, fromHostAddress(localip),fromHostAddress(peerip));
-  fprintf(stderr, "%d: connection info: %s/",pid, fromHostAddress(localip));
+  fprintf(stderr, "%s: connection info: %s/",tid, fromHostAddress(localip));
   fprintf(stderr, "%s\n",fromHostAddress(peerip));
 };
 
@@ -74,18 +87,6 @@ int isMarker (const unsigned char *buf) {
    return ( 0 == memcmp(buf,marker,16));
 }
 
-int i,msgtype;
-struct sockbuf sb;
-int msgcount = 0;
-int reported_update_count = 0;
-int update_count = 0;
-int update_nlri_count = 0;
-int update_withdrawn_count = 0;
-struct timeval t_active, t_idle;
-int active = 0;
-int sock = sd->sock;
-char *tid;
-int tmp=asprintf(&tid,"%d-%d: ",pid,sd->tidx);
 
 void setactive () {
     active = 1;
@@ -404,11 +405,12 @@ long int threadmain() {
         }
   };
 exit:
+  closelogrecord(slp,sd->tidx);
   pthread_cancel(thrd);
   close(sock);
   close(fd1);
   close(fd2);
-  fprintf(stderr, "\n\n\n\n\n%s: session exit\n",tid);
+  fprintf(stderr, "%s: session exit\n",tid);
   showstats();
   free(sd);
 } // end of threadmain
