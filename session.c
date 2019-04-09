@@ -398,9 +398,11 @@ void *sendthread (void *fd) {
       return 0; // ask to be restarted...
    };
 
-  if (0 == SLEEP)
+  if (0 == SLEEP) {
+     if (VERBOSE)
+        fprintf(stderr,"sendupdates singleshot mode\n");
      sendupdates(0);
-  else {
+  } else {
      if (VERBOSE)
         fprintf(stderr,"sendupdates looping at %f\n", SLEEP / 1000.0);
      timedloopms ( SLEEP ,sendupdates);
