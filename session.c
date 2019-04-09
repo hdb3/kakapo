@@ -388,7 +388,7 @@ long int threadmain() {
         case 0: // this is an idle recv timeout event
             if (reported_update_count != update_count) {
                 reported_update_count = update_count;
-                showstats();
+                // showstats();
             }
             break;
         case 3: // Notification

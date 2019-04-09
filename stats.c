@@ -130,9 +130,12 @@ void getsessionlog (slp_t slp, slp_t slog) {
 };
 
 static void statsreport () {
+    struct sessionlog tmp;
     slp_t slp=statsbase;
     while (slp) {
-        fprintf(stderr,"%s (%d) statsreport\n",slp->tids,slp->tid);
+        fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
+        getsessionlog(slp,&tmp);
+        fprintf(stderr, "%s: rate: %s\n",slp->tids,displaysessionlog (&tmp));
         slp=slp->next;
     };
 };
