@@ -19,6 +19,7 @@
 #include "sockbuf.h"
 #include "util.h"
 #include "session.h"
+#include "stats.h"
 #include "kakapo.h"
 
 #define MAXPENDING 5    // Max connection requests
@@ -151,6 +152,8 @@ int main(int argc, char *argv[]) {
 
  (0 == access(fnOpen,R_OK) || die ("Failed to open BGP Open message file"));
  (0 == access(fnUpdate,R_OK) || die ("Failed to open BGP Update message file"));
+
+  startstatsrunner ();
 
   if (3 == argc) { // server mode.....
     server();

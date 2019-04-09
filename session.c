@@ -373,7 +373,7 @@ long int threadmain() {
   pthread_create(&thrd, NULL, sendthread, &fd2);
 
   setidle();
-  slp = initlogrecord();  // implies that the rate display is based at first recv request call rather than return......
+  slp = initlogrecord(sd->tidx,tid);  // implies that the rate display is based at first recv request call rather than return......
                     // for more precision consider moving to either getBGPMessage
                     // would be too late otherwise anywhere in here, as getBGPMessage will call updatelog
 

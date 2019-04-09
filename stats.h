@@ -33,8 +33,12 @@ struct logrecord {
 
 struct sessionlog {
 
-    struct logrecord cumulative,current;
+    int tid;
+    char * tids;
+    int changed;
     pthread_mutex_t mutex;
+    struct logrecord cumulative,current;
+    struct sessionlog *next;
 
 };
 
@@ -44,4 +48,5 @@ void getsessionlog (slp_t slp, slp_t slog);
 char * displaysessionlog (slp_t slp);
 char * displaylogrecord (slp_t slp);
 void updatelogrecord (slp_t slp, int nlri, int withdrawn);
-slp_t initlogrecord ();
+slp_t initlogrecord (int tid, char* tids);
+void startstatsrunner ();
