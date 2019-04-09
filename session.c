@@ -22,6 +22,7 @@
 #include "libutil.h"
 #include "session.h"
 #include "kakapo.h"
+#include "stats.h"
 
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
@@ -29,6 +30,7 @@
 void *session(void *x){
 // from here on down all variables are function, and thus thread, local.
 struct sessiondata *sd = (struct sessiondata *) x;
+slp_t slp;
 
 uint32_t  localip,peerip;
 
@@ -47,99 +49,6 @@ void getsockaddresses () {
   //fprintf(stderr, "%d: connection info: %s/%s\n",pid, fromHostAddress(localip),fromHostAddress(peerip));
   fprintf(stderr, "%d: connection info: %s/",pid, fromHostAddress(localip));
   fprintf(stderr, "%s\n",fromHostAddress(peerip));
-};
-
-struct logrecord {
-    long long ts;
-    int updates,nlri,withdrawn;
-};
-
-struct logrecord cumulative,current;
-
-void initlogrecord () {
-    cumulative.ts = getinttime();
-    cumulative.updates=0;
-    cumulative.nlri=0;
-    cumulative.withdrawn=0;
-    current.ts=cumulative.ts;
-    current.updates=0;
-    current.nlri=0;
-    current.withdrawn=0;
-};
-
-void updatelogrecord (int nlri, int withdrawn) {
-    current.updates++;
-    current.nlri += nlri;
-    current.withdrawn += withdrawn;
-};
-
-struct lograterecord {
-    struct logrecord cumulative,current;
-};
-
-char _s_displaylogrecord [1000];
-char * displaylogrecord () {
-   long long int now = getinttime();
-   snprintf(_s_displaylogrecord,999,"elapsed time : %f (%f) update msg cnt %d (%d) NLRI cnt %d (%d) withdrawn cnt %d (%d)" ,
-      (now - current.ts ) / 1000000.0 ,
-      (now - cumulative.ts ) / 1000000.0 ,
-      current.updates ,
-      cumulative.updates ,
-      current.nlri ,
-      cumulative.nlri ,
-      current.withdrawn ,
-      cumulative.withdrawn);
-   return _s_displaylogrecord;
-};
-
-char _s_displaylograterecord [1000];
-char * displaylograterecord (struct lograterecord l) {
-   snprintf(_s_displaylograterecord,999,"elapsed time : %f (%f) update msg rate %d (%d) NLRI rate %d (%d) withdrawn rate %d (%d)" ,
-      l.current.ts / 1000000.0 ,
-      l.cumulative.ts / 1000000.0 ,
-      l.current.updates ,
-      l.cumulative.updates ,
-      l.current.nlri ,
-      l.cumulative.nlri ,
-      l.current.withdrawn ,
-      l.cumulative.withdrawn);
-   return _s_displaylograterecord;
-};
-
-struct lograterecord getlograterecord () {
-
-// ends the current interval as well as reporting on it
-
-    struct lograterecord this;
-
-    long long int now = getinttime();
-    long long int deltaCumulative = now-cumulative.ts;
-    long long int deltaCurrent = now-current.ts;
-    this.cumulative.ts = deltaCumulative;
-    this.current.ts = deltaCurrent;
-
-// update cumulative counters from current
-    cumulative.updates += current.updates;
-    cumulative.nlri += current.nlri;
-    cumulative.withdrawn += current.withdrawn;
-
-// calculate current rates
-    this.current.updates = current.updates * 1e6 / deltaCurrent; //all integer arithmetic!
-    this.current.nlri = current.nlri * 1e6 / deltaCurrent; //all integer arithmetic!
-    this.current.withdrawn = current.withdrawn * 1e6 / deltaCurrent; //all integer arithmetic!
-
-// calculate cumulative rates
-    this.cumulative.updates = cumulative.updates * 1e6 / deltaCumulative; //all integer arithmetic!
-    this.cumulative.nlri = cumulative.nlri * 1e6 / deltaCumulative; //all integer arithmetic!
-    this.cumulative.withdrawn = cumulative.withdrawn * 1e6 / deltaCumulative; //all integer arithmetic!
-
-// reset the current counters
-    current.ts = now;
-    current.updates=0;
-    current.nlri=0;
-    current.withdrawn=0;
-
-    return this;
 };
 
 unsigned char keepalive [19]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4 };
@@ -281,7 +190,7 @@ void doupdate(char *msg, int length) {
    update_count ++;
    update_nlri_count += uc;
    update_withdrawn_count += wc;
-   updatelogrecord (uc, wc);
+   updatelogrecord (slp, uc, wc);
 };
 
 void donotification(char *msg, int length) {
@@ -361,14 +270,16 @@ void report (int expected, int got) {
 
   void showstats ()  {
       struct timeval td0,td1,delay;
+      struct sessionlog tmp;
       delay.tv_sec = TIMEOUT;
       delay.tv_usec = 0;
 
       timeval_subtract(&td0,&t_idle,&t_active);
       timeval_subtract(&td1,&td0,&delay);
       fprintf(stderr, "%s: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",tid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
-      fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord ());
-      fprintf(stderr, "%s: rate: %s\n",tid,displaylograterecord (getlograterecord ()));
+      fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord (slp));
+      getsessionlog(slp,&tmp);
+      fprintf(stderr, "%s: rate: %s\n",tid,displaysessionlog (&tmp));
       fprintf(stderr, "\e[4A\r\e[K\n");
   };
 
@@ -462,7 +373,7 @@ long int threadmain() {
   pthread_create(&thrd, NULL, sendthread, &fd2);
 
   setidle();
-  initlogrecord();  // implies that the rate display is based at first recv request call rather than return......
+  slp = initlogrecord();  // implies that the rate display is based at first recv request call rather than return......
                     // for more precision consider moving to either getBGPMessage
                     // would be too late otherwise anywhere in here, as getBGPMessage will call updatelog
 
