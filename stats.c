@@ -157,7 +157,7 @@ void startstatsrunner () {
     void * statsrunner (void * arg) {
         while (1) {
             statsreport();
-            sleep(5);
+            sleep(1);
         };
     };
 
