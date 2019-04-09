@@ -1,5 +1,5 @@
 #!/bin/bash -ve
-gcc -pthread -O3 -D_GNU_SOURCE -o kakapo main.c session.c libutil.c
+gcc -pthread -O3 -D_GNU_SOURCE -o kakapo main.c session.c stats.c libutil.c
 #gcc -pthread -O3 -D_GNU_SOURCE -o kakapo main.c session.c util.c sockbuf.c timedloop.c timespec.c
 #gcc -pthread -O3 -DVERBOSE=0 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo.loop main.c session.c libutil.c
 gcc -D_GNU_SOURCE -pthread -O3 timedloop-unittest.c libutil.c -o timedloop-unittest

@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+typedef long long int inttime;
 int die(char *mess);
 char * fromHostAddress (uint32_t ip);
 uint32_t toHostAddress (char * s );
@@ -17,8 +18,8 @@ char * hex64(uint64_t n);
 void printHex ( FILE * fd, char *buf, int l);
 char *toHex (char *buf, int l);
 
-long long int getinttime ();
-long long int timeval_to_int (struct timeval *tval);
+inttime getinttime ();
+inttime timeval_to_int (struct timeval *tval);
 
 char* timeval_to_str (struct timeval *tval);
 
