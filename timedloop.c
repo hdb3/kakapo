@@ -4,7 +4,9 @@
 #include "timedloop.h"
 
 void timedloopms (int duration, int (action) (int)) {
-    timedloop ( (struct timespec) { duration / 1000 , 1000000000 * ( duration % 1000)}, action);
+    long int secs = duration / 1000L;
+    long int nsecs = 1000000L * ( duration % 1000L);
+    timedloop ( (struct timespec) { secs , nsecs}, action);
 };
 
 void timedloopsec (int duration, int (action) (int)) {
