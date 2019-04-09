@@ -1,7 +1,7 @@
 #!/bin/bash -ve
-gcc -pthread -O3 -DMYAS=64502 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo main.c session.c libutil.c
+gcc -pthread -O3 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo main.c session.c libutil.c
 #gcc -pthread -O3 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo main.c session.c util.c sockbuf.c timedloop.c timespec.c
-gcc -pthread -O3 -DMYAS=64502 -DSLEEP=5000 -DVERBOSE=0 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo.loop main.c session.c libutil.c
+gcc -pthread -O3 -DSLEEP=50 -DVERBOSE=0 -DTIMEOUT=1 -D_GNU_SOURCE -o kakapo.loop main.c session.c libutil.c
 gcc -D_GNU_SOURCE -pthread -O3 timedloop-unittest.c libutil.c -o timedloop-unittest
 gcc -D_GNU_SOURCE -O3 -o bytestring-unittest bytestring-unittest.c libutil.c
 gcc -D_GNU_SOURCE -O3 libutil.c update-unittest.c -o update-unittest

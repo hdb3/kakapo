@@ -24,12 +24,9 @@
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 
-#ifndef MYAS
-#define MYAS 65001
-#endif
-
 int pid;
 int tidx = 0;
+uint32_t MYAS = 65001;
 
 char * fnOpen, * fnUpdate;
 
@@ -136,6 +133,13 @@ int main(int argc, char *argv[]) {
 
   fnOpen = argv[1];
   fnUpdate = argv[2];
+
+  char* sMYAS;
+  uint32_t nMYAS;
+  if ( (sMYAS = getenv("MYAS")) && (1 == sscanf(sMYAS,"%d",&nMYAS))) {
+    MYAS = nMYAS;
+    fprintf(stderr, "%d: read AS from environment: %d\n",pid,MYAS);
+  };
 
  (0 == access(fnOpen,R_OK) || die ("Failed to open BGP Open message file"));
  (0 == access(fnUpdate,R_OK) || die ("Failed to open BGP Update message file"));
