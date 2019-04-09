@@ -36,11 +36,6 @@ uint32_t  localip,peerip;
 
 int i,msgtype;
 struct sockbuf sb;
-int msgcount = 0;
-int reported_update_count = 0;
-int update_count = 0;
-int update_nlri_count = 0;
-int update_withdrawn_count = 0;
 struct timeval t_active, t_idle;
 int active = 0;
 int sock = sd->sock;
@@ -188,9 +183,6 @@ void doupdate(char *msg, int length) {
         uc = 0;
    if (1 == VERBOSE)
        fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",tid,wc,tpal,uc);
-   update_count ++;
-   update_nlri_count += uc;
-   update_withdrawn_count += wc;
    updatelogrecord (slp, uc, wc);
 };
 
@@ -235,7 +227,7 @@ int getBGPMessage (struct sockbuf *sb) {
      } else
          payload = 0;
    }
-   msgcount++;
+//   msgcount++;
    if (1 == VERBOSE) {
       unsigned char *hex = toHex (payload,pl) ;
       fprintf(stderr, "%s: BGP msg type %s length %d received [%s]\n",tid, showtype(msgtype), pl , hex);
@@ -268,22 +260,6 @@ void report (int expected, int got) {
          fprintf(stderr, "%s: session: expected %s, got %s (%d)\n",tid,showtype(expected),showtype(got),got);
    }
 }
-
-  void showstats ()  {
-      struct timeval td0,td1,delay;
-      struct sessionlog tmp;
-      delay.tv_sec = TIMEOUT;
-      delay.tv_usec = 0;
-
-      timeval_subtract(&td0,&t_idle,&t_active);
-      timeval_subtract(&td1,&td0,&delay);
-      fprintf(stderr, "%s: stats: msg cnt = %d, updates = %d, NLRIs = %d, withdrawn = %d, burst duration = %s\n",tid,msgcount,update_count,update_nlri_count,update_withdrawn_count,timeval_to_str(&td1));
-      fprintf(stderr, "%s: counters: %s\n",tid,displaylogrecord (slp));
-      getsessionlog(slp,&tmp);
-      fprintf(stderr, "%s: rate: %s\n",tid,displaysessionlog (&tmp));
-      fprintf(stderr, "\e[4A\r\e[K\n");
-  };
-
 
 void *sendthread (void *fd) {
   struct timeval t0, t1, td;
@@ -334,12 +310,6 @@ long int threadmain() {
   }
 
 
-  msgcount = 0;
-  reported_update_count = 0;
-  update_count = 0;
-  update_nlri_count = 0;
-  update_withdrawn_count = 0;
-
   setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
   lseek(fd1,0,0);
   lseek(fd2,0,0);
@@ -387,10 +357,6 @@ long int threadmain() {
             (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
             break;
         case 0: // this is an idle recv timeout event
-            if (reported_update_count != update_count) {
-                reported_update_count = update_count;
-                // showstats();
-            }
             break;
         case 3: // Notification
             fprintf(stderr, "%s: session: got Notification\n",tid);
@@ -411,7 +377,6 @@ exit:
   close(fd1);
   close(fd2);
   fprintf(stderr, "%s: session exit\n",tid);
-  showstats();
   free(sd);
 } // end of threadmain
 
