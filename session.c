@@ -48,13 +48,10 @@ void getsockaddresses () {
 
   memset(&sockaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ((0 == getsockname(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address"));
   localip = sockaddr.sin_addr.s_addr;
-  //fprintf(stderr, "%d: local address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
 
   memset(&sockaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ((0 == getpeername(sd->sock,&sockaddr,&socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find peer address"));
   peerip = sockaddr.sin_addr.s_addr;
-  //fprintf(stderr, "%d: peer address %s\n",pid, inet_ntoa(sockaddr.sin_addr));
 
-  //fprintf(stderr, "%d: connection info: %s/%s\n",pid, fromHostAddress(localip),fromHostAddress(peerip));
   fprintf(stderr, "%s: connection info: %s/",tid, fromHostAddress(localip));
   fprintf(stderr, "%s\n",fromHostAddress(peerip));
 };
@@ -64,17 +61,13 @@ unsigned char marker [16]={ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
 char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
-    // //fprintf(stderr,"===%s,%04x\n", fromHostAddress(routerid), routerid);
-    // //fprintf(stderr,"===%s,%04x\n", fromHostAddress(localip), localip);
     if (NULL==hexoptions) { // then we should build our own AS4 capability using the provided AS number
         hexoptions = concat ("02064104",hex32(as));
     };
  
     char * hexmessage = concat (hex8(4), hex16(as), hex16(holdtime), hex32(routerid), hex8(strlen(hexoptions)/2), hexoptions, NULL);
     int messagelength = strlen(hexmessage) / 2 + 19;
-    // return concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
     char* ret = concat (hexmarker,hex16(messagelength),hex8(1),hexmessage,NULL);
-    // //fprintf(stderr,"===%s,%s==%s===\n", fromHostAddress(routerid), hex32(routerid), ret);
     return ret;
 };
 
@@ -227,7 +220,6 @@ int getBGPMessage (struct sockbuf *sb) {
      } else
          payload = 0;
    }
-//   msgcount++;
    if (1 == VERBOSE) {
       unsigned char *hex = toHex (payload,pl) ;
       fprintf(stderr, "%s: BGP msg type %s length %d received [%s]\n",tid, showtype(msgtype), pl , hex);
@@ -261,7 +253,7 @@ void report (int expected, int got) {
    }
 }
 
-void *sendthread (void *fd) {
+void *sendthread (void *_x) {
   struct timeval t0, t1, td;
 
    int sendupdates (int seq) {
@@ -269,8 +261,6 @@ void *sendthread (void *fd) {
       if (VERBOSE)
           gettimeofday(&t0, NULL);
 
-      // lseek(*(int *)fd,0,0);
-      // (0 < sendfile(sock, *(int *)fd, 0, 0x7ffff000)) || die("Failed to send updates to peer");
       if (0 == (seq % 2))
           sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4),
                                empty,
@@ -281,7 +271,7 @@ void *sendthread (void *fd) {
       if (VERBOSE) {
          gettimeofday(&t1, NULL);
          timeval_subtract(&td,&t1,&t0);
-         fprintf(stderr, "%s: session: sendfile complete in %s\n",tid,timeval_to_str(&td));
+         fprintf(stderr, "%s: session: send RIB complete in %s\n",tid,timeval_to_str(&td));
       };
       return 0; // ask to be restarted...
    };
@@ -299,23 +289,11 @@ void *sendthread (void *fd) {
 
 long int threadmain() {
 
-  int fd1,fd2;
   getsockaddresses();
-  if ((fd1 = open(sd->fn1,O_RDONLY)) < 0) {
-    die("Failed to open BGP Open message file");
-  }
-
-  if ((fd2 = open(sd->fn2,O_RDONLY)) < 0) {
-    die("Failed to open BGP Update message file");
-  }
-
 
   setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-  lseek(fd1,0,0);
-  lseek(fd2,0,0);
   bufferInit(&sb,sock,BUFFSIZE,TIMEOUT);
 
-  // (0 < sendfile(sock, fd1, 0, 0x7ffff000)) || die("Failed to send fd1 to peer");
 
   //char * m = bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
   char * m = bgpopen(sd->as,180,htonl(localip),NULL); // let the code build the optional parameter :: capability
@@ -341,7 +319,7 @@ long int threadmain() {
     goto exit;
 
   pthread_t thrd;
-  pthread_create(&thrd, NULL, sendthread, &fd2);
+  pthread_create(&thrd, NULL, sendthread, NULL);
 
   setidle();
   slp = initlogrecord(sd->tidx,tid);  // implies that the rate display is based at first recv request call rather than return......
@@ -374,14 +352,12 @@ exit:
   closelogrecord(slp,sd->tidx);
   pthread_cancel(thrd);
   close(sock);
-  close(fd1);
-  close(fd2);
   fprintf(stderr, "%s: session exit\n",tid);
   free(sd);
 } // end of threadmain
 
   // effective start of 'main, i.e. function 'session'
-  // code and variables are defined within 'session' to ensure that the variables are thread local,
+  // all code and variables are defined within 'session' function to ensure that the variables are thread local,
   // and to allow inner functions access to those local variables
 
   return (int*)threadmain();
