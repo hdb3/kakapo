@@ -30,6 +30,7 @@ uint32_t MYAS = 65001;
 uint32_t SLEEP = 0; // default value -> don't repeat the send operation
 uint32_t TIMEOUT = 10;
 char MYIP [16] = "0.0.0.0";
+long long int idlethreshold = (long long int) 1e10; // 10 seconds default burst idle threshold
 
 void startsession(int sock ) {
 
@@ -132,6 +133,15 @@ void getuint32env(char* name , uint32_t* tgt) {
   };
 };
 
+void getllienv(char* name , long long int* tgt) {
+  char* s;
+  long long int n;
+  if ( (s = getenv(name)) && (1 == sscanf(s,"%lld",&n))) {
+    *tgt = n;
+    fprintf(stderr, "%d: read %s from environment: %lld\n",pid,name,n);
+  };
+};
+
 int main(int argc, char *argv[]) {
 
   pid = getpid();
@@ -146,6 +156,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SLEEP",&SLEEP);
   getuint32env("TIMEOUT",&TIMEOUT);
   getsenv("MYIP",MYIP);
+  getllienv("IDLETHR",&idlethreshold);
 
   startstatsrunner ();
 

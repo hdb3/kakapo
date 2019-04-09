@@ -40,6 +40,7 @@ struct sessionlog {
     pthread_mutex_t mutex;
     struct logrecord cumulative,current;
     struct sessionlog *next;
+    inttime firstts, lastts, lastburstduration;
 
 };
 
@@ -48,7 +49,7 @@ typedef struct sessionlog * slp_t;
 void getsessionlog (slp_t slp, slp_t slog);
 char * displaysessionlog (slp_t slp);
 char * displaylogrecord (slp_t slp);
-void updatelogrecord (slp_t slp, int nlri, int withdrawn);
+void updatelogrecord (slp_t slp, int nlri, int withdrawn, inttime ts);
 slp_t initlogrecord (int tid, char* tids);
 void closelogrecord (slp_t slp, int tid);
 void startstatsrunner ();

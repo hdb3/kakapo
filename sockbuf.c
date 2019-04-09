@@ -4,7 +4,8 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
-#include <sys/time.h>
+//#include <sys/time.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -24,11 +25,16 @@ void bufferInit (struct sockbuf *sb, int sock, int size, int timeout) {
     setsocktimeout(sock,timeout);
     sb->sock = sock;
     sb->timeout = timeout;
+    sb->timestamp = (struct timespec) {0,0};
     sb->start = 0;
     sb->count = 0;
     sb->top = size;
     sb->threshold = size * 3 / 4;
     sb->base = malloc(size);
+};
+
+long long int lastrecvtime(struct sockbuf *sb) {
+    return sb->timestamp.tv_sec + 1000000000LL * sb->timestamp.tv_nsec;
 };
 
 char * bufferedRead (struct sockbuf *sb, int rc) {
@@ -65,6 +71,7 @@ char * bufferedRead (struct sockbuf *sb, int rc) {
         } else if ( sockRead == 0 )
             return (char *) -1;
         else {
+            gettime (&sb->timestamp);
             sb->count = sb->count + sockRead;
         }
     }

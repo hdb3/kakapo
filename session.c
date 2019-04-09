@@ -75,17 +75,6 @@ int isMarker (const unsigned char *buf) {
    return ( 0 == memcmp(buf,marker,16));
 }
 
-
-void setactive () {
-    active = 1;
-    gettimeofday(&t_active, NULL);
-};
-
-void setidle () {
-    active = 0;
-    gettimeofday(&t_idle, NULL);
-};
-
 char * showtype (unsigned char msgtype) {
    switch(msgtype) {
       case 1 : return "OPEN";
@@ -176,7 +165,8 @@ void doupdate(char *msg, int length) {
         uc = 0;
    if (1 == VERBOSE)
        fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",tid,wc,tpal,uc);
-   updatelogrecord (slp, uc, wc);
+   //inttime rxtimestamp = lastrcvtime(&sb);
+   updatelogrecord (slp, uc, wc, lastrecvtime(&sb));
 };
 
 void donotification(char *msg, int length) {
@@ -198,17 +188,11 @@ int getBGPMessage (struct sockbuf *sb) {
       return -1;
    } else if (0 == header ) {
       // zero is simply a timeout: -1 is eof
-      if (active) {
-          setidle();
-      };
       return 0;
    } else if (!isMarker(header)) {
       die("Failed to find BGP marker in msg header from peer");
             return -1;
    } else {
-      if (0==active) {
-          setactive();
-      };
       pl = ( ntohs ( * (uint16_t*) (header+16))) - 19;
       msgtype = * (unsigned char *) (header+18);
       if (0 < pl) {
@@ -321,7 +305,6 @@ long int threadmain() {
   pthread_t thrd;
   pthread_create(&thrd, NULL, sendthread, NULL);
 
-  setidle();
   slp = initlogrecord(sd->tidx,tid);  // implies that the rate display is based at first recv request call rather than return......
                     // for more precision consider moving to either getBGPMessage
                     // would be too late otherwise anywhere in here, as getBGPMessage will call updatelog

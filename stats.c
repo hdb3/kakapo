@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include "libutil.h"
+#include "kakapo.h"
 #define _1e6 (1000000L)
 static slp_t statsbase = NULL;
 
@@ -44,6 +45,8 @@ slp_t initlogrecord (int tid, char* tids) {
     slp->tids = strdup(tids);
     slp->changed = 1;
     slp->closed = 0;
+    slp->firstts = 0;
+    slp->lastts = 0;
     slp->cumulative.ts = now;
     slp->cumulative.updates=0;
     slp->cumulative.nlri=0;
@@ -57,8 +60,21 @@ slp_t initlogrecord (int tid, char* tids) {
     return slp;
 };
 
-void updatelogrecord (slp_t slp, int nlri, int withdrawn) {
+void idlecheck (slp_t slp, inttime now) {
+    if ((0 != slp->firstts) &&
+        (idlethreshold > (now - slp->lastts))) {
+        slp->firstts = 0;
+        inttime duration = slp->lastts - slp->firstts;
+        slp->lastburstduration = duration;
+        fprintf(stderr,"%s burst duration %f\n", slp->tids, duration / 1e9);
+    };
+};
+
+void updatelogrecord (slp_t slp, int nlri, int withdrawn, inttime ts) {
     pthread_mutex_lock(&slp->mutex);
+    if (0 == slp->firstts)
+        slp->firstts = ts;
+    slp->lastts = ts;
     slp->current.updates++;
     slp->current.nlri += nlri;
     slp->current.withdrawn += withdrawn;
@@ -70,29 +86,37 @@ char * displaylogrecord (slp_t slp) {
     char *s;
     inttime now = getinttime();
     pthread_mutex_lock(&slp->mutex);
-    int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld)" ,
+    int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld), last burst %f" ,
       (now - slp->cumulative.ts ) / 1e6,
       slp->current.updates ,
       slp->cumulative.updates ,
       slp->current.nlri ,
       slp->cumulative.nlri ,
       slp->current.withdrawn ,
-      slp->cumulative.withdrawn);
+      slp->cumulative.withdrawn,
+      slp->lastburstduration / 1e9);
     pthread_mutex_unlock(&slp->mutex);
     return s;
 };
 
 char * displaysessionlog (slp_t slp) {
     char *s;
+    char bm [256] = "idle";
     pthread_mutex_lock(&slp->mutex);
-    int tmp = asprintf(&s,"elapsed time : %f update msg rate %6ld (%6ld) NLRI rate %6ld (%6ld) withdrawn rate %6ld (%6ld)" ,
+    ///if (0 == slp->firstts)
+        ///bm = strdup("idle");
+    ///else
+    if (0 != slp->firstts)
+        snprintf(bm,255,"current burst %f", (slp->lastts - slp->firstts) / 1e9);
+    int tmp = asprintf(&s,"elapsed time : %f update msg rate %6ld (%6ld) NLRI rate %6ld (%6ld) withdrawn rate %6ld (%6ld) %s" ,
       slp->cumulative.ts / 1e6,
       slp->current.updates ,
       slp->cumulative.updates ,
       slp->current.nlri ,
       slp->cumulative.nlri ,
       slp->current.withdrawn ,
-      slp->cumulative.withdrawn);
+      slp->cumulative.withdrawn,
+      bm);
     pthread_mutex_unlock(&slp->mutex);
     return s;
 };
@@ -136,11 +160,13 @@ void getsessionlog (slp_t slp, slp_t slog) {
 
 static void statsreport () {
     struct sessionlog tmp;
+    inttime now = getinttime();
     slp_t slp=statsbase;
     int active=0;
     while (slp) {
         if (0==slp->closed) {
             active++;
+            idlecheck(slp,now);
             fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
             getsessionlog(slp,&tmp);
             fprintf(stderr, "%s: rate:     %s\e[K\n",slp->tids,displaysessionlog (&tmp));
