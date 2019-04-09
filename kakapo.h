@@ -4,10 +4,9 @@
 #ifndef VERBOSE
 #define VERBOSE (0)
 #endif
-#ifndef TIMEOUT
-#define TIMEOUT 10
-#endif
 
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 extern int pid;
+extern uint32_t SLEEP;
+extern uint32_t TIMEOUT;
