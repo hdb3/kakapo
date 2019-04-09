@@ -19,17 +19,10 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
-//#include "sockbuf.h"
-//#include "timedloop.h"
-//#include "util.h"
 #include "libutil.h"
 #include "session.h"
 #include "kakapo.h"
 
-// setting SLEEP nonzero when compiling enables a millisecond denominated repeat loop
-#ifndef SLEEP
-#define SLEEP (0)
-#endif
 #define MAXPENDING 5    // Max connection requests
 #define BUFFSIZE 0x10000
 

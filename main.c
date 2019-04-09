@@ -27,6 +27,8 @@
 int pid;
 int tidx = 0;
 uint32_t MYAS = 65001;
+uint32_t SLEEP = 0; // default - don't repeat the send operation
+uint32_t TIMEOUT = 10;
 
 char * fnOpen, * fnUpdate;
 
@@ -122,6 +124,15 @@ void server() {
     }
 };
 
+void getuint32env(char* name , uint32_t* tgt) {
+  char* s;
+  uint32_t n;
+  if ( (s = getenv(name)) && (1 == sscanf(s,"%d",&n))) {
+    *tgt = n;
+    fprintf(stderr, "%d: read %s from environment: %d\n",pid,name,n);
+  };
+};
+
 int main(int argc, char *argv[]) {
 
   pid = getpid();
@@ -134,12 +145,9 @@ int main(int argc, char *argv[]) {
   fnOpen = argv[1];
   fnUpdate = argv[2];
 
-  char* sMYAS;
-  uint32_t nMYAS;
-  if ( (sMYAS = getenv("MYAS")) && (1 == sscanf(sMYAS,"%d",&nMYAS))) {
-    MYAS = nMYAS;
-    fprintf(stderr, "%d: read AS from environment: %d\n",pid,MYAS);
-  };
+  getuint32env("MYAS",&MYAS);
+  getuint32env("SLEEP",&SLEEP);
+  getuint32env("TIMEOUT",&TIMEOUT);
 
  (0 == access(fnOpen,R_OK) || die ("Failed to open BGP Open message file"));
  (0 == access(fnUpdate,R_OK) || die ("Failed to open BGP Update message file"));
