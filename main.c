@@ -30,6 +30,7 @@ int tidx = 0;
 uint32_t MYAS = 65001;
 uint32_t SLEEP = 0; // default - don't repeat the send operation
 uint32_t TIMEOUT = 10;
+char MYIP [16] = "0.0.0.0";
 
 char * fnOpen, * fnUpdate;
 
@@ -94,7 +95,8 @@ void server() {
 
     memset(&hostaddr, 0, SOCKADDRSZ );
     hostaddr.sin_family = AF_INET;
-    hostaddr.sin_addr.s_addr = htonl(INADDR_ANY);   // local server addr - wildcard - could be a specific interface
+    0 != inet_aton(MYIP,&hostaddr.sin_addr) || die("Failed to read server bind address from environment");
+    //hostaddr.sin_addr.s_addr = htonl(INADDR_ANY);   // local server addr - wildcard - could be a specific interface
     hostaddr.sin_port = htons(179);       // BGP server port
 
     0 == ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) || die("Failed to create socket");
@@ -125,6 +127,15 @@ void server() {
     }
 };
 
+// NOTE - the target string must be actual static memory large enough...
+void getsenv(char* name , char* tgt) {
+  char* s;
+  if ( (s = getenv(name)) && (1 == sscanf(s,"%s",s))) {
+    strcpy(tgt,s);
+    fprintf(stderr, "%d: read %s from environment: %s\n",pid,name,s);
+  };
+};
+
 void getuint32env(char* name , uint32_t* tgt) {
   char* s;
   uint32_t n;
@@ -149,6 +160,7 @@ int main(int argc, char *argv[]) {
   getuint32env("MYAS",&MYAS);
   getuint32env("SLEEP",&SLEEP);
   getuint32env("TIMEOUT",&TIMEOUT);
+  getsenv("MYIP",MYIP);
 
  (0 == access(fnOpen,R_OK) || die ("Failed to open BGP Open message file"));
  (0 == access(fnUpdate,R_OK) || die ("Failed to open BGP Update message file"));
