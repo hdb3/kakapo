@@ -6,8 +6,6 @@ struct sessiondata {
  int sock;
  int tidx;
  int as;
- char * fn1;
- char * fn2;
 };
 
 //*void session(struct sessiondata *sd);

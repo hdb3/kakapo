@@ -23,22 +23,19 @@
 #include "kakapo.h"
 
 #define MAXPENDING 5    // Max connection requests
-#define BUFFSIZE 0x10000
 
 int pid;
 int tidx = 0;
 uint32_t MYAS = 65001;
-uint32_t SLEEP = 0; // default - don't repeat the send operation
+uint32_t SLEEP = 0; // default value -> don't repeat the send operation
 uint32_t TIMEOUT = 10;
 char MYIP [16] = "0.0.0.0";
 
-char * fnOpen, * fnUpdate;
-
-void startsession(int sock, char * fn1, char * fn2) {
+void startsession(int sock ) {
 
   struct sessiondata *sd;
   sd = malloc (sizeof(struct sessiondata));
-  *sd = (struct sessiondata) { sock , tidx++, MYAS, fnOpen , fnUpdate };
+  *sd = (struct sessiondata) { sock , tidx++, MYAS };
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
 
@@ -82,7 +79,7 @@ void client (char *s) {
   (0 == (connect(peersock, (struct sockaddr *) &peeraddr, SOCKADDRSZ) ) || die ("Failed to connect with peer"));
 
   //fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
-  startsession(peersock , fnOpen , fnUpdate);
+  startsession( peersock );
 };
 
 
@@ -111,19 +108,9 @@ void server() {
 
     while (1) {
 
-      //fprintf(stderr, "%d: waiting for connection\n",pid);
       memset(&acceptaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; 0 <  ( peersock = accept(serversock, &acceptaddr, &socklen )) || die("Failed to accept peer connection");
-      //fprintf(stderr, "%d: acceptaddr %s\n",pid, inet_ntoa(acceptaddr.sin_addr));
-
       ( SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
-
-      // //memset(&localaddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getsockname(peersock, &localaddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
-      // //fprintf(stderr, "%d: localaddr %s\n",pid, inet_ntoa(localaddr.sin_addr));
-
-      // //memset(&peeraddr, 0, SOCKADDRSZ); socklen = SOCKADDRSZ; ( 0 == getpeername(peersock, &peeraddr, &socklen) && (socklen==SOCKADDRSZ)) || die ("Failed to find local address");
-      // //fprintf(stderr, "%d: peeraddr %s\n",pid, inet_ntoa(peeraddr.sin_addr));
-
-      startsession(peersock , fnOpen , fnUpdate);
+      startsession( peersock );
     }
 };
 
@@ -149,29 +136,24 @@ int main(int argc, char *argv[]) {
 
   pid = getpid();
   fprintf(stderr, "%d: kakapo\n",pid);
-  if (3 > argc) {
-      fprintf(stderr, "USAGE: bgpc <open_message_file> <update_message_file> {IP address}\n");
+  if (1 > argc) {
+      fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
+      fprintf(stderr, "       many options are controlled via environment variables like MYAS, MYIP, SLEEP, etc...\n");
       exit(1);
   }
-
-  fnOpen = argv[1];
-  fnUpdate = argv[2];
 
   getuint32env("MYAS",&MYAS);
   getuint32env("SLEEP",&SLEEP);
   getuint32env("TIMEOUT",&TIMEOUT);
   getsenv("MYIP",MYIP);
 
- (0 == access(fnOpen,R_OK) || die ("Failed to open BGP Open message file"));
- (0 == access(fnUpdate,R_OK) || die ("Failed to open BGP Update message file"));
-
   startstatsrunner ();
 
-  if (3 == argc) { // server mode.....
+  if (1 == argc) { // server mode.....
     server();
   } else { // client mode
      int argn;
-     for (argn=4 ; argn <= argc ; argn++)
+     for (argn=2 ; argn <= argc ; argn++)
          client(argv[argn-1]);
   }
   while (1)
