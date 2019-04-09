@@ -12,10 +12,13 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <time.h>
+#include <errno.h>
 
 #include "util.h"
 
-int die(char *mess) { perror(mess); exit(1); }
+int die(char *mess) { if (0 != errno) perror(mess); else fprintf(stderr,"%s\n",mess); exit(1); }
+
+void gettime (struct timespec *ts) { int tmp = clock_gettime(CLOCK_REALTIME,ts); };
 
 char * fromHostAddress (uint32_t ip) {
    // static char s [5];

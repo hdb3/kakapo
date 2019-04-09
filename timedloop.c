@@ -1,6 +1,7 @@
 #include <time.h>
 #include <stdio.h>
 #include "timespec.h"
+#include "libutil.h"
 #include "timedloop.h"
 
 void timedloopms (int duration, int (action) (int)) {
@@ -16,7 +17,7 @@ void timedloopsec (int duration, int (action) (int)) {
 void timedloop (struct timespec duration, int (action) (int)) {
 
    struct timespec delay, ts_target, ts_entry, ts_exit, now;
-   void gettime (struct timespec *ts) { int tmp = clock_gettime(CLOCK_REALTIME,ts); };
+   //void gettime (struct timespec *ts) { int tmp = clock_gettime(CLOCK_REALTIME,ts); };
    int i = 0;
    int result;
 
