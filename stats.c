@@ -7,7 +7,6 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/sendfile.h>
@@ -19,7 +18,6 @@
 #include <sys/ioctl.h>
 
 #include "session.h"
-#include "kakapo.h"
 */
 
 #include "stats.h"
@@ -27,13 +25,18 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <unistd.h>
 #include "libutil.h"
 #define _1e6 (1000000L)
+static slp_t statsbase = NULL;
 
-slp_t initlogrecord () {
+slp_t initlogrecord (int tid, char* tids) {
     slp_t slp = malloc(sizeof(struct sessionlog));
     inttime now = getinttime();
     pthread_mutex_init(&slp->mutex,NULL);
+    slp->tid = tid;
+    slp->tids = strdup(tids);
+    slp->changed = 1;
     slp->cumulative.ts = now;
     slp->cumulative.updates=0;
     slp->cumulative.nlri=0;
@@ -42,6 +45,8 @@ slp_t initlogrecord () {
     slp->current.updates=0;
     slp->current.nlri=0;
     slp->current.withdrawn=0;
+    slp->next = statsbase;
+    statsbase = slp;
     return slp;
 };
 
@@ -50,6 +55,7 @@ void updatelogrecord (slp_t slp, int nlri, int withdrawn) {
     slp->current.updates++;
     slp->current.nlri += nlri;
     slp->current.withdrawn += withdrawn;
+    slp->changed = 1;
     pthread_mutex_unlock(&slp->mutex);
 };
 
@@ -119,5 +125,27 @@ void getsessionlog (slp_t slp, slp_t slog) {
      slp->current.nlri=0;
      slp->current.withdrawn=0;
 
+    slp->changed = 0;
     pthread_mutex_unlock(&slp->mutex);
+};
+
+static void statsreport () {
+    slp_t slp=statsbase;
+    while (slp) {
+        fprintf(stderr,"%s (%d) statsreport\n",slp->tids,slp->tid);
+        slp=slp->next;
+    };
+};
+
+void startstatsrunner () {
+
+    void * statsrunner (void * arg) {
+        while (1) {
+            statsreport();
+            sleep(5);
+        };
+    };
+
+  pthread_t thrd;
+  pthread_create(&thrd, NULL, statsrunner, NULL);
 };
