@@ -36,6 +36,7 @@ struct sessionlog {
     int tid;
     char * tids;
     int changed;
+    int closed;
     pthread_mutex_t mutex;
     struct logrecord cumulative,current;
     struct sessionlog *next;
@@ -49,4 +50,5 @@ char * displaysessionlog (slp_t slp);
 char * displaylogrecord (slp_t slp);
 void updatelogrecord (slp_t slp, int nlri, int withdrawn);
 slp_t initlogrecord (int tid, char* tids);
+void closelogrecord (slp_t slp, int tid);
 void startstatsrunner ();
