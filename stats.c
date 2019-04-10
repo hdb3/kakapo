@@ -14,7 +14,7 @@
 static slp_t statsbase = NULL;
 
 void closelogrecord (slp_t slp, int tid) {
-    if (SLP) {
+    if (slp) {
         assert (tid == slp->tid);
         // rather than free resources we simply mark the record closed
         slp->closed = 1;

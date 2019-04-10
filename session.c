@@ -30,7 +30,7 @@
 void *session(void *x){
 // from here on down all variables are function, and thus thread, local.
 struct sessiondata *sd = (struct sessiondata *) x;
-slp_t slp;
+slp_t slp = NULL;
 
 uint32_t  localip,peerip;
 
@@ -290,7 +290,7 @@ long int threadmain() {
 
   report(1,msgtype);
   if (1 != msgtype)
-    goto exit;
+    goto outerexit;
 
   (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
 
@@ -300,7 +300,7 @@ long int threadmain() {
 
   report(4,msgtype);
   if (4 != msgtype)
-    goto exit;
+    goto outerexit;
 
   pthread_t thrd;
   pthread_create(&thrd, NULL, sendthread, NULL);
@@ -334,6 +334,7 @@ long int threadmain() {
 exit:
   closelogrecord(slp,sd->tidx);
   pthread_cancel(thrd);
+outerexit:
   close(sock);
   fprintf(stderr, "%s: session exit\n",tid);
   free(sd);

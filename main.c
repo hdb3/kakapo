@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
   getuint32env("GROUPSIZE" , &GROUPSIZE);
   getuint32env("BLOCKSIZE" , &BLOCKSIZE);
   getuint32env("MAXBURSTCOUNT" , &MAXBURSTCOUNT);
-  getuint32env("NEXTHOP" , &NEXTHOP);
+  gethostaddress("NEXTHOP" , &NEXTHOP);
   getuint32env("CYCLECOUNT" , &CYCLECOUNT);
   getuint32env("CYCLEDELAY" , &CYCLEDELAY);
   getuint32env("SHOWRATE" , &SHOWRATE);
