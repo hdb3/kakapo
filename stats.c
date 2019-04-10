@@ -59,7 +59,11 @@ int idlecheck (slp_t slp, struct timespec * now) {
         // //       , timespec_to_double(*now));
         struct timespec duration = timespec_sub (slp->lastts , slp->firstts);
         slp->lastburstduration = duration;
-        fprintf(stderr,"%s burst duration %f\n", slp->tids, timespec_to_double(duration));
+        struct sessionlog tmp;
+        getsessionlog(slp,&tmp);
+        ///fprintf(stderr,"%s burst duration %f\n", slp->tids, timespec_to_double(duration));
+        fprintf(stderr,"%s burst duration %f counters: %s\n", slp->tids, timespec_to_double(duration),displaylogrecord (slp));
+        //fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
         slp->firstts = TSZERO;
         slp->lastts = TSZERO;
         return 1;
@@ -83,15 +87,17 @@ char * displaylogrecord (slp_t slp) {
     char *s;
     inttime now = getinttime();
     pthread_mutex_lock(&slp->mutex);
-    int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld), last burst %f" ,
+    int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld)" ,
+    // //int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld), last burst %f" ,
       (now - slp->cumulative.ts ) / 1e6,
       slp->current.updates ,
       slp->cumulative.updates ,
       slp->current.nlri ,
       slp->cumulative.nlri ,
       slp->current.withdrawn ,
-      slp->cumulative.withdrawn,
-      timespec_to_double(slp->lastburstduration) );
+      slp->cumulative.withdrawn
+      // //,timespec_to_double(slp->lastburstduration)
+    );
     pthread_mutex_unlock(&slp->mutex);
     return s;
 };
@@ -163,13 +169,13 @@ static void statsreport () {
             active++;
             int b = idlecheck(slp,&now);
             if (SHOWRATE) {
+                getsessionlog(slp,&tmp);
                 fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
-                getsessionlog(slp,&tmp);
                 fprintf(stderr, "%s: rate:     %s\e[K\n",slp->tids,displaysessionlog (&tmp));
-            } else if (b) {
-                fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
-                getsessionlog(slp,&tmp);
-                fprintf(stderr, "%s: rate:     %s\n",slp->tids,displaysessionlog (&tmp));
+            ///} else if (b) {
+                ///getsessionlog(slp,&tmp);
+                ///fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
+                ///fprintf(stderr, "%s: rate:     %s\n",slp->tids,displaysessionlog (&tmp));
             };
         };
         slp=slp->next;
