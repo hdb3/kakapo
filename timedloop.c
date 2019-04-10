@@ -26,8 +26,13 @@ void timedloop (struct timespec duration, int (action) (int)) {
        gettime(&ts_entry);
        result = action(i);
        gettime(&ts_exit);
-       if ( result ) break;
-       ts_target = timespec_add (ts_target,duration);
+       //if ( result ) break;
+       if ( -1 == result )
+           break;
+       else if ( 0 == result )
+           ts_target = timespec_add (ts_target,duration);
+       else
+           ts_target = timespec_add (ts_target,(struct timespec) { result , 0 }); // action can request an additional delay, measured in seconds
        i++;
        gettime(&now);
        while (timespec_gt(ts_target,now)) {

@@ -4,15 +4,18 @@
 #include "timedloop.h"
 
 int f (int p) {
-    fprintf(stderr,"f(%d)\n",p);
-    return (p > 4);
+    printf("f(%d)\n",p);
+    if (p == 1) {
+       printf("delaying for 4 seconds\n");
+       return 4;
+    } else if (p > 4)
+        return (-1);
+    else
+        return 0;
 };
 
 int main (int argc, char** argv) {
-
-   struct timespec duration = {1,0};
-
    timedloopms(50,f);
    timedloopms(500,f);
-   timedloop(duration,f);
+   timedloop((struct timespec) {1,0}, f);
 };
