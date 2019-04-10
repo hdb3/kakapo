@@ -40,7 +40,7 @@ uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress s
 uint32_t CYCLEDELAY = 30;  // seconds
 
 char MYIP [16] = "0.0.0.0";
-long long int idlethreshold = (long long int) 1e10; // 10 seconds default burst idle threshold
+uint32_t idlethreshold = 10; // 10 seconds default burst idle threshold
 
 void startsession(int sock ) {
 
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SLEEP",&SLEEP);
   getuint32env("TIMEOUT",&TIMEOUT);
   getsenv("MYIP",MYIP);
-  getllienv("IDLETHR",&idlethreshold);
+  getuint32env("IDLETHR",&idlethreshold);
   gethostaddress("SEEDPREFIX" , &SEEDPREFIX);
   getuint32env("SEEDPREFIXLEN" , &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE" , &GROUPSIZE);
