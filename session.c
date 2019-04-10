@@ -283,16 +283,8 @@ void *sendthread (void *_x) {
       };
       return 0; // ask to be restarted...
    };
-
-  if (0 == SLEEP) {
-     if (VERBOSE)
-        fprintf(stderr,"sendupdates singleshot mode\n");
-     sendupdates(0);
-  } else {
-     if (VERBOSE)
-        fprintf(stderr,"sendupdates looping at %f\n", SLEEP / 1000.0);
-     timedloopms ( SLEEP ,sendupdates);
-  };
+   timedloopms ( SLEEP ,sendupdates);
+  fprintf(stderr,"sendthread exit\n");
 };
 
 long int threadmain() {
