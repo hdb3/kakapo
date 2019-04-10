@@ -238,25 +238,19 @@ void report (int expected, int got) {
 }
 
 void *sendthread (void *_x) {
-  struct timeval t0, t1, td;
+  // struct timeval t0, t1, td;
 
    int sendupdates (int seq) {
-      int cyclenumber = 1;
-      //uint32_t SEEDPREFIX = toHostAddress("10.0.0.0");
-      //uint8_t SEEDPREFIXLEN = 30;
-      //int GROUPSIZE = 3;
-      //int BLOCKSIZE = 3;
-      //int MAXBURSTCOUNT = 3;
-      //int NEXTHOP = toHostAddress("192.168.1.1");
-
-      if (seq >= MAXBURSTCOUNT) {
-         fprintf(stderr, "%s: sendupdates: send RIB complete\n",tid);
+      int cyclenumber = seq / MAXBURSTCOUNT;
+      if ((CYCLECOUNT>0) && cyclenumber >= CYCLECOUNT) {
+         fprintf(stderr, "%s: sendupdates: sending complete\n",tid);
          return -1;
       };
-      for (int usn = seq * BLOCKSIZE ; usn < (seq+1) * BLOCKSIZE ; usn++) {
+      int bsn = seq % MAXBURSTCOUNT;
+      for (int usn = bsn * BLOCKSIZE ; usn < (bsn+1) * BLOCKSIZE ; usn++) {
           sendbs(sock,update ( nlris(SEEDPREFIX,SEEDPREFIXLEN,GROUPSIZE,usn),
                                empty,
-                               eBGPpath (NEXTHOP, (uint32_t []) {usn+SEEDPREFIX,cyclenumber,sd->as,0})));
+                               eBGPpath (NEXTHOP, (uint32_t []) {usn+SEEDPREFIX,cyclenumber+1,sd->as,0})));
       };
       return 0; // ask to be restarted...
    };
