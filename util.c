@@ -28,7 +28,7 @@ char * fromHostAddress (uint32_t ip) {
 
 uint32_t toHostAddress (char * s ) {
    struct in_addr addr;
-   inet_aton(s,&addr);
+   (0 != inet_aton(s,&addr)) || (die("failed to convert string to host address"));
    return addr.s_addr;
 };
 

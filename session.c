@@ -242,12 +242,12 @@ void *sendthread (void *_x) {
 
    int sendupdates (int seq) {
       int cyclenumber = 1;
-      uint32_t SEEDPREFIX = toHostAddress("10.0.0.0");
-      uint8_t SEEDPREFIXLEN = 30;
-      int GROUPSIZE = 10;
-      int BLOCKSIZE = 10;
-      int MAXBURSTCOUNT = 10;
-      int NEXTHOP = toHostAddress("192.168.1.1");
+      //uint32_t SEEDPREFIX = toHostAddress("10.0.0.0");
+      //uint8_t SEEDPREFIXLEN = 30;
+      //int GROUPSIZE = 3;
+      //int BLOCKSIZE = 3;
+      //int MAXBURSTCOUNT = 3;
+      //int NEXTHOP = toHostAddress("192.168.1.1");
 
       if (seq >= MAXBURSTCOUNT) {
          fprintf(stderr, "%s: sendupdates: send RIB complete\n",tid);
