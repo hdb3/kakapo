@@ -16,7 +16,8 @@
 
 void setsocktimeout (int sock, int timeout) {
     struct timeval tv;
-    tv.tv_sec = timeout;
+    tv.tv_sec = 20;
+    //tv.tv_sec = timeout;
     tv.tv_usec = 0;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 };
@@ -26,6 +27,7 @@ void bufferInit (struct sockbuf *sb, int sock, int size, int timeout) {
     sb->sock = sock;
     sb->timeout = timeout;
     sb->rcvtimestamp = (struct timespec) {0,0};
+    sb->rcvcount = 0;
     sb->start = 0;
     sb->count = 0;
     sb->top = size;

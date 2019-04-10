@@ -1,24 +1,6 @@
 
 /* kakapo-session - a BGP traffic source and sink */
 
-/*
-#include <errno.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <string.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <sys/sendfile.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <linux/sockios.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-
-#include "session.h"
-*/
-
 #include "stats.h"
 
 #include <stdio.h>
@@ -60,23 +42,29 @@ slp_t initlogrecord (int tid, char* tids) {
     return slp;
 };
 
-void idlecheck (slp_t slp, struct timespec * now) {
+int idlecheck (slp_t slp, struct timespec * now) {
     if (
           ( 0 != slp->firstts.tv_sec) &&
-          ( timespec_gt ( (struct timespec) {idlethreshold,0} ,
-                          timespec_sub (*now,
-                                        slp->lastts
-                                       )
+          ( timespec_gt (
+                          timespec_sub (*now, slp->lastts),
+                          (struct timespec) {IDLETHR,0}
                         )
           )
        )
     {
-          struct timespec duration = timespec_sub (slp->lastts , slp->firstts);
-          slp->lastburstduration = duration;
-          fprintf(stderr,"%s burst duration %f\n", slp->tids, timespec_to_double(duration));
-          slp->firstts = TSZERO;
-          slp->lastts = TSZERO;
-    };
+        // //fprintf(stderr,"%s ************* first/last/now %f/%f/%f\n"
+        // //       , slp->tids
+        // //       , timespec_to_double(slp->firstts)
+        // //       , timespec_to_double(slp->lastts)
+        // //       , timespec_to_double(*now));
+        struct timespec duration = timespec_sub (slp->lastts , slp->firstts);
+        slp->lastburstduration = duration;
+        fprintf(stderr,"%s burst duration %f\n", slp->tids, timespec_to_double(duration));
+        slp->firstts = TSZERO;
+        slp->lastts = TSZERO;
+        return 1;
+    } else
+        return 0;
 };
 
 void updatelogrecord (slp_t slp, int nlri, int withdrawn, struct timespec * ts) {
@@ -112,9 +100,6 @@ char * displaysessionlog (slp_t slp) {
     char *s;
     char bm [256] = "idle";
     pthread_mutex_lock(&slp->mutex);
-    ///if (0 == slp->firstts)
-        ///bm = strdup("idle");
-    ///else
     if (0 != slp->firstts.tv_sec)
         snprintf(bm,255,"current burst %f", timespec_to_double(timespec_sub(slp->lastts , slp->firstts)));
     int tmp = asprintf(&s,"elapsed time : %f update msg rate %6ld (%6ld) NLRI rate %6ld (%6ld) withdrawn rate %6ld (%6ld) %s" ,
@@ -148,14 +133,14 @@ void getsessionlog (slp_t slp, slp_t slog) {
      slp->cumulative.withdrawn += slp->current.withdrawn;
 
 // calculate current rates
-    slog->current.updates =  slp->current.updates * _1e6 / deltaCurrent; //all integer arithmetic!
-    slog->current.nlri = slp->current.nlri * _1e6 / deltaCurrent; //all integer arithmetic!
-    slog->current.withdrawn = slp->current.withdrawn * _1e6 / deltaCurrent; //all integer arithmetic!
+    slog->current.updates =  slp->current.updates * _1e6 / deltaCurrent;
+    slog->current.nlri = slp->current.nlri * _1e6 / deltaCurrent;
+    slog->current.withdrawn = slp->current.withdrawn * _1e6 / deltaCurrent;
 
 // calculate cumulative rates
-    slog->cumulative.updates = slp->cumulative.updates * _1e6 / deltaCumulative; //all integer arithmetic!
-    slog->cumulative.nlri = slp->cumulative.nlri * _1e6 / deltaCumulative; //all integer arithmetic!
-    slog->cumulative.withdrawn = slp->cumulative.withdrawn * _1e6 / deltaCumulative; //all integer arithmetic!
+    slog->cumulative.updates = slp->cumulative.updates * _1e6 / deltaCumulative;
+    slog->cumulative.nlri = slp->cumulative.nlri * _1e6 / deltaCumulative;
+    slog->cumulative.withdrawn = slp->cumulative.withdrawn * _1e6 / deltaCumulative;
 
 // reset the current counters
      slp->current.ts = now;
@@ -176,15 +161,22 @@ static void statsreport () {
     while (slp) {
         if (0==slp->closed) {
             active++;
-            idlecheck(slp,&now);
-            fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
-            getsessionlog(slp,&tmp);
-            fprintf(stderr, "%s: rate:     %s\e[K\n",slp->tids,displaysessionlog (&tmp));
+            int b = idlecheck(slp,&now);
+            if (SHOWRATE) {
+                fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
+                getsessionlog(slp,&tmp);
+                fprintf(stderr, "%s: rate:     %s\e[K\n",slp->tids,displaysessionlog (&tmp));
+            } else if (b) {
+                fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
+                getsessionlog(slp,&tmp);
+                fprintf(stderr, "%s: rate:     %s\n",slp->tids,displaysessionlog (&tmp));
+            };
         };
         slp=slp->next;
     };
-    if (active)
-        fprintf(stderr, "\e[%dA",active*2);
+    if (SHOWRATE)
+        if (active)
+            fprintf(stderr, "\e[%dA",active*2);
 };
 
 void startstatsrunner () {

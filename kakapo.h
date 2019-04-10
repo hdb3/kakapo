@@ -8,9 +8,10 @@
 #define SOCKADDRSZ (sizeof (struct sockaddr_in))
 
 extern int pid;
+extern uint32_t SHOWRATE;
 extern uint32_t SLEEP;
 extern uint32_t TIMEOUT;
-extern uint32_t idlethreshold;
+extern uint32_t IDLETHR;
 
 extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;

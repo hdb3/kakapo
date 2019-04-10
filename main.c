@@ -30,6 +30,7 @@ uint32_t MYAS = 65001;
 uint32_t SLEEP = 0; // default value -> don't repeat the send operation
 uint32_t TIMEOUT = 10;
 
+uint32_t SHOWRATE=0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3;
 uint32_t BLOCKSIZE = 3;
@@ -40,7 +41,7 @@ uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress s
 uint32_t CYCLEDELAY = 30;  // seconds
 
 char MYIP [16] = "0.0.0.0";
-uint32_t idlethreshold = 10; // 10 seconds default burst idle threshold
+uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
 void startsession(int sock ) {
 
@@ -176,7 +177,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SLEEP",&SLEEP);
   getuint32env("TIMEOUT",&TIMEOUT);
   getsenv("MYIP",MYIP);
-  getuint32env("IDLETHR",&idlethreshold);
+  getuint32env("IDLETHR",&IDLETHR);
   gethostaddress("SEEDPREFIX" , &SEEDPREFIX);
   getuint32env("SEEDPREFIXLEN" , &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE" , &GROUPSIZE);
@@ -185,6 +186,7 @@ int main(int argc, char *argv[]) {
   getuint32env("NEXTHOP" , &NEXTHOP);
   getuint32env("CYCLECOUNT" , &CYCLECOUNT);
   getuint32env("CYCLEDELAY" , &CYCLEDELAY);
+  getuint32env("SHOWRATE" , &SHOWRATE);
 
   startstatsrunner ();
 

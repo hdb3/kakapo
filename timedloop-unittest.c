@@ -15,6 +15,7 @@ int f (int p) {
 };
 
 int main (int argc, char** argv) {
+   timedloop((struct timespec) {0,0}, f);
    timedloopms(50,f);
    timedloopms(500,f);
    timedloop((struct timespec) {1,0}, f);

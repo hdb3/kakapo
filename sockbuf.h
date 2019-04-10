@@ -5,6 +5,7 @@
 struct sockbuf {
     int sock,timeout;
     struct timespec rcvtimestamp;
+    int rcvcount;
     unsigned int start,count,top,threshold;
     char *base;
 };
