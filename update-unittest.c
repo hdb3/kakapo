@@ -17,13 +17,13 @@ int main (int argc, char** argv) {
    // //struct bytestring pth = iBGPpath(toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0} );
    // //printf("%s\n", hexbytestring(iBGPpath(toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0} )));
    // //printf("%s\n", hexbytestring(pth));
-   struct bytestring nlri =  nlris(toHostAddress("10.0.0.0"),30,4);
+   struct bytestring nlri =  nlris(toHostAddress("10.0.0.0"),30,4,0);
    // //printf("nlri%s\n", hexbytestring(nlri));
    printf("update(empty,empty,empty)%s\n", hexbytestring(update(empty,empty,empty)));
    printf("update(nrli,empty,empty)%s\n", hexbytestring(update(nlri,empty,empty)));
 
 
-   //struct bytestring nlri = nlris(ip.s_addr,24,4);
+   //struct bytestring nlri = nlris(ip.s_addr,24,4,0);
    // //struct bytestring path = iBGPpath (toHostAddress("192.168.1.1"), asns);
    struct bytestring path = iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0});
    struct bytestring withdrawn =  empty;
@@ -33,12 +33,12 @@ int main (int argc, char** argv) {
    printf("withdrawn: %s\n", hexbytestring(withdrawn));
    printf("nlri: %s\n", hexbytestring(nlri));
    printf("iBGPupdate: %s\n", hexbytestring(msg));
-   printf("iBGPupdate: %s\n", hexbytestring(update ( nlris(toHostAddress("10.0.0.0"),30,4),
+   printf("iBGPupdate: %s\n", hexbytestring(update ( nlris(toHostAddress("10.0.0.0"),30,4,0),
                                                      empty,
                                                      iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0})
                                            )));
    printf("iBGPwithdraw: %s\n", hexbytestring(update ( empty,
-                                                       nlris(toHostAddress("10.0.0.0"),30,4),
+                                                       nlris(toHostAddress("10.0.0.0"),30,4,0),
                                                        empty
                                            )));
 
@@ -54,7 +54,7 @@ int main (int argc, char** argv) {
            hexbytestring(update (nlri,withdrawn,attributes)));
 
 
-   printf("nlri 192.168.0.0/24 , 4 %s\n", hexbytestring(nlris(ip.s_addr,24,4)));
+   printf("nlri 192.168.0.0/24 , 4 %s\n", hexbytestring(nlris(ip.s_addr,24,4,0)));
 
    printf("paOrigin %s\n", hexbytestring(pa2bytestring(paOrigin)));
    printf("paLocalPref %s\n", hexbytestring(pa2bytestring(paLocalPref)));

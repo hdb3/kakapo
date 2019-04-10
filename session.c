@@ -241,16 +241,37 @@ void *sendthread (void *_x) {
   struct timeval t0, t1, td;
 
    int sendupdates (int seq) {
+      int cyclenumber = 1;
+      uint32_t SEEDPREFIX = toHostAddress("10.0.0.0");
+      uint8_t SEEDPREFIXLEN = 30;
+      int GROUPSIZE = 10;
+      int BLOCKSIZE = 10;
+      int MAXBURSTCOUNT = 10;
+      int NEXTHOP = toHostAddress("192.168.1.1");
+
+      if (seq >= MAXBURSTCOUNT) {
+         fprintf(stderr, "%s: sendupdates: send RIB complete\n",tid);
+         return -1;
+      };
+      for (int usn = seq * BLOCKSIZE ; usn < (seq+1) * BLOCKSIZE ; usn++) {
+          sendbs(sock,update ( nlris(SEEDPREFIX,SEEDPREFIXLEN,GROUPSIZE,usn),
+                               empty,
+                               eBGPpath (NEXTHOP, (uint32_t []) {usn+SEEDPREFIX,cyclenumber,sd->as,0})));
+      };
+      return 0; // ask to be restarted...
+   };
+
+   int _sendupdates (int seq) {
       struct timeval t0, t1 , td;
       if (VERBOSE)
           gettimeofday(&t0, NULL);
 
       if (0 == (seq % 2))
-          sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4),
+          sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4,0),
                                empty,
                                iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0})));
       else
-          sendbs(sock,update ( empty, nlris(toHostAddress("10.0.0.0"),30,4), empty));
+          sendbs(sock,update ( empty, nlris(toHostAddress("10.0.0.0"),30,4,0), empty));
 
       if (VERBOSE) {
          gettimeofday(&t1, NULL);

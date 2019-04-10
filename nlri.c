@@ -6,7 +6,7 @@
 #include "bytestring.h"
 
 
-struct bytestring nlris (uint32_t ipstart , uint8_t length, int count) {
+struct bytestring nlris (uint32_t ipstart , uint8_t length, int count, int seq) {
 
    uint8_t chunksize;
    if ( length == 0 )
@@ -26,6 +26,7 @@ struct bytestring nlris (uint32_t ipstart , uint8_t length, int count) {
    char * next = buf;
    uint32_t ip = __bswap_32(ipstart);
    uint32_t increment = 1 << (32-length);
+   ip += seq * count * increment; // generate sequence of NLRIs
    uint32_t x [2];
    uint8_t * lptr = 3 + (uint8_t*) x;
    uint32_t * addrptr = x+1;
