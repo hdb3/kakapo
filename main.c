@@ -29,6 +29,14 @@ int tidx = 0;
 uint32_t MYAS = 65001;
 uint32_t SLEEP = 0; // default value -> don't repeat the send operation
 uint32_t TIMEOUT = 10;
+
+uint32_t SEEDPREFIXLEN = 30;
+uint32_t GROUPSIZE = 3;
+uint32_t BLOCKSIZE = 3;
+uint32_t MAXBURSTCOUNT = 3;
+uint32_t NEXTHOP;    char sNEXTHOP []    = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant initilase like this ;-(
+uint32_t SEEDPREFIX; char sSEEDPREFIX [] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant initilase like this ;-(
+
 char MYIP [16] = "0.0.0.0";
 long long int idlethreshold = (long long int) 1e10; // 10 seconds default burst idle threshold
 
@@ -124,6 +132,14 @@ void getsenv(char* name , char* tgt) {
   };
 };
 
+void gethostaddress(char* name , uint32_t* tgt) {
+  char* s;
+  if ( (s = getenv(name)) && (1 == sscanf(s,"%s",s))) {
+    *tgt = toHostAddress(s);
+    fprintf(stderr, "%d: read %s from environment: %s\n",pid,name,fromHostAddress(*tgt));
+  };
+};
+
 void getuint32env(char* name , uint32_t* tgt) {
   char* s;
   uint32_t n;
@@ -152,11 +168,19 @@ int main(int argc, char *argv[]) {
       exit(1);
   }
 
+  NEXTHOP = toHostAddress(sNEXTHOP);  /// must initliase here because cant do it in the declaration
+  SEEDPREFIX = toHostAddress(sSEEDPREFIX);  /// cant initilase like this ;-(
   getuint32env("MYAS",&MYAS);
   getuint32env("SLEEP",&SLEEP);
   getuint32env("TIMEOUT",&TIMEOUT);
   getsenv("MYIP",MYIP);
   getllienv("IDLETHR",&idlethreshold);
+  gethostaddress("SEEDPREFIX" , &SEEDPREFIX);
+  getuint32env("SEEDPREFIXLEN" , &SEEDPREFIXLEN);
+  getuint32env("GROUPSIZE" , &GROUPSIZE);
+  getuint32env("BLOCKSIZE" , &BLOCKSIZE);
+  getuint32env("MAXBURSTCOUNT" , &MAXBURSTCOUNT);
+  getuint32env("NEXTHOP" , &NEXTHOP);
 
   startstatsrunner ();
 
