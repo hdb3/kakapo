@@ -269,7 +269,6 @@ void *sendthread (void *_x) {
    };
 
    timedloopms ( SLEEP ,sendupdates);
-  fprintf(stderr,"sendthread exit\n");
 };
 
 long int threadmain() {
