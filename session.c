@@ -239,7 +239,7 @@ void report (int expected, int got) {
 }
 
 void *sendthread (void *_x) {
-  // struct timeval t0, t1, td;
+   struct timespec tstart,tend;
 
    int sendupdates (int seq) {
 
@@ -253,36 +253,21 @@ void *sendthread (void *_x) {
       };
 
       int bsn = seq % MAXBURSTCOUNT;
+  
+      gettime(&tstart);
       for (int usn = bsn * BLOCKSIZE ; usn < (bsn+1) * BLOCKSIZE ; usn++) {
           sendbs(sock,update ( nlris(SEEDPREFIX,SEEDPREFIXLEN,GROUPSIZE,usn),
                                empty,
                                eBGPpath (NEXTHOP, (uint32_t []) {usn+SEEDPREFIX,cyclenumber+1,sd->as,0})));
       };
+      gettime(&tend);
+      fprintf(stderr, "%s: sendupdates burst seq %d cycle %d completed in %f\n",tid,bsn,cyclenumber,timespec_to_double (timespec_sub(tend,tstart)));
       if (bsn == MAXBURSTCOUNT-1)
           return CYCLEDELAY;
       else
           return 0; // ask to be restarted...
    };
 
-   int _sendupdates (int seq) {
-      struct timeval t0, t1 , td;
-      if (VERBOSE)
-          gettimeofday(&t0, NULL);
-
-      if (0 == (seq % 2))
-          sendbs(sock,update ( nlris(toHostAddress("10.0.0.0"),30,4,0),
-                               empty,
-                               iBGPpath (toHostAddress("192.168.1.1"), (uint32_t []) {1,2,3,0})));
-      else
-          sendbs(sock,update ( empty, nlris(toHostAddress("10.0.0.0"),30,4,0), empty));
-
-      if (VERBOSE) {
-         gettimeofday(&t1, NULL);
-         timeval_subtract(&td,&t1,&t0);
-         fprintf(stderr, "%s: session: send RIB complete in %s\n",tid,timeval_to_str(&td));
-      };
-      return 0; // ask to be restarted...
-   };
    timedloopms ( SLEEP ,sendupdates);
   fprintf(stderr,"sendthread exit\n");
 };
