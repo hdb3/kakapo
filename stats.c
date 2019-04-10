@@ -14,9 +14,11 @@
 static slp_t statsbase = NULL;
 
 void closelogrecord (slp_t slp, int tid) {
-    assert (tid == slp->tid);
-    // rather than free resources we simply mark the record closed
-    slp->closed = 1;
+    if (SLP) {
+        assert (tid == slp->tid);
+        // rather than free resources we simply mark the record closed
+        slp->closed = 1;
+    };
 };
 
 slp_t initlogrecord (int tid, char* tids) {
@@ -87,9 +89,9 @@ char * displaylogrecord (slp_t slp) {
     char *s;
     inttime now = getinttime();
     pthread_mutex_lock(&slp->mutex);
-    int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld)" ,
+    int tmp = asprintf(&s,"f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld)" ,
     // //int tmp = asprintf(&s,"elapsed time : %f update msg cnt  %6ld (%6ld) NLRI cnt  %6ld (%6ld) withdrawn cnt  %6ld (%6ld), last burst %f" ,
-      (now - slp->cumulative.ts ) / 1e6,
+    //  (now - slp->cumulative.ts ) / 1e6,
       slp->current.updates ,
       slp->cumulative.updates ,
       slp->current.nlri ,
