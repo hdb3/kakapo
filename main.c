@@ -36,6 +36,8 @@ uint32_t BLOCKSIZE = 3;
 uint32_t MAXBURSTCOUNT = 3;
 uint32_t NEXTHOP;    char sNEXTHOP []    = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant initilase like this ;-(
 uint32_t SEEDPREFIX; char sSEEDPREFIX [] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant initilase like this ;-(
+uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
+uint32_t CYCLEDELAY = 30;  // seconds
 
 char MYIP [16] = "0.0.0.0";
 long long int idlethreshold = (long long int) 1e10; // 10 seconds default burst idle threshold
@@ -181,6 +183,8 @@ int main(int argc, char *argv[]) {
   getuint32env("BLOCKSIZE" , &BLOCKSIZE);
   getuint32env("MAXBURSTCOUNT" , &MAXBURSTCOUNT);
   getuint32env("NEXTHOP" , &NEXTHOP);
+  getuint32env("CYCLECOUNT" , &CYCLECOUNT);
+  getuint32env("CYCLEDELAY" , &CYCLEDELAY);
 
   startstatsrunner ();
 
