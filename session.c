@@ -241,11 +241,16 @@ void *sendthread (void *_x) {
   // struct timeval t0, t1, td;
 
    int sendupdates (int seq) {
+
+      if (MAXBURSTCOUNT == 0)
+         return -1;
+
       int cyclenumber = seq / MAXBURSTCOUNT;
       if ((CYCLECOUNT>0) && cyclenumber >= CYCLECOUNT) {
          fprintf(stderr, "%s: sendupdates: sending complete\n",tid);
          return -1;
       };
+
       int bsn = seq % MAXBURSTCOUNT;
       for (int usn = bsn * BLOCKSIZE ; usn < (bsn+1) * BLOCKSIZE ; usn++) {
           sendbs(sock,update ( nlris(SEEDPREFIX,SEEDPREFIXLEN,GROUPSIZE,usn),
