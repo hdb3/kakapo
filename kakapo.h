@@ -10,7 +10,7 @@
 extern int pid;
 extern uint32_t SLEEP;
 extern uint32_t TIMEOUT;
-extern long long int idlethreshold;
+extern uint32_t idlethreshold;
 
 extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;

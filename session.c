@@ -163,10 +163,11 @@ void doupdate(char *msg, int length) {
         uc = spnlri(nlri,nlril);
    else
         uc = 0;
+
    if (1 == VERBOSE)
        fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n",tid,wc,tpal,uc);
-   //inttime rxtimestamp = lastrcvtime(&sb);
-   updatelogrecord (slp, uc, wc, lastrecvtime(&sb));
+
+   updatelogrecord (slp, uc, wc, &sb.rcvtimestamp);
 };
 
 void donotification(char *msg, int length) {

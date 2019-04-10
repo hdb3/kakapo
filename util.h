@@ -25,5 +25,6 @@ inttime timeval_to_int (struct timeval *tval);
 char* timeval_to_str (struct timeval *tval);
 
 int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y);
+#define TSZERO ( (struct timespec) { 0 , 0 } )
 char * concat (const char *str,...);
 #endif

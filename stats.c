@@ -45,8 +45,8 @@ slp_t initlogrecord (int tid, char* tids) {
     slp->tids = strdup(tids);
     slp->changed = 1;
     slp->closed = 0;
-    slp->firstts = 0;
-    slp->lastts = 0;
+    slp->firstts = TSZERO;
+    slp->lastts = TSZERO;
     slp->cumulative.ts = now;
     slp->cumulative.updates=0;
     slp->cumulative.nlri=0;
@@ -60,21 +60,30 @@ slp_t initlogrecord (int tid, char* tids) {
     return slp;
 };
 
-void idlecheck (slp_t slp, inttime now) {
-    if ((0 != slp->firstts) &&
-        (idlethreshold > (now - slp->lastts))) {
-        slp->firstts = 0;
-        inttime duration = slp->lastts - slp->firstts;
-        slp->lastburstduration = duration;
-        fprintf(stderr,"%s burst duration %f\n", slp->tids, duration / 1e9);
+void idlecheck (slp_t slp, struct timespec * now) {
+    if (
+          ( 0 != slp->firstts.tv_sec) &&
+          ( timespec_gt ( (struct timespec) {idlethreshold,0} ,
+                          timespec_sub (*now,
+                                        slp->lastts
+                                       )
+                        )
+          )
+       )
+    {
+          struct timespec duration = timespec_sub (slp->lastts , slp->firstts);
+          slp->lastburstduration = duration;
+          fprintf(stderr,"%s burst duration %f\n", slp->tids, timespec_to_double(duration));
+          slp->firstts = TSZERO;
+          slp->lastts = TSZERO;
     };
 };
 
-void updatelogrecord (slp_t slp, int nlri, int withdrawn, inttime ts) {
+void updatelogrecord (slp_t slp, int nlri, int withdrawn, struct timespec * ts) {
     pthread_mutex_lock(&slp->mutex);
-    if (0 == slp->firstts)
-        slp->firstts = ts;
-    slp->lastts = ts;
+    if (timespec_eq(TSZERO, slp->firstts))
+        slp->firstts = *ts;
+    slp->lastts = *ts;
     slp->current.updates++;
     slp->current.nlri += nlri;
     slp->current.withdrawn += withdrawn;
@@ -94,7 +103,7 @@ char * displaylogrecord (slp_t slp) {
       slp->cumulative.nlri ,
       slp->current.withdrawn ,
       slp->cumulative.withdrawn,
-      slp->lastburstduration / 1e9);
+      timespec_to_double(slp->lastburstduration) );
     pthread_mutex_unlock(&slp->mutex);
     return s;
 };
@@ -106,8 +115,8 @@ char * displaysessionlog (slp_t slp) {
     ///if (0 == slp->firstts)
         ///bm = strdup("idle");
     ///else
-    if (0 != slp->firstts)
-        snprintf(bm,255,"current burst %f", (slp->lastts - slp->firstts) / 1e9);
+    if (0 != slp->firstts.tv_sec)
+        snprintf(bm,255,"current burst %f", timespec_to_double(timespec_sub(slp->lastts , slp->firstts)));
     int tmp = asprintf(&s,"elapsed time : %f update msg rate %6ld (%6ld) NLRI rate %6ld (%6ld) withdrawn rate %6ld (%6ld) %s" ,
       slp->cumulative.ts / 1e6,
       slp->current.updates ,
@@ -160,13 +169,14 @@ void getsessionlog (slp_t slp, slp_t slog) {
 
 static void statsreport () {
     struct sessionlog tmp;
-    inttime now = getinttime();
+    struct timespec now;
+    gettime(&now);
     slp_t slp=statsbase;
     int active=0;
     while (slp) {
         if (0==slp->closed) {
             active++;
-            idlecheck(slp,now);
+            idlecheck(slp,&now);
             fprintf(stderr, "%s: counters: %s\e[K\n",slp->tids,displaylogrecord (slp));
             getsessionlog(slp,&tmp);
             fprintf(stderr, "%s: rate:     %s\e[K\n",slp->tids,displaysessionlog (&tmp));
