@@ -252,7 +252,10 @@ void *sendthread (void *_x) {
                                empty,
                                eBGPpath (NEXTHOP, (uint32_t []) {usn+SEEDPREFIX,cyclenumber+1,sd->as,0})));
       };
-      return 0; // ask to be restarted...
+      if (bsn == MAXBURSTCOUNT-1)
+          return CYCLEDELAY;
+      else
+          return 0; // ask to be restarted...
    };
 
    int _sendupdates (int seq) {
