@@ -170,6 +170,15 @@ void *session(void *x) {
     return count;
   }
 
+  void doeor(char *msg, int length) {
+    uint16_t wrl = ntohs(*(uint16_t *)msg);
+    assert(0 == wrl);
+    uint16_t tpal = ntohs(*(uint16_t *)(msg + 2));
+    assert(0 == tpal);
+    fprintf(stderr,
+            "%s: BGP Update(EOR) (End of RIB)\n", tid);
+};
+
   void doupdate(char *msg, int length) {
     uint16_t wrl = ntohs(*(uint16_t *)msg);
     assert(wrl < length - 1);
@@ -248,7 +257,10 @@ void *session(void *x) {
       doopen(payload, pl);
       break;
     case 2:
-      doupdate(payload, pl);
+      if (pl == 4)
+        doeor(payload, pl);
+      else
+        doupdate(payload, pl);
       break;
     case 3:
       donotification(payload, pl);
