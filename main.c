@@ -196,11 +196,11 @@ void getllienv(char *name, long long int *tgt) {
 };
 
 void receiversignal() {
-   sem_post(&semrxtx);
+   0 == ( sem_post(&semrxtx)) || die("semaphore post fail");
 };
 
 void senderwait() {
-   sem_wait(&semrxtx);
+   0 == ( sem_wait(&semrxtx)) || die("semaphore wait fail");
    gettime(&txts);
 };
 
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  sem_init(&semrxtx,0,0);
+  0 == ( sem_init(&semrxtx,0,0)) || die("semaphore create fail");
   //sem_init(&semrxtx,0,0);
   NEXTHOP = toHostAddress(
       sNEXTHOP); /// must initliase here because cant do it in the declaration

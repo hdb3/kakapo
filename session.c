@@ -376,7 +376,7 @@ void *session(void *x) {
     pthread_t thrd;
     pthread_create(&thrd, NULL, sendthread, NULL);
 
-    if (sd->role == ROLELISTENER)
+    if (sd->role != ROLESENDER)
       slp = initlogrecord(
         sd->tidx,
         tid);
