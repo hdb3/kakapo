@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #include "kakapo.h"
 #include "session.h"
@@ -23,6 +24,9 @@
 #include "util.h"
 
 #define MAXPENDING 5 // Max connection requests
+
+sem_t semrxtx;
+struct timespec txts;
 
 int pid;
 int tidx = 0;
@@ -53,6 +57,10 @@ void startsession(int sock) {
   struct sessiondata *sd;
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, MYAS};
+  if (1 == tidx)
+    sd->role=ROLELISTENER;
+  else if (2 == tidx)
+    sd->role=ROLESENDER;
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
 };
@@ -186,6 +194,18 @@ void getllienv(char *name, long long int *tgt) {
   };
 };
 
+void receiversignal() {
+   // //printf("****receiversignal\n");
+   sem_post(&semrxtx);
+};
+
+void senderwait() {
+   // //printf("****senderwait\n");
+   sem_wait(&semrxtx);
+   // //printf("****senderwait unlocked\n");
+   gettime(&txts);
+};
+
 int main(int argc, char *argv[]) {
 
   pid = getpid();
@@ -199,6 +219,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  sem_init(&semrxtx,0,0);
+  sem_init(&semrxtx,0,0);
   NEXTHOP = toHostAddress(
       sNEXTHOP); /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(

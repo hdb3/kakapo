@@ -204,7 +204,8 @@ void *session(void *x) {
               "%d , NLRI count = %d\n",
               tid, wc, tpal, uc);
 
-    updatelogrecord(slp, uc, wc, &sb.rcvtimestamp);
+    if (ROLESENDER != sd->role)
+      updatelogrecord(slp, uc, wc, &sb.rcvtimestamp);
   };
 
   void donotification(char *msg, int length) {
@@ -292,7 +293,7 @@ void *session(void *x) {
 
     int sendupdates(int seq) {
 
-      if (MAXBURSTCOUNT == 0)
+      if ((MAXBURSTCOUNT == 0) || (sd->role == ROLELISTENER))
         return -1;
 
       int cyclenumber = seq / MAXBURSTCOUNT;
@@ -301,15 +302,17 @@ void *session(void *x) {
         return -1;
       };
 
+      if (sd->role == ROLESENDER)
+         senderwait();
+
       int bsn = seq % MAXBURSTCOUNT;
 
       gettime(&tstart);
       for (int usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
         sendbs(sock,
                update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty,
-                      eBGPpath(NEXTHOP,
-                               (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1,
-                                            sd->as, 0})));
+                      iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0})));
+                      //eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
       };
       gettime(&tend);
       fprintf(stderr, "%s: sendupdates burst seq %d cycle %d completed in %f\n",
@@ -325,6 +328,14 @@ void *session(void *x) {
   };
 
   long int threadmain() {
+
+    switch (sd->role) {
+        case ROLELISTENER: fprintf(stderr, "%s: session start - role=LISTENER\n", tid);
+        break;
+        case ROLESENDER: fprintf(stderr, "%s: session start - role=SENDER\n", tid);
+        break;
+        default: fprintf(stderr, "%s: session start - role=<unassigned>\n", tid);
+    };
 
     getsockaddresses();
 
@@ -361,12 +372,10 @@ void *session(void *x) {
     pthread_t thrd;
     pthread_create(&thrd, NULL, sendthread, NULL);
 
-    slp = initlogrecord(
+    if (sd->role == ROLELISTENER)
+      slp = initlogrecord(
         sd->tidx,
-        tid); // implies that the rate display is based at first recv request
-              // call rather than return...... for more precision consider
-              // moving to either getBGPMessage would be too late otherwise
-              // anywhere in here, as getBGPMessage will call updatelog
+        tid);
 
     while (1) {
       msgtype = getBGPMessage(&sb); // keepalive or updates from now on
