@@ -3,9 +3,9 @@
 // sessiondata is the structure passed to new threads from main
 
 struct sessiondata {
- int sock;
- int tidx;
- int as;
+  int sock;
+  int tidx;
+  int as;
 };
 
 //*void session(struct sessiondata *sd);
