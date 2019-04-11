@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <malloc.h>
+#include <assert.h>
 #include <sys/socket.h>
 #include "libutil.h"
 
