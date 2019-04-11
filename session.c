@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "kakapo.h"
 #include "libutil.h"
@@ -288,10 +289,12 @@ void *session(void *x) {
     }
   }
 
+  int sndrunning = 0;
   void *sendthread(void *_x) {
-    struct timespec tstart, tend;
 
     int sendupdates(int seq) {
+
+      struct timespec tstart, tend;
 
       if ((MAXBURSTCOUNT == 0) || (sd->role == ROLELISTENER))
         return -1;
@@ -323,8 +326,9 @@ void *session(void *x) {
       else
         return 0; // ask to be restarted...
     };
-
+    sndrunning = 1;
     timedloopms(SLEEP, sendupdates);
+    sndrunning = 0;
   };
 
   long int threadmain() {
@@ -345,7 +349,7 @@ void *session(void *x) {
     // char * m =
     // bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
     char *m = bgpopen(
-        sd->as, 180, htonl(localip),
+        sd->as, HOLDTIME, htonl(localip),
         NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
     (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
@@ -356,7 +360,7 @@ void *session(void *x) {
 
     report(1, msgtype);
     if (1 != msgtype)
-      goto outerexit;
+      goto exit;
 
     (0 < send(sock, keepalive, 19, 0)) ||
         die("Failed to send keepalive to peer");
@@ -367,7 +371,7 @@ void *session(void *x) {
 
     report(4, msgtype);
     if (4 != msgtype)
-      goto outerexit;
+      goto exit;
 
     pthread_t thrd;
     pthread_create(&thrd, NULL, sendthread, NULL);
@@ -401,9 +405,9 @@ void *session(void *x) {
       }
     };
   exit:
-    closelogrecord(slp, sd->tidx);
-    pthread_cancel(thrd);
-  outerexit:
+    closelogrecord(slp, sd->tidx);  // closelogrecord is safe in case that initlogrecord was not called...
+    if (1 == sndrunning)  // this guards against calling pthread_cancel on a thread which already exited
+       pthread_cancel(thrd);
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);

@@ -21,6 +21,7 @@ extern uint32_t MAXBURSTCOUNT;
 extern uint32_t NEXTHOP;
 extern uint32_t CYCLECOUNT;
 extern uint32_t CYCLEDELAY;
+extern uint32_t HOLDTIME;
 
 void receiversignal();
 void senderwait();

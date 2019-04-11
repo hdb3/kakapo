@@ -48,6 +48,7 @@ char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
 uint32_t CYCLECOUNT =
     1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
 uint32_t CYCLEDELAY = 30; // seconds
+uint32_t HOLDTIME = 180;
 
 char MYIP[16] = "0.0.0.0";
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
@@ -195,14 +196,11 @@ void getllienv(char *name, long long int *tgt) {
 };
 
 void receiversignal() {
-   // //printf("****receiversignal\n");
    sem_post(&semrxtx);
 };
 
 void senderwait() {
-   // //printf("****senderwait\n");
    sem_wait(&semrxtx);
-   // //printf("****senderwait unlocked\n");
    gettime(&txts);
 };
 
@@ -220,7 +218,7 @@ int main(int argc, char *argv[]) {
   }
 
   sem_init(&semrxtx,0,0);
-  sem_init(&semrxtx,0,0);
+  //sem_init(&semrxtx,0,0);
   NEXTHOP = toHostAddress(
       sNEXTHOP); /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
@@ -238,6 +236,7 @@ int main(int argc, char *argv[]) {
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
   getuint32env("SHOWRATE", &SHOWRATE);
+  getuint32env("HOLDTIME", &HOLDTIME);
 
   startstatsrunner();
 
