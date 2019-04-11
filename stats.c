@@ -56,13 +56,15 @@ int idlecheck(slp_t slp, struct timespec *now) {
     // //       , timespec_to_double(slp->lastts)
     // //       , timespec_to_double(*now));
     struct timespec duration = timespec_sub(slp->lastts, slp->firstts);
+    struct timespec latency = timespec_sub(slp->lastts, txts);
     slp->lastburstduration = duration;
     struct sessionlog tmp;
     getsessionlog(slp, &tmp);
     /// fprintf(stderr,"%s burst duration %f\n", slp->tids,
     /// timespec_to_double(duration));
-    fprintf(stderr, "%s burst duration %f counters: %s\n", slp->tids,
-            timespec_to_double(duration), displaylogrecord(slp));
+    fprintf(stderr, "%s burst duration %f latency %f counters: %s\n", slp->tids,
+            timespec_to_double(duration),
+            timespec_to_double(latency), displaylogrecord(slp));
     // fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
     slp->firstts = TSZERO;
     slp->lastts = TSZERO;
