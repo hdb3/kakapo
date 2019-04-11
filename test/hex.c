@@ -1,7 +1,7 @@
 
 
-#include <stdio.h>
 #include "util.h"
+#include <stdio.h>
 
 // unit test file for the fromHex function
 // which is now in util.c
@@ -19,7 +19,7 @@ int fromHex (char* s) {
 */
 
 int main(int argc, char **argv) {
-    printf("converting %s\n",argv[1]);
-    int n = fromHex (argv[1]);
-    printHex(stdout,argv[1],n);
+  printf("converting %s\n", argv[1]);
+  int n = fromHex(argv[1]);
+  printHex(stdout, argv[1], n);
 };

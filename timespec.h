@@ -1,8 +1,8 @@
-//origin: https://github.com/solemnwarning/timespec
+// origin: https://github.com/solemnwarning/timespec
 
 /* Functions for working with timespec structures
  * Written by Daniel Collins (2017)
- * 
+ *
  * This is free and unencumbered software released into the public domain.
  *
  * Anyone is free to copy, modify, publish, use, compile, sell, or
@@ -27,7 +27,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * For more information, please refer to <http://unlicense.org/>
-*/
+ */
 
 #ifndef DAN_TIMESPEC_H
 #define DAN_TIMESPEC_H

@@ -1,8 +1,8 @@
 
 
-#include <stdio.h>
-#include <stdint.h>
 #include "util.h"
+#include <stdint.h>
+#include <stdio.h>
 
 // test cases for the hexXX int to hex string functions now in util.c
 /*
@@ -34,22 +34,22 @@ char * hex64(uint64_t n) {
 
 int main(int argc, char **argv) {
 
-    printf("%0X\n",0x1deadbeef);
-    printf("%04X\n",0x1deadbeef);
-    printf("%04lX\n",0x1deadbeef);
-    printf("%04hX\n",0x1deadbeef);
-    printf("%4hX\n",0x1dead00ef);
-    printf("%04hX\n",0x1dead00ef);
-    printf("%02hhX\n",0x1dead00ef);
+  printf("%0X\n", 0x1deadbeef);
+  printf("%04X\n", 0x1deadbeef);
+  printf("%04lX\n", 0x1deadbeef);
+  printf("%04hX\n", 0x1deadbeef);
+  printf("%4hX\n", 0x1dead00ef);
+  printf("%04hX\n", 0x1dead00ef);
+  printf("%02hhX\n", 0x1dead00ef);
 
-    char * s8 = hex8(0x1dead00ef);
-    char * s16 = hex16(0x1dead00ef);
-    char * s32 = hex32(0x1dead00ef);
-    char * s64 = hex64(0x1dead00ef);
+  char *s8 = hex8(0x1dead00ef);
+  char *s16 = hex16(0x1dead00ef);
+  char *s32 = hex32(0x1dead00ef);
+  char *s64 = hex64(0x1dead00ef);
 
-    char * s = concat(s8,s16,s32,s64,NULL);
+  char *s = concat(s8, s16, s32, s64, NULL);
 
-    printf("%s\n",hex16(1968));
-    printf("%s %s %s %s\n",s8,s16,s32,s64);
-    printf("%s\n",s);
+  printf("%s\n", hex16(1968));
+  printf("%s %s %s %s\n", s8, s16, s32, s64);
+  printf("%s\n", s);
 };
