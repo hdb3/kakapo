@@ -41,10 +41,12 @@ slp_t initlogrecord(int tid, char *tids) {
   slp->current.withdrawn = 0;
   slp->next = statsbase;
   statsbase = slp;
+  receiversignal();
   return slp;
 };
 
 int idlecheck(slp_t slp, struct timespec *now) {
+  // //fprintf(stderr, "%s idlecheck\n", slp->tids);
   if ((0 != slp->firstts.tv_sec) &&
       (timespec_gt(timespec_sub(*now, slp->lastts),
                    (struct timespec){IDLETHR, 0}))) {
@@ -64,11 +66,13 @@ int idlecheck(slp_t slp, struct timespec *now) {
     // fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
     slp->firstts = TSZERO;
     slp->lastts = TSZERO;
+    receiversignal();
     return 1;
   } else
     return 0;
 };
 
+// *** NB *** This function is called from the session receive context.....!
 void updatelogrecord(slp_t slp, int nlri, int withdrawn, struct timespec *ts) {
   pthread_mutex_lock(&slp->mutex);
   if (timespec_eq(TSZERO, slp->firstts))
