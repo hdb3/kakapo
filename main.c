@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,7 +16,6 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <semaphore.h>
 
 #include "kakapo.h"
 #include "session.h"
@@ -59,9 +59,9 @@ void startsession(int sock) {
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, MYAS};
   if (1 == tidx)
-    sd->role=ROLELISTENER;
+    sd->role = ROLELISTENER;
   else if (2 == tidx)
-    sd->role=ROLESENDER;
+    sd->role = ROLESENDER;
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
 };
@@ -195,13 +195,41 @@ void getllienv(char *name, long long int *tgt) {
   };
 };
 
-void receiversignal() {
-   0 == ( sem_post(&semrxtx)) || die("semaphore post fail");
+void startlog(uint32_t tid, char *tids, struct timespec *start) {
+  fprintf(stderr,
+          "%s startlog BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
+          "CYCLECOUNT %d, CYCLEDELAY %d\n",
+          tids, BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY);
 };
 
-void senderwait() {
-   0 == ( sem_wait(&semrxtx)) || die("semaphore wait fail");
-   gettime(&txts);
+// void startlog(uint32_t tid,char *tids, struct timespec *start,uint32_t
+// BLOCKSIZE, uint32_t GROUPSIZE, uint32_t MAXBURSTCOUNT, uint32_t CYCLECOUNT,
+// uint32_t CYCLEDELAY);
+
+void sndlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
+            struct timespec *end) {
+  fprintf(stderr, "%s sndlog seq %d duration %f\n", tids, seq,
+          timespec_to_double(timespec_sub(*end, *start)));
+};
+
+void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
+            struct timespec *end) {
+  fprintf(stderr, "%s rcvlog seq %d duration %f latency %f\n", tids, seq,
+          timespec_to_double(timespec_sub(*end, *start)),
+          timespec_to_double(timespec_sub(*end, txts)));
+};
+
+uint32_t rcvseq;
+
+void receiversignal(uint32_t seq) {
+  rcvseq = seq;
+  0 == (sem_post(&semrxtx)) || die("semaphore post fail");
+};
+
+uint32_t senderwait() {
+  0 == (sem_wait(&semrxtx)) || die("semaphore wait fail");
+  gettime(&txts);
+  return rcvseq;
 };
 
 int main(int argc, char *argv[]) {
@@ -217,8 +245,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  0 == ( sem_init(&semrxtx,0,0)) || die("semaphore create fail");
-  //sem_init(&semrxtx,0,0);
+  0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
+  // sem_init(&semrxtx,0,0);
   NEXTHOP = toHostAddress(
       sNEXTHOP); /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(

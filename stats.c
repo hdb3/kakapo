@@ -29,8 +29,6 @@ slp_t initlogrecord(int tid, char *tids) {
   slp->tids = strdup(tids);
   slp->changed = 1;
   slp->closed = 0;
-  slp->firstts = TSZERO;
-  slp->lastts = TSZERO;
   slp->cumulative.ts = now;
   slp->cumulative.updates = 0;
   slp->cumulative.nlri = 0;
@@ -41,34 +39,22 @@ slp_t initlogrecord(int tid, char *tids) {
   slp->current.withdrawn = 0;
   slp->next = statsbase;
   statsbase = slp;
-  receiversignal();
+  slp->firstts = TSZERO;
+  slp->lastts = TSZERO;
+  slp->rcvseq = 0;
+  receiversignal(slp->rcvseq);
   return slp;
 };
 
 int idlecheck(slp_t slp, struct timespec *now) {
-  // //fprintf(stderr, "%s idlecheck\n", slp->tids);
   if ((0 != slp->firstts.tv_sec) &&
       (timespec_gt(timespec_sub(*now, slp->lastts),
                    (struct timespec){IDLETHR, 0}))) {
-    // //fprintf(stderr,"%s ************* first/last/now %f/%f/%f\n"
-    // //       , slp->tids
-    // //       , timespec_to_double(slp->firstts)
-    // //       , timespec_to_double(slp->lastts)
-    // //       , timespec_to_double(*now));
-    struct timespec duration = timespec_sub(slp->lastts, slp->firstts);
-    struct timespec latency = timespec_sub(slp->lastts, txts);
-    slp->lastburstduration = duration;
-    struct sessionlog tmp;
-    getsessionlog(slp, &tmp);
-    /// fprintf(stderr,"%s burst duration %f\n", slp->tids,
-    /// timespec_to_double(duration));
-    fprintf(stderr, "%s burst duration %f latency %f counters: %s\n", slp->tids,
-            timespec_to_double(duration),
-            timespec_to_double(latency), displaylogrecord(slp));
-    // fprintf(stderr, "%s: counters: %s\n",slp->tids,displaylogrecord (slp));
+    rcvlog(slp->tid, slp->tids, slp->rcvseq, &slp->firstts, &slp->lastts);
     slp->firstts = TSZERO;
     slp->lastts = TSZERO;
-    receiversignal();
+    slp->rcvseq++;
+    receiversignal(slp->rcvseq);
     return 1;
   } else
     return 0;
