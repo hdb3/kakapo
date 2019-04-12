@@ -52,6 +52,8 @@ uint32_t CYCLEDELAY = 30; // seconds
 uint32_t HOLDTIME = 180;
 
 char MYIP[16] = "0.0.0.0";
+char LOGFILE[128] = "stats.csv";
+char LOGTEXT[1024] = "";
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
 void startsession(int sock) {
@@ -163,7 +165,8 @@ void server() {
 // NOTE - the target string must be actual static memory large enough...
 void getsenv(char *name, char *tgt) {
   char *s;
-  if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
+  // if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
+  if (s = getenv(name)) {
     strcpy(tgt, s);
     fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, s);
   };
@@ -196,17 +199,29 @@ void getllienv(char *name, long long int *tgt) {
   };
 };
 
+FILE *logfile;
+void endlog() {
+  fprintf(logfile, "end run at %s\n", shownow());
+  exit(0);
+};
+
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
+  0 != (logfile = fopen(LOGFILE, "a")) || die("could not open log file");
+  setvbuf(logfile, NULL, _IOLBF, 0);
+
   fprintf(stderr,
-          "%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
+          "\n%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
           "CYCLECOUNT %d, CYCLEDELAY %d\n",
           tids, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
           CYCLECOUNT, CYCLEDELAY);
-};
 
-// void startlog(uint32_t tid,char *tids, struct timespec *start,uint32_t
-// BLOCKSIZE, uint32_t GROUPSIZE, uint32_t MAXBURSTCOUNT, uint32_t CYCLECOUNT,
-// uint32_t CYCLEDELAY);
+  fprintf(logfile,
+          "new run, %d, desc \"%s\" at %s BLOCKSIZE %d, GROUPSIZE %d, "
+          "MAXBURSTCOUNT %d, "
+          "CYCLECOUNT %d, CYCLEDELAY %d\n",
+          pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
+          CYCLECOUNT, CYCLEDELAY);
+};
 
 struct timespec sndlog_start, sndlog_end;
 uint32_t sndlog_seq;
@@ -238,12 +253,20 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
       timespec_to_double(timespec_sub(*start, sndlog_end)),
       timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
       timespec_to_double(timespec_sub(*end, *start)));
+  fprintf(logfile, "%d , %f , %f , %f , %f\n", seq,
+          timespec_to_double(timespec_sub(*end, sndlog_start)),
+          timespec_to_double(timespec_sub(*start, sndlog_end)),
+          timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
+          timespec_to_double(timespec_sub(*end, *start)));
 #else
   fprintf(
       stderr,
       "burstlog rawdate seq %d tx_start %f tx_end %f rx_start %f rx_end %f\n",
       seq, timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
       timespec_to_double(*start), timespec_to_double(*end));
+  fprintf(logfile, "%d , %f , %f , %f , %f\n", seq,
+          timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
+          timespec_to_double(*start), timespec_to_double(*end));
 #endif
 };
 
@@ -293,6 +316,8 @@ int main(int argc, char *argv[]) {
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
   getuint32env("SHOWRATE", &SHOWRATE);
   getuint32env("HOLDTIME", &HOLDTIME);
+  getsenv("LOGFILE", LOGFILE);
+  getsenv("LOGTEXT", LOGTEXT);
 
   startstatsrunner();
 
