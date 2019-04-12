@@ -201,7 +201,7 @@ void getllienv(char *name, long long int *tgt) {
 
 FILE *logfile;
 void endlog() {
-  fprintf(logfile, "end run at %s\n", shownow());
+  fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
   exit(0);
 };
 
@@ -216,10 +216,10 @@ void startlog(uint32_t tid, char *tids, struct timespec *start) {
           CYCLECOUNT, CYCLEDELAY);
 
   fprintf(logfile,
-          "new run, %d, desc \"%s\" at %s BLOCKSIZE %d, GROUPSIZE %d, "
-          "MAXBURSTCOUNT %d, "
-          "CYCLECOUNT %d, CYCLEDELAY %d\n",
-          pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
+          "HDR , PID , DESC , START , BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY\n"
+          "START, %d, \"%s\" , \"%s\" , %d, %d, %d, %d, %d\n"
+          "HDR , SEQ , RTT , LATENCY , TXDURATION, RXDURATION\n"
+          , pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
           CYCLECOUNT, CYCLEDELAY);
 };
 
@@ -253,7 +253,7 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
       timespec_to_double(timespec_sub(*start, sndlog_end)),
       timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
       timespec_to_double(timespec_sub(*end, *start)));
-  fprintf(logfile, "%d , %f , %f , %f , %f\n", seq,
+  fprintf(logfile, "DATA, %d , %f , %f , %f , %f\n", seq,
           timespec_to_double(timespec_sub(*end, sndlog_start)),
           timespec_to_double(timespec_sub(*start, sndlog_end)),
           timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
