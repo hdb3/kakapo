@@ -3,7 +3,7 @@
 // sessiondata is the structure passed to new threads from main
 
 #define ROLELISTENER 1
-#define ROLESENDER   2
+#define ROLESENDER 2
 struct sessiondata {
   int sock;
   int tidx;

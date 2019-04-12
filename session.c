@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,7 +19,6 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include "kakapo.h"
 #include "libutil.h"
@@ -176,9 +176,8 @@ void *session(void *x) {
     assert(0 == wrl);
     uint16_t tpal = ntohs(*(uint16_t *)(msg + 2));
     assert(0 == tpal);
-    fprintf(stderr,
-            "%s: BGP Update(EOR) (End of RIB)\n", tid);
-};
+    fprintf(stderr, "%s: BGP Update(EOR) (End of RIB)\n", tid);
+  };
 
   void doupdate(char *msg, int length) {
     uint16_t wrl = ntohs(*(uint16_t *)msg);
@@ -305,8 +304,13 @@ void *session(void *x) {
         return -1;
       };
 
+      gettime(&tstart);
+      if ((0 == seq) && (sd->role == ROLESENDER))
+        startlog(sd->tidx, tid, &tstart);
+
+      uint32_t logseq;
       if (sd->role == ROLESENDER)
-         senderwait();
+        logseq = senderwait();
 
       int bsn = seq % MAXBURSTCOUNT;
 
@@ -314,13 +318,16 @@ void *session(void *x) {
       for (int usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
         sendbs(sock,
                update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty,
-                      iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0})));
-                      //eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
+                      iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX,
+                                                     cyclenumber + 1, 0})));
+        // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1,
+        // sd->as, 0})));
       };
       gettime(&tend);
-      fprintf(stderr, "%s: sendupdates burst seq %d cycle %d completed in %f\n",
-              tid, bsn, cyclenumber,
-              timespec_to_double(timespec_sub(tend, tstart)));
+
+      if (sd->role == ROLESENDER)
+        sndlog(sd->tidx, tid, logseq, &tstart, &tend);
+
       if (bsn == MAXBURSTCOUNT - 1)
         return CYCLEDELAY;
       else
@@ -334,11 +341,14 @@ void *session(void *x) {
   long int threadmain() {
 
     switch (sd->role) {
-        case ROLELISTENER: fprintf(stderr, "%s: session start - role=LISTENER\n", tid);
-        break;
-        case ROLESENDER: fprintf(stderr, "%s: session start - role=SENDER\n", tid);
-        break;
-        default: fprintf(stderr, "%s: session start - role=<unassigned>\n", tid);
+    case ROLELISTENER:
+      fprintf(stderr, "%s: session start - role=LISTENER\n", tid);
+      break;
+    case ROLESENDER:
+      fprintf(stderr, "%s: session start - role=SENDER\n", tid);
+      break;
+    default:
+      fprintf(stderr, "%s: session start - role=<unassigned>\n", tid);
     };
 
     getsockaddresses();
@@ -377,9 +387,7 @@ void *session(void *x) {
     pthread_create(&thrd, NULL, sendthread, NULL);
 
     if (sd->role != ROLESENDER)
-      slp = initlogrecord(
-        sd->tidx,
-        tid);
+      slp = initlogrecord(sd->tidx, tid);
 
     while (1) {
       msgtype = getBGPMessage(&sb); // keepalive or updates from now on
@@ -405,9 +413,11 @@ void *session(void *x) {
       }
     };
   exit:
-    closelogrecord(slp, sd->tidx);  // closelogrecord is safe in case that initlogrecord was not called...
-    if (1 == sndrunning)  // this guards against calling pthread_cancel on a thread which already exited
-       pthread_cancel(thrd);
+    closelogrecord(slp, sd->tidx); // closelogrecord is safe in case that
+                                   // initlogrecord was not called...
+    if (1 == sndrunning) // this guards against calling pthread_cancel on a
+                         // thread which already exited
+      pthread_cancel(thrd);
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
