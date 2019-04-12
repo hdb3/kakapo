@@ -335,6 +335,10 @@ void *session(void *x) {
     };
     sndrunning = 1;
     timedloopms(SLEEP, sendupdates);
+    if (sd->role == ROLESENDER) {
+      senderwait();
+      endlog();
+    };
     sndrunning = 0;
   };
 
