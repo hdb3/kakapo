@@ -28,6 +28,19 @@ void gettime(struct timespec *ts) {
   int tmp = clock_gettime(CLOCK_REALTIME, ts);
 };
 
+char *showtime(struct timespec *ts) {
+  static char s[128];
+  ctime_r(&ts->tv_sec, s);
+  s[strlen(s) - 1] = 0;
+  return s;
+};
+
+char *shownow() {
+  struct timespec ts;
+  gettime(&ts);
+  return showtime(&ts);
+};
+
 char *fromHostAddress(uint32_t ip) {
   // static char s [5];
   return inet_ntoa((struct in_addr){ip});

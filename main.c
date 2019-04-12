@@ -8,12 +8,14 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "kakapo.h"
@@ -23,6 +25,9 @@
 #include "util.h"
 
 #define MAXPENDING 5 // Max connection requests
+
+sem_t semrxtx;
+struct timespec txts;
 
 int pid;
 int tidx = 0;
@@ -44,8 +49,11 @@ char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
 uint32_t CYCLECOUNT =
     1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
 uint32_t CYCLEDELAY = 30; // seconds
+uint32_t HOLDTIME = 180;
 
 char MYIP[16] = "0.0.0.0";
+char LOGFILE[128] = "stats.csv";
+char LOGTEXT[1024] = "";
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
 void startsession(int sock) {
@@ -53,6 +61,10 @@ void startsession(int sock) {
   struct sessiondata *sd;
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, MYAS};
+  if (1 == tidx)
+    sd->role = ROLELISTENER;
+  else if (2 == tidx)
+    sd->role = ROLESENDER;
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
 };
@@ -153,7 +165,8 @@ void server() {
 // NOTE - the target string must be actual static memory large enough...
 void getsenv(char *name, char *tgt) {
   char *s;
-  if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
+  // if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
+  if (s = getenv(name)) {
     strcpy(tgt, s);
     fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, s);
   };
@@ -186,6 +199,90 @@ void getllienv(char *name, long long int *tgt) {
   };
 };
 
+FILE *logfile;
+void endlog() {
+  fprintf(logfile, "end run at %s\n", shownow());
+  exit(0);
+};
+
+void startlog(uint32_t tid, char *tids, struct timespec *start) {
+  0 != (logfile = fopen(LOGFILE, "a")) || die("could not open log file");
+  setvbuf(logfile, NULL, _IOLBF, 0);
+
+  fprintf(stderr,
+          "\n%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
+          "CYCLECOUNT %d, CYCLEDELAY %d\n",
+          tids, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
+          CYCLECOUNT, CYCLEDELAY);
+
+  fprintf(logfile,
+          "new run, %d, desc \"%s\" at %s BLOCKSIZE %d, GROUPSIZE %d, "
+          "MAXBURSTCOUNT %d, "
+          "CYCLECOUNT %d, CYCLEDELAY %d\n",
+          pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
+          CYCLECOUNT, CYCLEDELAY);
+};
+
+struct timespec sndlog_start, sndlog_end;
+uint32_t sndlog_seq;
+void sndlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
+            struct timespec *end) {
+  // this is an immediate print, however the coordination with rcv is central,
+  // so best left till rcvlog if generating readable output (the sequence nubers
+  // can be used to correlate) note also: the caller context  (tid) is
+  // implicitly igonred too. this may need rethinking for multiple senders...
+  // // fprintf(stderr, "%s sndlog seq %d duration %f\n", tids, seq,
+  // //         timespec_to_double(timespec_sub(*end, *start)));
+  sndlog_seq = seq;
+  memcpy(&sndlog_start, start, sizeof(struct timespec));
+  memcpy(&sndlog_end, end, sizeof(struct timespec));
+};
+
+void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
+            struct timespec *end) {
+  // this is the corresponding freestanding report
+  // fprintf(stderr, "%s rcvlog seq %d duration %f latency %f\n", tids, seq,
+  //         timespec_to_double(timespec_sub(*end, *start)),
+  //         timespec_to_double(timespec_sub(*end, txts)));
+  assert(seq == sndlog_seq);
+#ifndef RAWDATA
+  fprintf(
+      stderr,
+      "burstlog seq %d rtt %f latency %f send duration %f recv duration %f\n",
+      seq, timespec_to_double(timespec_sub(*end, sndlog_start)),
+      timespec_to_double(timespec_sub(*start, sndlog_end)),
+      timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
+      timespec_to_double(timespec_sub(*end, *start)));
+  fprintf(logfile, "%d , %f , %f , %f , %f\n", seq,
+          timespec_to_double(timespec_sub(*end, sndlog_start)),
+          timespec_to_double(timespec_sub(*start, sndlog_end)),
+          timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
+          timespec_to_double(timespec_sub(*end, *start)));
+#else
+  fprintf(
+      stderr,
+      "burstlog rawdate seq %d tx_start %f tx_end %f rx_start %f rx_end %f\n",
+      seq, timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
+      timespec_to_double(*start), timespec_to_double(*end));
+  fprintf(logfile, "%d , %f , %f , %f , %f\n", seq,
+          timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
+          timespec_to_double(*start), timespec_to_double(*end));
+#endif
+};
+
+uint32_t rcvseq;
+
+void receiversignal(uint32_t seq) {
+  rcvseq = seq;
+  0 == (sem_post(&semrxtx)) || die("semaphore post fail");
+};
+
+uint32_t senderwait() {
+  0 == (sem_wait(&semrxtx)) || die("semaphore wait fail");
+  gettime(&txts);
+  return rcvseq;
+};
+
 int main(int argc, char *argv[]) {
 
   pid = getpid();
@@ -199,6 +296,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
+  // sem_init(&semrxtx,0,0);
   NEXTHOP = toHostAddress(
       sNEXTHOP); /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
@@ -216,6 +315,9 @@ int main(int argc, char *argv[]) {
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
   getuint32env("SHOWRATE", &SHOWRATE);
+  getuint32env("HOLDTIME", &HOLDTIME);
+  getsenv("LOGFILE", LOGFILE);
+  getsenv("LOGTEXT", LOGTEXT);
 
   startstatsrunner();
 

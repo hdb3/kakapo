@@ -21,3 +21,17 @@ extern uint32_t MAXBURSTCOUNT;
 extern uint32_t NEXTHOP;
 extern uint32_t CYCLECOUNT;
 extern uint32_t CYCLEDELAY;
+extern uint32_t HOLDTIME;
+
+void startlog(uint32_t tid, char *tids, struct timespec *start);
+// void startlog(uint32_t tid,char *tids, struct timespec *start,uint32_t
+// BLOCKSIZE, uint32_t GROUPSIZE, uint32_t MAXBURSTCOUNT, uint32_t CYCLECOUNT,
+// uint32_t CYCLEDELAY);
+void endlog();
+void sndlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
+            struct timespec *end);
+void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
+            struct timespec *end);
+uint32_t senderwait();
+void receiversignal(uint32_t seq);
+extern struct timespec txts;

@@ -1,25 +1,4 @@
 
-/*
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/sockios.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/sendfile.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <unistd.h>
-
-#include "kakapo.h"
-#include "session.h"
-*/
-
 #include "libutil.h"
 #include <pthread.h>
 #include <stdint.h>
@@ -37,6 +16,7 @@ struct sessionlog {
   char *tids;
   int changed;
   int closed;
+  int rcvseq;
   pthread_mutex_t mutex;
   struct logrecord cumulative, current;
   struct sessionlog *next;
