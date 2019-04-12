@@ -15,6 +15,7 @@
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "kakapo.h"
@@ -197,26 +198,53 @@ void getllienv(char *name, long long int *tgt) {
 
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
   fprintf(stderr,
-          "%s startlog BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
+          "%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
           "CYCLECOUNT %d, CYCLEDELAY %d\n",
-          tids, BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY);
+          tids, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
+          CYCLECOUNT, CYCLEDELAY);
 };
 
 // void startlog(uint32_t tid,char *tids, struct timespec *start,uint32_t
 // BLOCKSIZE, uint32_t GROUPSIZE, uint32_t MAXBURSTCOUNT, uint32_t CYCLECOUNT,
 // uint32_t CYCLEDELAY);
 
+struct timespec sndlog_start, sndlog_end;
+uint32_t sndlog_seq;
 void sndlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
             struct timespec *end) {
-  fprintf(stderr, "%s sndlog seq %d duration %f\n", tids, seq,
-          timespec_to_double(timespec_sub(*end, *start)));
+  // this is an immediate print, however the coordination with rcv is central,
+  // so best left till rcvlog if generating readable output (the sequence nubers
+  // can be used to correlate) note also: the caller context  (tid) is
+  // implicitly igonred too. this may need rethinking for multiple senders...
+  // // fprintf(stderr, "%s sndlog seq %d duration %f\n", tids, seq,
+  // //         timespec_to_double(timespec_sub(*end, *start)));
+  sndlog_seq = seq;
+  memcpy(&sndlog_start, start, sizeof(struct timespec));
+  memcpy(&sndlog_end, end, sizeof(struct timespec));
 };
 
 void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
             struct timespec *end) {
-  fprintf(stderr, "%s rcvlog seq %d duration %f latency %f\n", tids, seq,
-          timespec_to_double(timespec_sub(*end, *start)),
-          timespec_to_double(timespec_sub(*end, txts)));
+  // this is the corresponding freestanding report
+  // fprintf(stderr, "%s rcvlog seq %d duration %f latency %f\n", tids, seq,
+  //         timespec_to_double(timespec_sub(*end, *start)),
+  //         timespec_to_double(timespec_sub(*end, txts)));
+  assert(seq == sndlog_seq);
+#ifndef RAWDATA
+  fprintf(
+      stderr,
+      "burstlog seq %d rtt %f latency %f send duration %f recv duration %f\n",
+      seq, timespec_to_double(timespec_sub(*end, sndlog_start)),
+      timespec_to_double(timespec_sub(*start, sndlog_end)),
+      timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
+      timespec_to_double(timespec_sub(*end, *start)));
+#else
+  fprintf(
+      stderr,
+      "burstlog rawdate seq %d tx_start %f tx_end %f rx_start %f rx_end %f\n",
+      seq, timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
+      timespec_to_double(*start), timespec_to_double(*end));
+#endif
 };
 
 uint32_t rcvseq;
