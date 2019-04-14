@@ -1,0 +1,8 @@
+# /etc/systemd/system/sysinfo.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/Sysinfo > /var/run/sysinfo
+
+[Install]
+WantedBy=multi-user.target
