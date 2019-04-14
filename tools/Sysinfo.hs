@@ -3,10 +3,12 @@ import System.Process
 import System.Posix.User
 import Data.Char (isSpace)
 import Data.List (isPrefixOf)
+import Data.Maybe(fromMaybe)
+import Text.Read(readMaybe)
 
 main = do
     euid <- getEffectiveUserID
-    if (euid == 0) then do
+    if euid == 0 then do
         memsize <- getMemSize
         putStrLn $ "memsize is " ++ show memsize ++ " MB"
         (cores,cpus) <- getCPUcounts
@@ -17,8 +19,9 @@ main = do
 getMemSize :: IO Int
 getMemSize = do
     dmidecode17 <- readProcess "dmidecode" ["--type=17" ] ""
-    return $ (sum . map (read . getMemSizeStrings) . filter isSizeDescriptor . lines) dmidecode17
+    return $ (sum . map (safeRead . getMemSizeStrings) . filter isSizeDescriptor . lines) dmidecode17
     where
+    safeRead s = fromMaybe 0 (readMaybe s)
     isSizeDescriptor = isPrefixOf "Size:" . dropWhile isSpace
     getMemSizeStrings :: String -> String
     getMemSizeStrings = (!! 1) . words
