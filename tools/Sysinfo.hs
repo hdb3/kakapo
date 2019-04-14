@@ -5,14 +5,23 @@ import Data.Char (isSpace)
 import Data.List (isPrefixOf)
 import Data.Maybe(fromMaybe)
 import Text.Read(readMaybe)
+import System.IO(hClose,hPutStrLn,openFile,IOMode(WriteMode))
 
 main = do
     euid <- getEffectiveUserID
     if euid == 0 then do
         memsize <- getMemSize
-        putStrLn $ "memsize is " ++ show memsize ++ " MB"
         (cores,cpus) <- getCPUcounts
-        putStrLn $ "core/cpus is " ++ show (cores,cpus)
+        putStrLn $ "MEMSIZE=" ++ show memsize
+        putStrLn $ "CORES=" ++ show cores
+        putStrLn $ "THREADS=" ++ show cpus
+        --runfile <- openFile "sysinfo.txt" WriteMode
+        --runfile <- openFile "/run/sysinfo" WriteMode
+        runfile <- openFile "/var/run/sysinfo" WriteMode
+        hPutStrLn runfile $ "MEMSIZE=" ++ show memsize
+        hPutStrLn runfile $ "CORES=" ++ show cores
+        hPutStrLn runfile $ "THREADS=" ++ show cpus
+        hClose runfile
     else
         putStrLn "Error - root privelege required"
 
