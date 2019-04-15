@@ -6,13 +6,7 @@ import Control.Exception(assert)
 
 main = do
    infile <- getContents
-   let
-       file = lines infile
-       section = getSection infile
-
-   putStrLn ""
-   print section
-   print $ map qFields file
+   print $ getSection infile
 
 -- extended version of fields which allows for quoted text in a field, thereby allowing commas in quoted text
 -- a subtle challenge is that we want spaces outside the quotes to be discarded....
@@ -24,18 +18,10 @@ qFields s = let
     trim = dropWhile isSpace
     backTrim = takeWhile (not . isSpace) . trim
     isComma c = ',' == c
-    in case dropWhile isComma (trim s) of
+    in case (trim . dropWhile isComma . trim) s of
                "" -> []
                ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
                s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
-
-{-
--- fields - split a text line into fields when delimited by commas
-fields :: String -> [String]
-fields s = case dropWhile isComma s of
-               "" -> []
-               s' -> w : fields s'' where (w, s'') = break isComma s'
--}
 
 getSection :: String -> ( [(String,String)] , [(String,[String])] , [(String,String)] )
 getSection s =
