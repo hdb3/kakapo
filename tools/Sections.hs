@@ -12,6 +12,7 @@ main = do
 
    putStrLn ""
    print section
+   print $ map qFields file
 
 -- extended version of fields which allows for quoted text in a field, thereby allowing commas in quoted text
 -- a subtle challenge is that we want spaces outside the quotes to be discarded....
@@ -21,7 +22,7 @@ main = do
 qFields :: String -> [String]
 qFields s = let
     trim = dropWhile isSpace
-    backTrim = takeWhile (not . isSpace)
+    backTrim = takeWhile (not . isSpace) . trim
     isComma c = ',' == c
     in case dropWhile isComma (trim s) of
                "" -> []
