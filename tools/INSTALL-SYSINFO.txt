@@ -1,0 +1,9 @@
+
+copy sysinfo.service to /etc/systemd/system/
+copy Sysinfo to /usr/sbin
+systemctl enable/start sysinfo
+
+on reboot the text file /var/run/sysinfo should be populated with a string like this:
+MEMSIZE=16384
+CORES=2
+THREADS=4
