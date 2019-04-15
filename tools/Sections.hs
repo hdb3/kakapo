@@ -1,12 +1,9 @@
 module Sections where
 
+import Prelude hiding (getLine,rem)
 import Data.Char (isSpace)
 import Data.List (transpose)
 import Control.Exception(assert)
-
-main = do
-   infile <- getContents
-   print $ getSection infile
 
 -- extended version of fields which allows for quoted text in a field, thereby allowing commas in quoted text
 -- a subtle challenge is that we want spaces outside the quotes to be discarded....
@@ -28,22 +25,26 @@ getSection s =
     let getLine :: String -> String -> [String]
         getLine tag l = let fx = qFields l in assert ( tag == head fx ) $ tail fx 
         getLines :: String -> [String] -> ([[String]],[String])
-        getLines t lx = let fxx = getLines' t lx 
-                            getLines' tag ( l : lx ) =  let fx = qFields l in if tag == head fx then tail fx : getLines' tag lx else [ ( l : lx ) ]
+        getLines t' lx' = let fxx = getLines' t' lx' 
                         in (init fxx , last fxx)
+                        where
+                            getLines'  _ [] = []
+                            getLines' tag ( l : lx ) =  let fx = qFields l in if tag == head fx then tail fx : getLines' tag lx else [ ( l : lx ) ]
 
 
         getSingleRecord :: String -> [String] -> ([(String,String)], [String])
-        getSingleRecord tag ( keyline : valline : rest ) = let keys = getLine "HDR" keyline 
-                                                               values = getLine tag valline
-                                                           in assert ( length keys == length values ) ( zip keys values, rest )
+        getSingleRecord tag ( keyline : valline : rem ) = let keys = getLine "HDR" keyline 
+                                                              values = getLine tag valline
+                                                           in assert ( length keys == length values ) ( zip keys values, rem )
+        getSingleRecord _ _ = assert False ([],[])
 
         getMultiRecord :: String -> [String] -> ([(String,[String])], [String])
         getMultiRecord tag ( keyline : vallines ) =
             let keys = getLine "HDR" keyline
-                ( values, rest ) = getLines tag vallines
+                ( values, rem ) = getLines tag vallines
                 tvalues = transpose values
-            in assert ( length keys == length ( head tvalues ) ) ( zip (getLine "HDR" keyline ) tvalues , rest )
+            in assert ( length keys == length ( head tvalues ) ) ( zip (getLine "HDR" keyline ) tvalues , rem )
+        getMultiRecord _ _ = assert False ([],[])
 
         getStart = getSingleRecord "START"
         getEnd   = getSingleRecord "END"
@@ -52,5 +53,7 @@ getSection s =
         (start,rest) = getStart ( lines s )
         (columns,rest') = getData rest
         (end,rest'') = getEnd rest'
+        --goodEnd = assert  ( null rest'' || ( (not . null . fst . getStart) rest'' ))
 
-    in (start,columns,end)
+    in assert ( null rest'' || ( (not . null . fst . getStart) rest'' )) (start,columns,end)
+    -- in assert goodEnd (start,columns,end)
