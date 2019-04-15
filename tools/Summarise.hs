@@ -15,12 +15,19 @@ main = do
    let metrics = map fst dATA
    putStrLn $ "metrics found: " ++ intercalate ", " metrics -- concat ( intersperse ", " metrics )
    putStrLn $ "sample size: " ++ ( show . length . snd . head ) dATA
-   let rtt = map readFloat $ tail $ lookup__ "RTT" dATA -- intentionally discarding the first value as this is always very different, and larger, than the rest
-       rttCount = fromIntegral $ length rtt
-       rttSum = sum rtt
-       rttMean = rttSum / rttCount
-       rttSqSum = foldl (\x y -> x + y * y) 0 rtt
-       rttSD    = ( sqrt ( (rttCount * rttSqSum) - (rttSum * rttSum) )) / rttCount
-       rttRSD   = rttSD / rttMean 
+   let metric tag = map readFloat $ tail $ lookup__ tag dATA -- intentionally discarding the first value as this is always very different, and larger, than the rest
+   let rtt = metric "RTT"
 
-   putStrLn $ "(rttMean / rttSD / rttRSD) = " ++ show (rttMean, rttSD, rttRSD)
+   putStrLn $ "rtt: (count / mean / sd / rsd) = " ++ show ( getMeanSDandRSD ( metric "RTT"))
+   putStrLn $ "latency: (count / mean / sd / rsd) = " ++ show ( getMeanSDandRSD ( metric "LATENCY"))
+
+getMeanSDandRSD :: [Double] -> (Double,Double,Double,Double)
+getMeanSDandRSD sample = 
+    let
+       count = fromIntegral $ length sample
+       ssum = sum sample
+       mean = ssum / count
+       sqSum = foldl (\x y -> x + y * y) 0 sample
+       sd    = ( sqrt ( (count * sqSum) - (ssum * ssum) )) / count
+       rsd   = sd / mean 
+    in (count, mean, sd, rsd)
