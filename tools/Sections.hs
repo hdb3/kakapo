@@ -1,4 +1,4 @@
-module Main where
+module Sections where
 
 import Data.Char (isSpace)
 import Data.List (transpose)
