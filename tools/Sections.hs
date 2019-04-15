@@ -1,4 +1,4 @@
-module Sections where
+module Sections(emptySection,getSection,Section) where
 
 import Prelude hiding (getLine,rem)
 import Data.Char (isSpace)
@@ -10,6 +10,11 @@ import Control.Exception(assert)
 -- for spaces at the beginning this requires to drop spaces when recognizing start quotes, which makes the quoted text guard more complex
 -- an alternate option is to simply discard all leading and trailing spaces - this feels simpler.....
 
+type Section = ( [(String,String)] , [(String,[String])] , [(String,String)] )
+
+emptySection :: Section
+emptySection = ([],[],[])
+
 qFields :: String -> [String]
 qFields s = let
     trim = dropWhile isSpace
@@ -20,7 +25,7 @@ qFields s = let
                ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
                s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
 
-getSection :: String -> ( [(String,String)] , [(String,[String])] , [(String,String)] )
+getSection :: String -> Section
 getSection s =
     let getLine :: String -> String -> [String]
         getLine tag l = let fx = qFields l in assert ( tag == head fx ) $ tail fx 
@@ -36,23 +41,23 @@ getSection s =
         getSingleRecord tag ( keyline : valline : rem ) = let keys = getLine "HDR" keyline 
                                                               values = getLine tag valline
                                                            in assert ( length keys == length values ) ( zip keys values, rem )
-        getSingleRecord _ _ = assert False ([],[])
 
         getMultiRecord :: String -> [String] -> ([(String,[String])], [String])
         getMultiRecord tag ( keyline : vallines ) =
             let keys = getLine "HDR" keyline
                 ( values, rem ) = getLines tag vallines
                 tvalues = transpose values
-            in assert ( length keys == length ( head tvalues ) ) ( zip (getLine "HDR" keyline ) tvalues , rem )
-        getMultiRecord _ _ = assert False ([],[])
+            in assert ( length keys == length ( head values ) ) ( zip (getLine "HDR" keyline ) tvalues , rem )
 
         getStart = getSingleRecord "START"
-        getEnd   = getSingleRecord "END"
+        getEnd   = getSingleRecord "STOP"
         getData   = getMultiRecord "DATA"
 
         (start,rest) = getStart ( lines s )
         (columns,rest') = getData rest
         (end,rest'') = getEnd rest'
+{- *** why does the below consistency check loop? -}
+        --(end,rest'') = assert (1 < length rest'') ( getEnd rest' )
         --goodEnd = assert  ( null rest'' || ( (not . null . fst . getStart) rest'' ))
 
     in assert ( null rest'' || ( (not . null . fst . getStart) rest'' )) (start,columns,end)
