@@ -53,7 +53,8 @@ struct bytestring pas2bytestring(char *pa, ...) {
   va_end(ap);
   char *buf = malloc(length);
   char *next = buf;
-  for (int i = 0; i < pax; i++)
+  int i;
+  for (i = 0; i < pax; i++)
     next = mempcpy(next, pas[i], lengths[i]);
   return (struct bytestring){length, buf};
 };

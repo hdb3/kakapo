@@ -31,7 +31,8 @@ struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
   uint32_t *addrptr = x + 1;
   *lptr = length;
   char *loc = 3 + (char *)x;
-  for (int i = 0; i < count; i++) {
+  int i;
+  for (i = 0; i < count; i++) {
     *addrptr = __bswap_32(ip);
     memcpy(next, loc, chunksize);
     ip += increment;

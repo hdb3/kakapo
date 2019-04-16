@@ -315,7 +315,8 @@ void *session(void *x) {
       int bsn = seq % MAXBURSTCOUNT;
 
       gettime(&tstart);
-      for (int usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
+      int usn;
+      for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
         sendbs(sock,
                update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty,
                       iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX,
