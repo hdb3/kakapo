@@ -15,13 +15,6 @@ main = do
         putStrLn $ "MEMSIZE=" ++ show memsize
         putStrLn $ "CORES=" ++ show cores
         putStrLn $ "THREADS=" ++ show cpus
-        --runfile <- openFile "sysinfo.txt" WriteMode
-        --runfile <- openFile "/run/sysinfo" WriteMode
-        runfile <- openFile "/var/run/sysinfo" WriteMode
-        hPutStrLn runfile $ "MEMSIZE=" ++ show memsize
-        hPutStrLn runfile $ "CORES=" ++ show cores
-        hPutStrLn runfile $ "THREADS=" ++ show cpus
-        hClose runfile
     else
         putStrLn "Error - root privelege required"
 
