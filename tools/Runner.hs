@@ -2,6 +2,10 @@ module Runner where
 import System.Process
 import System.Exit
 import System.IO(hFlush,stdout)
+import Control.Monad
+import qualified Data.Time.Clock.System as DT
+import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
+import Text.Printf
 
 {-
     Runner is a repeat execution scheduler for kakapo
@@ -32,11 +36,21 @@ ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"])
 run (shell,parameters) command = do
     putStr $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
     hFlush stdout
+    now <- getSystemTime
     (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
-    putStrLn " done."
-    if ( ExitSuccess == code ) then
-        putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\""
+    later <- getSystemTime
+    putStrLn $ " done, in " ++ prettyDuration (stToFloat later - stToFloat now)
+    if ExitSuccess == code then
+        unless (null stdout)
+               ( putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\"" )
     else do
         putStrLn $ "exit code=" ++ show code
-        putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\""
-        putStrLn $ "stderr: \"" ++ take 100 stderr ++"...\""
+        unless (null stdout)
+               ( putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\"" )
+        unless (null stderr)
+               ( putStrLn $ "stderr: \"" ++ take 100 stderr ++"...\"" )
+
+stToFloat :: SystemTime -> Double
+stToFloat s = (fromIntegral (systemSeconds s) * 1000000000 + fromIntegral (systemNanoseconds s)) / 1000000000.0
+
+prettyDuration dT = if 1.0 > dT then printf "%.3f ms" (1000*dT) else printf "%.3f s" dT
