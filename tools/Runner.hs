@@ -1,7 +1,7 @@
 module Runner where
 import System.Process
 import System.Exit
-import Data.List(intercalate)
+import System.IO(hFlush,stdout)
 
 {-
     Runner is a repeat execution scheduler for kakapo
@@ -30,11 +30,13 @@ import Data.List(intercalate)
 bash = run ("/bin/bash" , [])
 ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"]) 
 run (shell,parameters) command = do
+    putStr $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
+    hFlush stdout
     (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
+    putStrLn " done."
     if ( ExitSuccess == code ) then
-        putStrLn $ "stdout: \"" ++ take 100 stdout ++"\""
-        --putStrLn $ "stdout: \"" ++ stdout ++"\""
+        putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\""
     else do
         putStrLn $ "exit code=" ++ show code
-        putStrLn $ "stdout: \"" ++ take 100 stdout ++"\""
-        putStrLn $ "stderr: \"" ++ take 100 stderr ++"\""
+        putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\""
+        putStrLn $ "stderr: \"" ++ take 100 stderr ++"...\""
