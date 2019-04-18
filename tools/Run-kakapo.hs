@@ -4,7 +4,7 @@ import Runner
 
 main = do
     let shell = bash
-        sut = ssh "root@192.168.122.18"
+        sut = ssh [ "root@192.168.122.18" ]
         logtext = "\"BIRD nested batch run 1\""
         base = kvSet "LOGTEXT" logtext kakapoDefaultParameters
         --gs n = kvSet "GROUPSIZE" (show n) $ kvSet "LOGTEXT" logtext kakapoDefaultParameters
