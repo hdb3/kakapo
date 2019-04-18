@@ -57,8 +57,8 @@ char LOGTEXT[1024] = "";
 char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
 char LISTENER[] = "LISTENER";
 char SENDER[] = "SENDER";
-int isListener () { return strncmp (LISTENER,ROLE,8); };
-int isSender () { return strncmp (SENDER,ROLE,8); };
+int isListener() { return strncmp(LISTENER, ROLE, 9); };
+int isSender() { return strncmp(SENDER, ROLE, 7); };
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
 void startsession(int sock) {
@@ -66,10 +66,10 @@ void startsession(int sock) {
   struct sessiondata *sd;
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, MYAS};
-  if ( 0 == isListener() ) {
+  if (0 == isListener()) {
     sd->role = ROLELISTENER;
     fprintf(stderr, "%d: ROLE=LISTENER FROM ENVIRONMENT\n", pid);
-  } else if ( 0 == isSender() ) {
+  } else if (0 == isSender()) {
     sd->role = ROLESENDER;
     fprintf(stderr, "%d: ROLE=SENDER FROM ENVIRONMENT\n", pid);
   } else if (1 == tidx)
@@ -227,10 +227,11 @@ void startlog(uint32_t tid, char *tids, struct timespec *start) {
           CYCLECOUNT, CYCLEDELAY);
 
   fprintf(logfile,
-          "HDR , PID , DESC , START , BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY\n"
+          "HDR , PID , DESC , START , BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, "
+          "CYCLECOUNT, CYCLEDELAY\n"
           "START, %d, \"%s\" , \"%s\" , %d, %d, %d, %d, %d\n"
-          "HDR , SEQ , RTT , LATENCY , TXDURATION, RXDURATION\n"
-          , pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
+          "HDR , SEQ , RTT , LATENCY , TXDURATION, RXDURATION\n",
+          pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
           CYCLECOUNT, CYCLEDELAY);
 };
 
@@ -329,10 +330,9 @@ int main(int argc, char *argv[]) {
   getuint32env("HOLDTIME", &HOLDTIME);
   getsenv("LOGFILE", LOGFILE);
   getsenv("LOGTEXT", LOGTEXT);
-  getsenv("ROLE", LOGTEXT);
+  getsenv("ROLE", ROLE);
 
   startstatsrunner();
-
   if (1 == argc) { // server mode.....
     server();
   } else { // client mode
