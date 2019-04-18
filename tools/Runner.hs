@@ -1,9 +1,8 @@
 module Runner where
 import System.Process
 import System.Exit
-import System.IO(hFlush,stdout)
+import System.IO(hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
 import Control.Monad
-import qualified Data.Time.Clock.System as DT
 import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
 import Text.Printf
 
@@ -31,24 +30,44 @@ import Text.Printf
           local and remote execution behaviour
 -}
 
-bash = run ("/bin/bash" , [])
-ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"]) 
-run (shell,parameters) command = do
-    putStr $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
-    hFlush stdout
+sshd host = ("/usr/bin/ssh" , [host, "/bin/bash"])
+bashd = ("/bin/bash" , [])
+_stderr = return stderr
+_devnull = openFile "/dev/null" WriteMode
+
+
+--bashQ = runQ ("/bin/bash" , [])
+--ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"]) 
+--sshQ host = runQ ("/usr/bin/ssh" , [host, "/bin/bash"]) 
+--ssh = ssh_ stderr
+--ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"]) 
+--sshQ host = runQ ("/usr/bin/ssh" , [host, "/bin/bash"]) 
+--ssh = run . sshd
+--runQ = run_ _devnull
+--run = run_ _stderr
+
+bash = run_ _stderr bashd
+bashQ = run_ _devnull bashd
+ssh = run_ _stderr . sshd
+sshQ = run_ _devnull . sshd
+
+run_ _handle (shell,parameters) command = do
+    handle <- _handle
+    hPutStr handle $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
+    hFlush handle
     now <- getSystemTime
     (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
     later <- getSystemTime
-    putStrLn $ " done, in " ++ prettyDuration (stToFloat later - stToFloat now)
+    hPutStrLn handle $ " done, in " ++ prettyDuration (stToFloat later - stToFloat now)
     if ExitSuccess == code then
         unless (null stdout)
-               ( putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\"" )
+               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 stdout ++"...\"" )
     else do
-        putStrLn $ "exit code=" ++ show code
+        hPutStrLn handle $ "exit code=" ++ show code
         unless (null stdout)
-               ( putStrLn $ "stdout: \"" ++ take 100 stdout ++"...\"" )
+               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 stdout ++"...\"" )
         unless (null stderr)
-               ( putStrLn $ "stderr: \"" ++ take 100 stderr ++"...\"" )
+               ( hPutStrLn handle $ "stderr: \"" ++ take 1000 stderr ++"...\"" )
 
 stToFloat :: SystemTime -> Double
 stToFloat s = (fromIntegral (systemSeconds s) * 1000000000 + fromIntegral (systemNanoseconds s)) / 1000000000.0
