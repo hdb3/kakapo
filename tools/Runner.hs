@@ -30,7 +30,8 @@ import Text.Printf
           local and remote execution behaviour
 -}
 
-sshd params = ("/usr/bin/ssh" , params ++ ["/bin/bash"])
+defaultSSHparams = [ "-o" , "UserKnownHostsFile=/dev/null" , "-o" , "StrictHostKeyChecking=no" ]
+sshd params = ("/usr/bin/ssh" , defaultSSHparams ++ params ++ ["/bin/bash"])
 bashd = ("/bin/bash" , [])
 _stderr = return stderr
 _devnull = openFile "/dev/null" WriteMode
