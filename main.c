@@ -54,6 +54,11 @@ uint32_t HOLDTIME = 180;
 char MYIP[16] = "0.0.0.0";
 char LOGFILE[128] = "stats.csv";
 char LOGTEXT[1024] = "";
+char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
+char LISTENER[] = "LISTENER";
+char SENDER[] = "SENDER";
+int isListener () { return strncmp (LISTENER,ROLE,8); };
+int issender () { return strncmp (SENDER,ROLE,8); };
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
 void startsession(int sock) {
@@ -61,7 +66,13 @@ void startsession(int sock) {
   struct sessiondata *sd;
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, MYAS};
-  if (1 == tidx)
+  if ( isListener() ) {
+    sd->role = ROLELISTENER;
+    fprintf(stderr, "%d: ROLE=LISTENER FROM ENVIRONMENT\n", pid);
+  } else if ( issender() ) {
+    sd->role = ROLESENDER;
+    fprintf(stderr, "%d: ROLE=SENDER FROM ENVIRONMENT\n", pid);
+  } else if (1 == tidx)
     sd->role = ROLELISTENER;
   else if (2 == tidx)
     sd->role = ROLESENDER;
@@ -318,6 +329,7 @@ int main(int argc, char *argv[]) {
   getuint32env("HOLDTIME", &HOLDTIME);
   getsenv("LOGFILE", LOGFILE);
   getsenv("LOGTEXT", LOGTEXT);
+  getsenv("ROLE", LOGTEXT);
 
   startstatsrunner();
 
