@@ -23,6 +23,7 @@
 #include "sockbuf.h"
 #include "stats.h"
 #include "util.h"
+#include "parsearg.h"
 
 #define MAXPENDING 5 // Max connection requests
 
@@ -51,7 +52,7 @@ uint32_t CYCLECOUNT =
 uint32_t CYCLEDELAY = 30; // seconds
 uint32_t HOLDTIME = 180;
 
-char MYIP[16] = "0.0.0.0";
+//char MYIP[16] = "0.0.0.0";
 char LOGFILE[128] = "stats.csv";
 char LOGTEXT[1024] = "";
 char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
@@ -80,85 +81,56 @@ void startsession(int sock) {
   pthread_create(&thrd, NULL, session, sd);
 };
 
-void client(char *s) {
+void client(struct peer p) {
   int peersock;
-  struct sockaddr_in peeraddr, myaddr;
+  struct sockaddr_in peeraddr = { AF_INET , htons(179) , (struct in_addr) { p.remote } };
+  struct sockaddr_in myaddr = { AF_INET , 0 , (struct in_addr) { p.local } };
 
-  fprintf(stderr, "%d: Connecting to: %s\n", pid, s);
-
-  // parse the parameter string for optional source address
-
-  memset(&peeraddr, 0, SOCKADDRSZ);
-  peeraddr.sin_family = AF_INET;
-  peeraddr.sin_port = htons(179);
-
-  memset(&myaddr, 0, SOCKADDRSZ);
-  myaddr.sin_family = AF_INET;
-  myaddr.sin_port = 0; // allow the OS to choose the outbound port (redundant as
-                       // we did a memset)
+  // TODO fprintf(stderr, "%d: Connecting to: %s\n", pid, s);
 
   (0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
    die("Failed to create socket"));
 
-  if (0 ==
-      inet_aton(s,
-                &peeraddr.sin_addr)) { // failed to parse as a single address..
-                                       // if there is no comma, it fails
-    // if there is a comma then only if aton on both halves works is it ok...
-    char *commaloc;
-    if (0 != (commaloc = strchr(s, ','))) {
-      *commaloc = 0;
-      if (inet_aton(s, &peeraddr.sin_addr) &&
-          inet_aton(commaloc + 1, &myaddr.sin_addr)) {
-        (0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
-         die("Failed to bind local address"));
-        fprintf(stderr, "%d: success using local address %s\n", pid,
-                inet_ntoa(myaddr.sin_addr));
-      } else
-        die("Failed to parse address(es)");
-    } else
-      die("Failed to parse address(es)");
-  };
-  // fprintf(stderr, "%d: using peer address %s\n",pid,
-  // inet_ntoa(peeraddr.sin_addr));
+  (0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
+   die("Failed to bind local address"));
 
-  (0 == (connect(peersock, (struct sockaddr *)&peeraddr, SOCKADDRSZ)) ||
+  (0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
    die("Failed to connect with peer"));
 
   // fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
   startsession(peersock);
 };
 
-void server() {
+void server(struct peer p) {
   int serversock, peersock;
   int reuse = 1;
   socklen_t socklen;
 
-  struct sockaddr_in acceptaddr, localaddr, peeraddr, hostaddr;
+  struct sockaddr_in acceptaddr;
+  //struct sockaddr_in acceptaddr, localaddr, peeraddr, hostaddr;
+  struct sockaddr_in hostaddr = { AF_INET , htons(179) , (struct in_addr) { p.local } };
 
-  memset(&hostaddr, 0, SOCKADDRSZ);
-  hostaddr.sin_family = AF_INET;
-  0 != inet_aton(MYIP, &hostaddr.sin_addr) ||
-      die("Failed to read server bind address from environment");
-  // hostaddr.sin_addr.s_addr = htonl(INADDR_ANY);   // local server addr -
-  // wildcard - could be a specific interface
-  hostaddr.sin_port = htons(179); // BGP server port
+  //memset(&hostaddr, 0, SOCKADDRSZ);
+  //hostaddr.sin_family = AF_INET;
+// TODO purge refernces to MYIP
+//  0 != inet_aton(MYIP, &hostaddr.sin_addr) ||
+//      die("Failed to read server bind address from environment");
 
-  0 == ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) ||
+  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
 
   0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse,
-                   sizeof(reuse)) < 0) ||
+                   sizeof(reuse)) ) ||
       die("Failed to set server socket option SO_REUSEADDR");
 
   0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse,
-                   sizeof(reuse)) < 0) ||
+                   sizeof(reuse))) ||
       die("Failed to set server socket option SO_REUSEPORT");
 
-  0 == (bind(serversock, (struct sockaddr *)&hostaddr, SOCKADDRSZ) < 0) ||
+  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) ||
       die("Failed to bind the server socket");
 
-  0 == (listen(serversock, MAXPENDING) < 0) ||
+  0 == (listen(serversock, MAXPENDING)) ||
       die("Failed to listen on server socket");
 
   while (1) {
@@ -171,6 +143,15 @@ void server() {
         die("bad sockaddr");
     startsession(peersock);
   }
+};
+
+void peer(char *s) {
+// clients have a non-zero 'remote' address
+  struct peer p = parseargument(s);
+  if (0 == p.remote)
+    server(p);
+  else
+    client(p);
 };
 
 // NOTE - the target string must be actual static memory large enough...
@@ -316,7 +297,7 @@ int main(int argc, char *argv[]) {
   getuint32env("MYAS", &MYAS);
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
-  getsenv("MYIP", MYIP);
+//  getsenv("MYIP", MYIP);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
@@ -333,13 +314,16 @@ int main(int argc, char *argv[]) {
   getsenv("ROLE", ROLE);
 
   startstatsrunner();
-  if (1 == argc) { // server mode.....
-    server();
-  } else { // client mode
-    int argn;
-    for (argn = 2; argn <= argc; argn++)
-      client(argv[argn - 1]);
-  }
+  int argn;
+  for (argn = 1; argn <= argc; argn++)
+    peer(argv[argn]);
+  // // if (1 == argc) { // server mode.....
+    // // server();
+  // // } else { // client mode
+    // // int argn;
+    // // for (argn = 2; argn <= argc; argn++)
+      // // client(argv[argn - 1]);
+  // // }
   while (1)
     sleep(100);
 }
