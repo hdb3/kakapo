@@ -38,7 +38,6 @@ int main(int argc, char **argv) {
     int i;
     for (i=1 ; i < argc ; i++ ) {
       unittest (argv[i]);
-      //printf ("%s ~ %s\n",argv[i],displaypeer(parseargument(argv[i])));
     };
   } else {
 
