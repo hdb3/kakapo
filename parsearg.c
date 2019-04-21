@@ -22,7 +22,6 @@ args_t commaparse (char *s) {
   return (args_t) { argc , argv };
 };
 
-// struct peer { uint32_t remote; uint32_t local; uint32_t as; };
 struct peer parseargument (char *s) {
   uint32_t remote;
   uint32_t local = 0 ;
@@ -32,13 +31,12 @@ struct peer parseargument (char *s) {
   if ( args.argc > 0 )
     local = toHostAddress(args.argv[1]);
   if ( args.argc > 1 )
-    sscanf("%d", args.argv[1], &as);
+    sscanf(args.argv[2],"%d", &as);
   return (struct peer) { remote, local, as };
 };
-// Unit testing
-// Cases: parse empty, valid and invalid subfields in each position, with 1,2,3 adn more parameters.  Build a display routein for struct peer
 char * displaypeer(struct peer p) {
   static char rval[42];
-  snprintf(rval,42,"(%s,%s,%d)",fromHostAddress(p.remote),fromHostAddress(p.local),p.as);
+  int ix = snprintf(rval,42,"(%s,",fromHostAddress(p.remote));
+           snprintf(rval+ix,42-ix,"%s,%d)",fromHostAddress(p.local),p.as);
   return rval;
 };
