@@ -15,7 +15,7 @@ args_t commaparse (char *s) {
   while ( (0 != *s) && (argc < LIMIT ) ) {
     if ( ',' == *s ) {
       *s = 0;
-      argv[++argc] = s + 1;
+      argv[argc++] = s + 1;
     };
     s++;
   };
