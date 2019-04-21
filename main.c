@@ -52,7 +52,6 @@ uint32_t CYCLECOUNT =
 uint32_t CYCLEDELAY = 30; // seconds
 uint32_t HOLDTIME = 180;
 
-//char MYIP[16] = "0.0.0.0";
 char LOGFILE[128] = "stats.csv";
 char LOGTEXT[1024] = "";
 char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
@@ -86,18 +85,15 @@ void client(struct peer p) {
   struct sockaddr_in peeraddr = { AF_INET , htons(179) , (struct in_addr) { p.remote } };
   struct sockaddr_in myaddr = { AF_INET , 0 , (struct in_addr) { p.local } };
 
-  // TODO fprintf(stderr, "%d: Connecting to: %s\n", pid, s);
+  0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
+   die("Failed to create socket");
 
-  (0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
-   die("Failed to create socket"));
+  0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
+   die("Failed to bind local address");
 
-  (0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
-   die("Failed to bind local address"));
+  0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
+   die("Failed to connect with peer");
 
-  (0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
-   die("Failed to connect with peer"));
-
-  // fprintf(stderr, "%d: Peer connected: %s\n",pid, s);
   startsession(peersock);
 };
 
@@ -107,14 +103,7 @@ void server(struct peer p) {
   socklen_t socklen;
 
   struct sockaddr_in acceptaddr;
-  //struct sockaddr_in acceptaddr, localaddr, peeraddr, hostaddr;
   struct sockaddr_in hostaddr = { AF_INET , htons(179) , (struct in_addr) { p.local } };
-
-  //memset(&hostaddr, 0, SOCKADDRSZ);
-  //hostaddr.sin_family = AF_INET;
-// TODO purge refernces to MYIP
-//  0 != inet_aton(MYIP, &hostaddr.sin_addr) ||
-//      die("Failed to read server bind address from environment");
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
@@ -146,9 +135,8 @@ void server(struct peer p) {
 };
 
 void peer(char *s) {
-// clients have a non-zero 'remote' address
   struct peer p = parseargument(s);
-  if (0 == p.remote)
+  if (0 == p.remote) // servers have a zero 'remote' address
     server(p);
   else
     client(p);
@@ -290,14 +278,12 @@ int main(int argc, char *argv[]) {
   }
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
-  // sem_init(&semrxtx,0,0);
   NEXTHOP = toHostAddress(
       sNEXTHOP); /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
   getuint32env("MYAS", &MYAS);
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
-//  getsenv("MYIP", MYIP);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
@@ -315,15 +301,8 @@ int main(int argc, char *argv[]) {
 
   startstatsrunner();
   int argn;
-  for (argn = 1; argn <= argc; argn++)
+  for (argn = 1; argn <= argc-1; argn++)
     peer(argv[argn]);
-  // // if (1 == argc) { // server mode.....
-    // // server();
-  // // } else { // client mode
-    // // int argn;
-    // // for (argn = 2; argn <= argc; argn++)
-      // // client(argv[argn - 1]);
-  // // }
   while (1)
     sleep(100);
 }
