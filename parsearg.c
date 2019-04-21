@@ -6,11 +6,9 @@
 #include "parsearg.h"
 
 #define LIMIT 3
-struct args { int argc; char **argv; };
-typedef struct args args_t;
 args_t commaparse (char *s) {
   static char *argv [LIMIT];
-  int  argc = 0;
+  int  argc = 1;
   argv[0] = s;
   while ( (0 != *s) && (argc < LIMIT ) ) {
     if ( ',' == *s ) {
@@ -28,9 +26,9 @@ struct peer parseargument (char *s) {
   uint32_t as = 0;
   args_t args = commaparse (s);
   remote = toHostAddress(args.argv[0]);
-  if ( args.argc > 0 )
-    local = toHostAddress(args.argv[1]);
   if ( args.argc > 1 )
+    local = toHostAddress(args.argv[1]);
+  if ( args.argc > 2 )
     sscanf(args.argv[2],"%d", &as);
   return (struct peer) { remote, local, as };
 };
