@@ -65,11 +65,8 @@ void *session(void *x) {
     fprintf(stderr, "%s\n", fromHostAddress(peerip));
   };
 
-  unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                 0xff, 0xff, 0,    19,   4};
-  unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                              0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
+  unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
   const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
   char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
@@ -418,10 +415,8 @@ void *session(void *x) {
       }
     };
   exit:
-    closelogrecord(slp, sd->tidx); // closelogrecord is safe in case that
-                                   // initlogrecord was not called...
-    if (1 == sndrunning) // this guards against calling pthread_cancel on a
-                         // thread which already exited
+    closelogrecord(slp, sd->tidx); // closelogrecord is safe in case that initlogrecord was not called...
+    if (1 == sndrunning)           // this guards against calling pthread_cancel on a thread which already exited
       pthread_cancel(thrd);
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);

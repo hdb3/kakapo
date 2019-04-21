@@ -39,9 +39,8 @@ struct peer parseargument(char *s) {
   if ((args.argc < 3) || 0 == *args.argv[2]) // null string in pos 3 valid, use
                                              // 0, implies this is a dynamic ASN
     p.as = 0;
-  else
-    if (1 != sscanf(args.argv[2], "%d", &p.as))
-      die("could not read an AS number");
+  else if (1 != sscanf(args.argv[2], "%d", &p.as))
+    die("could not read an AS number");
 
   return p;
 };

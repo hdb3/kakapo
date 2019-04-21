@@ -19,11 +19,11 @@
 #include <unistd.h>
 
 #include "kakapo.h"
+#include "parsearg.h"
 #include "session.h"
 #include "sockbuf.h"
 #include "stats.h"
 #include "util.h"
-#include "parsearg.h"
 
 #define MAXPENDING 5 // Max connection requests
 
@@ -48,7 +48,7 @@ uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
 uint32_t CYCLECOUNT =
-    1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
+    1;                    // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
 uint32_t CYCLEDELAY = 30; // seconds
 uint32_t HOLDTIME = 180;
 
@@ -82,17 +82,17 @@ void startsession(int sock) {
 
 void client(struct peer p) {
   int peersock;
-  struct sockaddr_in peeraddr = { AF_INET , htons(179) , (struct in_addr) { p.remote } };
-  struct sockaddr_in myaddr = { AF_INET , 0 , (struct in_addr) { p.local } };
+  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p.remote}};
+  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p.local}};
 
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
-   die("Failed to create socket");
+      die("Failed to create socket");
 
   0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
-   die("Failed to bind local address");
+      die("Failed to bind local address");
 
   0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
-   die("Failed to connect with peer");
+      die("Failed to connect with peer");
 
   startsession(peersock);
 };
@@ -103,17 +103,15 @@ void server(struct peer p) {
   socklen_t socklen;
 
   struct sockaddr_in acceptaddr;
-  struct sockaddr_in hostaddr = { AF_INET , htons(179) , (struct in_addr) { p.local } };
+  struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){p.local}};
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
 
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse,
-                   sizeof(reuse)) ) ||
+  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) ||
       die("Failed to set server socket option SO_REUSEADDR");
 
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse,
-                   sizeof(reuse))) ||
+  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) ||
       die("Failed to set server socket option SO_REUSEPORT");
 
   0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) ||
@@ -126,10 +124,8 @@ void server(struct peer p) {
 
     memset(&acceptaddr, 0, SOCKADDRSZ);
     socklen = SOCKADDRSZ;
-    0 < (peersock = accept(serversock, &acceptaddr, &socklen)) ||
-        die("Failed to accept peer connection");
-    (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) ||
-        die("bad sockaddr");
+    0 < (peersock = accept(serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
+    (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
     startsession(peersock);
   }
 };
@@ -156,8 +152,7 @@ void gethostaddress(char *name, uint32_t *tgt) {
   char *s;
   if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
     *tgt = toHostAddress(s);
-    fprintf(stderr, "%d: read %s from environment: %s\n", pid, name,
-            fromHostAddress(*tgt));
+    fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, fromHostAddress(*tgt));
   };
 };
 
@@ -189,15 +184,11 @@ void startlog(uint32_t tid, char *tids, struct timespec *start) {
   0 != (logfile = fopen(LOGFILE, "a")) || die("could not open log file");
   setvbuf(logfile, NULL, _IOLBF, 0);
 
-  fprintf(stderr,
-          "\n%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, "
-          "CYCLECOUNT %d, CYCLEDELAY %d\n",
-          tids, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
-          CYCLECOUNT, CYCLEDELAY);
+  fprintf(stderr, "\n%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, CYCLECOUNT %d, CYCLEDELAY %d\n",
+          tids, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY);
 
   fprintf(logfile,
-          "HDR , PID , DESC , START , BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, "
-          "CYCLECOUNT, CYCLEDELAY\n"
+          "HDR , PID , DESC , START , BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY\n"
           "START, %d, \"%s\" , \"%s\" , %d, %d, %d, %d, %d\n"
           "HDR , SEQ , RTT , LATENCY , TXDURATION, RXDURATION\n",
           pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
@@ -269,17 +260,14 @@ int main(int argc, char *argv[]) {
   pid = getpid();
   fprintf(stderr, "%d: kakapo\n", pid);
   if (1 > argc) {
-    fprintf(
-        stderr,
-        "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
-    fprintf(stderr, "       many options are controlled via environment "
-                    "variables like MYAS, MYIP, SLEEP, etc...\n");
+    fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
+    fprintf(stderr, "       many options are controlled via environment variables like MYAS, MYIP, SLEEP, etc...\n");
     exit(1);
   }
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
   NEXTHOP = toHostAddress(
-      sNEXTHOP); /// must initliase here because cant do it in the declaration
+      sNEXTHOP);                           /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
   getuint32env("MYAS", &MYAS);
   getuint32env("SLEEP", &SLEEP);
@@ -301,7 +289,7 @@ int main(int argc, char *argv[]) {
 
   startstatsrunner();
   int argn;
-  for (argn = 1; argn <= argc-1; argn++)
+  for (argn = 1; argn <= argc - 1; argn++)
     peer(argv[argn]);
   while (1)
     sleep(100);
