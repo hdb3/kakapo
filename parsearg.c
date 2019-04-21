@@ -40,7 +40,8 @@ struct peer parseargument(char *s) {
                                              // 0, implies this is a dynamic ASN
     p.as = 0;
   else
-    sscanf(args.argv[2], "%d", &p.as);
+    if (1 != sscanf(args.argv[2], "%d", &p.as))
+      die("could not read an AS number");
 
   return p;
 };
