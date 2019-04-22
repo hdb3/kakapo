@@ -188,12 +188,13 @@ void endlog() {
       fprintf(stderr,"success\n");
     else
       fprintf(stderr,"fail(%d)\n",res);
+    free(sp);
   };
   exit(0);
 };
 
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
-  0 != (logfile = fopen(LOGFILE, "a")) || die("could not open log file");
+  0 != (logfile = fopen(LOGFILE, "w")) || die("could not open log file");
   setvbuf(logfile, NULL, _IOLBF, 0);
 
   fprintf(stderr, "\n%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, CYCLECOUNT %d, CYCLEDELAY %d\n",
