@@ -49,7 +49,6 @@ runExperiment rsh = do
         kakapoDefaultParameters =
            [
              ("LOGTEXT" , "\"auto FRR\" "),
-             ("MYAS" , "64504 "),
              ("SLEEP" , "10 "),
              ("MAXBURSTCOUNT" , "1 "),
              ("GROUPSIZE" , "10 "),
@@ -65,7 +64,7 @@ runExperiment rsh = do
 
         blockGen bsRange gsRange base = [ expandParameters $ kvSet "GROUPSIZE" ( show gs ) $ kvSet "BLOCKSIZE" ( show bs ) base | bs <- bsRange , gs <- gsRange ]
 
-        buildCommand parameters = parameters ++ " /usr/sbin/kakapo"
+        buildCommand parameters = parameters ++ " /usr/sbin/kakapo ,169.254.0.11,64504 ,169.254.0.12,64504"
         -- buildCommand parameters = "sudo " ++ parameters ++ " /usr/sbin/kakapo"
 
     --die $ buildCommand $ expandParameters base
