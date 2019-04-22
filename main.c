@@ -114,7 +114,7 @@ void *serverthread(void *_p) {
 
   0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
 
-  printf("binding to %s\n",fromHostAddress(p->local));
+  fprintf(stderr,"binding to %s\n",fromHostAddress(p->local));
 
   0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
