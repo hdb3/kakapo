@@ -52,6 +52,7 @@ uint32_t CYCLEDELAY = 30; // seconds
 uint32_t HOLDTIME = 180;
 
 char LOGFILE[128] = "stats.csv";
+char LOGPATH[128] = "localhost";
 char LOGTEXT[1024] = "";
 char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
 char LISTENER[] = "LISTENER";
@@ -175,7 +176,19 @@ void getllienv(char *name, long long int *tgt) {
 
 FILE *logfile;
 void endlog() {
+  char *sp;
   fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
+  fclose(logfile);
+  if (0 != LOGPATH) {
+    time_t t = time(NULL);
+    int tmp = asprintf(&sp,"curl -X PUT --data-binary @%s http://%s/%ld",LOGFILE,LOGPATH,t);
+    fprintf(stderr,"trying to send datafile with: %s\n",sp);
+    int res = system(sp);
+    if (0 == res)
+      fprintf(stderr,"success\n");
+    else
+      fprintf(stderr,"fail(%d)\n",res);
+  };
   exit(0);
 };
 
@@ -265,8 +278,7 @@ int main(int argc, char *argv[]) {
   }
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
-  NEXTHOP = toHostAddress(
-      sNEXTHOP);                           /// must initliase here because cant do it in the declaration
+  NEXTHOP = toHostAddress(sNEXTHOP);       /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
@@ -282,6 +294,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SHOWRATE", &SHOWRATE);
   getuint32env("HOLDTIME", &HOLDTIME);
   getsenv("LOGFILE", LOGFILE);
+  getsenv("LOGPATH", LOGPATH);
   getsenv("LOGTEXT", LOGTEXT);
   getsenv("ROLE", ROLE);
 
