@@ -32,7 +32,6 @@ struct timespec txts;
 
 int pid;
 int tidx = 0;
-uint32_t MYAS = 65001;
 uint32_t SLEEP = 0; // default value -> don't repeat the send operation
 uint32_t TIMEOUT = 10;
 
@@ -61,11 +60,11 @@ int isListener() { return strncmp(LISTENER, ROLE, 9); };
 int isSender() { return strncmp(SENDER, ROLE, 7); };
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
-void startsession(int sock) {
+void startsession(int sock, int as) {
 
   struct sessiondata *sd;
   sd = malloc(sizeof(struct sessiondata));
-  *sd = (struct sessiondata){sock, tidx++, MYAS};
+  *sd = (struct sessiondata){sock, tidx++, as};
   if (0 == isListener()) {
     sd->role = ROLELISTENER;
     fprintf(stderr, "%d: ROLE=LISTENER FROM ENVIRONMENT\n", pid);
@@ -80,10 +79,12 @@ void startsession(int sock) {
   pthread_create(&thrd, NULL, session, sd);
 };
 
-void client(struct peer p) {
+//void client(struct peer *p) {
+void *clientthread(void *_p) {
+  struct peer *p = (struct peer *)_p;
   int peersock;
-  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p.remote}};
-  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p.local}};
+  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remote}};
+  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->local}};
 
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
@@ -94,62 +95,50 @@ void client(struct peer p) {
   0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
       die("Failed to connect with peer");
 
-  startsession(peersock);
+  startsession(peersock, p->as);
 };
 
-//void serverthread (int serversock) {
-void * serverthread (void * serversock) {
+//void * serverthread (struct peer *p) {
+void *serverthread(void *_p) {
+  struct peer *p = (struct peer *)_p;
   struct sockaddr_in acceptaddr;
   int peersock;
   socklen_t socklen;
+  long int serversock;
+  int reuse = 1;
+  struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){p->local}};
+
+  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
+
+  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
+
+  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
+
+  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
+
+  0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
+
   while (1) {
     memset(&acceptaddr, 0, SOCKADDRSZ);
     socklen = SOCKADDRSZ;
     0 < (peersock = accept((long int)serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
     (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
-    startsession(peersock);
+    startsession(peersock, p->as);
   }
 };
 
-void server(struct peer p) {
-  long int serversock;
-  int reuse = 1;
-  struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){p.local}};
-  pthread_t thrd;
-
-  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
-      die("Failed to create socket");
-
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) ||
-      die("Failed to set server socket option SO_REUSEADDR");
-
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) ||
-      die("Failed to set server socket option SO_REUSEPORT");
-
-  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) ||
-      die("Failed to bind the server socket");
-
-  0 == (listen(serversock, MAXPENDING)) ||
-      die("Failed to listen on server socket");
-
-  pthread_create(&thrd, NULL, serverthread, (void*)serversock);
-  //serverthread(serversock);
-};
-
 void peer(char *s) {
-  struct peer p = parseargument(s);
-  //pthread_t thrd;
-  //pthread_create(&thrd, NULL, session, sd);
-  if (0 == p.remote) // servers have a zero 'remote' address
-    server(p);
+  struct peer *p = parseargument(s);
+  pthread_t thrd;
+  if (0 == p->remote) // servers have a zero 'remote' address
+    pthread_create(&thrd, NULL, serverthread, (void *)p);
   else
-    client(p);
+    pthread_create(&thrd, NULL, clientthread, (void *)p);
 };
 
 // NOTE - the target string must be actual static memory large enough...
 void getsenv(char *name, char *tgt) {
   char *s;
-  // if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
   if (s = getenv(name)) {
     strcpy(tgt, s);
     fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, s);
@@ -269,7 +258,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "%d: kakapo\n", pid);
   if (1 > argc) {
     fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
-    fprintf(stderr, "       many options are controlled via environment variables like MYAS, MYIP, SLEEP, etc...\n");
+    fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
     exit(1);
   }
 
@@ -277,7 +266,6 @@ int main(int argc, char *argv[]) {
   NEXTHOP = toHostAddress(
       sNEXTHOP);                           /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
-  getuint32env("MYAS", &MYAS);
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
   getuint32env("IDLETHR", &IDLETHR);

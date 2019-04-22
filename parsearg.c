@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 args_t commaparse(char *s) {
   static char *argv[LIMIT];
@@ -19,27 +20,27 @@ args_t commaparse(char *s) {
   return (args_t){argc, argv};
 };
 
-struct peer parseargument(char *s) {
-  struct peer p;
+struct peer *parseargument(char *s) {
+  struct peer *p = malloc(sizeof(struct peer));
   args_t args = commaparse(s);
 
   if (0 == *args.argv[0]) // null string in pos 1 valid, use 0.0.0.0, implies
                           // this is a listen only peer definition
-    p.remote = 0;
+    p->remote = 0;
   else
-    p.remote = toHostAddress(args.argv[0]);
+    p->remote = toHostAddress(args.argv[0]);
 
   if ((args.argc < 2) ||
       0 == *args.argv[1]) // null string in pos 2 valid, use 0.0.0.0, implies
                           // this is a default 0.0.0.0 listener
-    p.local = 0;
+    p->local = 0;
   else
-    p.local = toHostAddress(args.argv[1]);
+    p->local = toHostAddress(args.argv[1]);
 
   if ((args.argc < 3) || 0 == *args.argv[2]) // null string in pos 3 valid, use
                                              // 0, implies this is a dynamic ASN
-    p.as = 0;
-  else if (1 != sscanf(args.argv[2], "%d", &p.as))
+    p->as = 0;
+  else if (1 != sscanf(args.argv[2], "%d", &p->as))
     die("could not read an AS number");
 
   return p;
