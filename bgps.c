@@ -22,7 +22,7 @@ int die(char *mess) {
 }
 unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                               0xff, 0xff, 0,    19,   4};
+                               0xff, 0xff, 0, 19, 4};
 unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 int isMarker(const unsigned char *buf) {
@@ -182,10 +182,8 @@ int main(int argc, char *argv[]) {
 
   memset(&peeraddr, 0, SOCKADDRSZ);
   peeraddr.sin_family = AF_INET;
-  peeraddr.sin_addr.s_addr =
-      htonl(INADDR_ANY); // local server addr - wildcard - could be a specific
-                         // interface
-  peeraddr.sin_port = htons(179); // BGP server port
+  peeraddr.sin_addr.s_addr = htonl(INADDR_ANY); // local server addr - wildcard - could be a specific interface
+  peeraddr.sin_port = htons(179);               // BGP server port
 
   if ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     die("Failed to create socket");
