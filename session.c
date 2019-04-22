@@ -72,7 +72,7 @@ void *session(void *x) {
   char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
     if (NULL == hexoptions) { // then we should build our own AS4 capability
                               // using the provided AS number
-      hexoptions = concat("02064104", hex32(as));
+      hexoptions = concat("02064104", hex32(as), NULL);
     };
 
     char *hexmessage =
