@@ -97,13 +97,25 @@ void client(struct peer p) {
   startsession(peersock);
 };
 
-void server(struct peer p) {
-  int serversock, peersock;
-  int reuse = 1;
-  socklen_t socklen;
-
+//void serverthread (int serversock) {
+void * serverthread (void * serversock) {
   struct sockaddr_in acceptaddr;
+  int peersock;
+  socklen_t socklen;
+  while (1) {
+    memset(&acceptaddr, 0, SOCKADDRSZ);
+    socklen = SOCKADDRSZ;
+    0 < (peersock = accept((long int)serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
+    (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
+    startsession(peersock);
+  }
+};
+
+void server(struct peer p) {
+  long int serversock;
+  int reuse = 1;
   struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){p.local}};
+  pthread_t thrd;
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
@@ -120,18 +132,14 @@ void server(struct peer p) {
   0 == (listen(serversock, MAXPENDING)) ||
       die("Failed to listen on server socket");
 
-  while (1) {
-
-    memset(&acceptaddr, 0, SOCKADDRSZ);
-    socklen = SOCKADDRSZ;
-    0 < (peersock = accept(serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
-    (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
-    startsession(peersock);
-  }
+  pthread_create(&thrd, NULL, serverthread, (void*)serversock);
+  //serverthread(serversock);
 };
 
 void peer(char *s) {
   struct peer p = parseargument(s);
+  //pthread_t thrd;
+  //pthread_create(&thrd, NULL, session, sd);
   if (0 == p.remote) // servers have a zero 'remote' address
     server(p);
   else
