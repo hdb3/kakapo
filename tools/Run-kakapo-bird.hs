@@ -30,7 +30,7 @@ runExperiment :: ([Char] -> IO()) -> IO()
 runExperiment rsh = do
     let
         logtext = "\"BIRD nested batch run 1\""
-        base = kvSet "LOGTEXT" logtext kakapoDefaultParameters
+        base = kvSet "LOGPATH" "10.30.65.209/bird" $ kvSet "LOGTEXT" logtext kakapoDefaultParameters
         gsr = [1..10]
         gsrx = [10,20..50]
         bsr = [1..10] ++ [10,20..100] ++ [100,200..1000] ++ [1000,2000..10000] ++ [10000,20000..100000]
