@@ -56,15 +56,18 @@ getSection tx =
     in ( (start,columns,end) , rest'')
     -- in assert goodEnd (start,columns,end)
 
-getSections :: [ Text ] -> [ Section ]
-getSections tx =
-    let (section,more) = getSection tx
-    in if null more then
-           [ section ]
-       else
-           section : getSections more
+getSections :: Text -> [ Section ]
+getSections = getSections' . T.lines
+    where
+    getSections' :: [ Text ] -> [ Section ]
+    getSections' tx =
+        let (section,more) = getSection tx
+        in if null more then
+               [ section ]
+           else
+               section : getSections' more
 
 main = do
     content <- T.getContents
     --print $ getSection $ T.lines content
-    print $ getSections $ T.lines content
+    print $ getSections content

@@ -7,6 +7,8 @@ import System.Posix.Files(getFileStatus,isRegularFile,isDirectory,fileAccess)
 import System.FilePath(combine)
 import System.IO.Error(catchIOError)
 import System.Environment(getArgs)
+import Sections(Section,getSections)
+--import qualified Sections
 
 stageOne :: [String] -> IO [String]
 -- the output is guaranteed to be names of regular files
@@ -36,13 +38,19 @@ stageTwo path = do
         return (path,content)
     else return (path,T.empty)
 
+stageThree :: (String,T.Text) -> (String,[Section])
+stageThree (path,content) = (path, getSections content)
+
 main = do
    args <- getArgs
    files <- stageOne args
-   putStrLn $ unlines files
+   --putStrLn $ unlines files
    contents <- mapM stageTwo files
    let lengths = map (\(p,t) -> (p, T.length t)) contents
-   print lengths
+   --print lengths
+   let sections = map stageThree contents
+       allSections = concatMap snd sections
+   putStrLn $ "read " ++ show ( length files ) ++ " files and " ++ show ( length allSections ) ++ " sections"
 
 {-
 stageThree :: String -> Either String [String] -- the Right outputs are guaranteed to be well formed sections - Left outputs are helpful error messages
