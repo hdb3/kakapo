@@ -48,9 +48,13 @@ _devnull = openFile "/dev/null" WriteMode
 --runQ = run_ _devnull
 --run = run_ _stderr
 
+bash :: String -> IO ()
 bash = run_ _stderr bashd
 bashQ = run_ _devnull bashd
+
+ssh :: [String] -> String -> IO ()
 ssh = run_ _stderr . sshd
+
 sshQ = run_ _devnull . sshd
 
 getBash :: String -> IO (Maybe String)
