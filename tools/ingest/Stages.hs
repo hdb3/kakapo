@@ -5,34 +5,34 @@ import Control.Monad.Extra(concatMapM)
 import System.Directory(listDirectory)
 import System.Posix.Files(getFileStatus,isRegularFile,isDirectory,fileAccess)
 import System.FilePath(combine)
+import System.IO.Error(catchIOError)
 import System.Environment(getArgs)
 
-stageOne :: [String] -> IO [String] -- the output is guaranteed to be names of regular files
+stageOne :: [String] -> IO [String]
+-- the output is guaranteed to be names of regular files
 stageOne = concatMapM stageOneA
--- use System.Directory.listDirectory and System.Posix.Files.isRegularFile/isDirectory/fileAccess
-stageOneA :: String -> IO [String]
--- if it is a regular file, return itself
--- if it is a directory, use itself recursively
-stageOneA path = do
-    --putStrLn $ "stageOneA: " ++ path
-    status <- getFileStatus path
-    if isRegularFile status
-    then return [ path ]
-    else if isDirectory status then do
-        dir <- listDirectory path
-        let paths = map (combine path) dir
-        --putStrLn $ "stageOneA: dir: " ++ show paths
-        concatMapM stageOneA paths
-    else return []
+    where
+    stageOneA :: String -> IO [String]
+    -- if it is a regular file, return itself
+    -- if it is a directory, use itself recursively
+    stageOneA path = do
+        status <- getFileStatus path
+        if isRegularFile status then
+            return [ path ]
+        else if isDirectory status then
+            map (combine path) <$> listDirectory path >>= concatMapM stageOneA 
+        else return []
 
-
-
-stageTwo :: String -> IO (String,T.Text) -- read files and deliver contents paired with name
+stageTwo :: String -> IO (String,T.Text)
+-- read files and deliver contents paired with name
+-- silently pass over inaccessible and invalid Text content
+-- TODO make retrun type Either and warn about read failures (use tryIOError)
 stageTwo path = do
     isReadable <- fileAccess path True False False
     if isReadable
     then do
-        content <- T.readFile path
+        content <- catchIOError ( T.readFile path )
+                                (\_ -> return T.empty) 
         return (path,content)
     else return (path,T.empty)
 
