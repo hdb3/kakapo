@@ -5,6 +5,7 @@ import System.IO(hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
 import Control.Monad
 import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
 import Text.Printf
+import Data.List (intercalate)
 
 {-
     Runner is a repeat execution scheduler for kakapo
@@ -30,7 +31,7 @@ import Text.Printf
           local and remote execution behaviour
 -}
 
-defaultSSHparams = [ "-o" , "UserKnownHostsFile=/dev/null" , "-o" , "StrictHostKeyChecking=no" ]
+defaultSSHparams = [ "-t" , "-q" , "-o" , "UserKnownHostsFile=/dev/null" , "-o" , "StrictHostKeyChecking=no" ]
 sshd params = ("/usr/bin/ssh" , defaultSSHparams ++ params ++ ["/bin/bash"])
 bashd = ("/bin/bash" , [])
 _stderr = return stderr
@@ -52,9 +53,31 @@ bashQ = run_ _devnull bashd
 ssh = run_ _stderr . sshd
 sshQ = run_ _devnull . sshd
 
+getBash :: String -> IO (Maybe String)
+getBash  = getRun bashd
+
+--getSSH :: String -> IO (Maybe String)
+getSSH :: [String] -> String -> IO (Maybe String)
+getSSH params = getRun (sshd params)
+
+getRun (shell,parameters) command = do
+    -- hPutStrLn System.IO.stderr $ "getRun: " ++ shell ++ " / " ++ (intercalate " " parameters) ++ " / " ++ command
+    (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
+    unless ( ExitSuccess == code )
+           ( do hPutStrLn System.IO.stderr $ "exit code=" ++ show code
+                unless (null stdout)
+                       ( hPutStrLn System.IO.stderr $ "stdout: \"" ++ stdout ++"...\"" )
+                unless (null stderr)
+                       ( hPutStrLn System.IO.stderr $ "stderr: \"" ++ stderr ++"...\"" )
+           )
+    return $ if ExitSuccess == code
+             then ( Just stdout )
+             else Nothing
+
 run_ _handle (shell,parameters) command = do
     handle <- _handle
-    hPutStr handle $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
+    --hPutStr handle $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
+    hPutStr handle $ "using " ++ shell ++ " to execute \"" ++ command ++ "\""
     hFlush handle
     now <- getSystemTime
     (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
