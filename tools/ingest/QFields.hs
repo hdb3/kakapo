@@ -37,7 +37,7 @@ parse = normalMode T.empty
     
     normalMode precedingString content =
         let ( nextChunk, remainder ) = T.break pNormal content
-            acc = precedingString `T.append` nextChunk
+            acc = precedingString `T.append` ( T.strip nextChunk )
         in if T.null remainder then
             [ acc ]
         else if isSeparator ( T.head remainder ) then

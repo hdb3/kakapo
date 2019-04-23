@@ -8,7 +8,7 @@ import System.FilePath(combine)
 import System.IO.Error(catchIOError)
 import System.Environment(getArgs)
 import Sections(Section,getSections)
---import qualified Sections
+import Summarise(DataPoint,processSection)
 
 stageOne :: [String] -> IO [String]
 -- the output is guaranteed to be names of regular files
@@ -41,6 +41,11 @@ stageTwo path = do
 stageThree :: (String,T.Text) -> (String,[Section])
 stageThree (path,content) = (path, getSections content)
 
+-- type DataPoint = ( [(T.Text , T.Text) ] , [( T.Text , (Int,Double,Double,Double) )])
+-- processSection :: Section -> DataPoint
+stageFour :: (String,[Section]) -> (String,[DataPoint])
+stageFour (path,sections) = (path, map processSection sections)
+
 main = do
    args <- getArgs
    files <- stageOne args
@@ -51,12 +56,7 @@ main = do
    let sections = map stageThree contents
        allSections = concatMap snd sections
    putStrLn $ "read " ++ show ( length files ) ++ " files and " ++ show ( length allSections ) ++ " sections"
+   let dataPoints = map ( stageFour . stageThree ) contents
+       allDataPoints = concatMap snd dataPoints
+   mapM_ print allDataPoints
 
-{-
-stageThree :: String -> Either String [String] -- the Right outputs are guaranteed to be well formed sections - Left outputs are helpful error messages
-stageFour :: String -> ([String,String],[String,[Double]]) -- we have read all of the headers and parsed all of the data.
-stageFive :: [Double] -> (Double,Double) -- compute means and deviations
-stageSix :: ([Source, ([String,String],[String,(Double,Double)]) -> [(Int,[String],[String])] -- report metadata classes, with frequency.
-stageSeven :: Dataset -> [([String],([String],[Double]))] -- partition the dataset based on the discovered classes
-
--}
