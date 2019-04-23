@@ -48,7 +48,7 @@ runExperiment rsh = do
              ("GROUPSIZE" , "10 "),
              ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
-             ("CYCLECOUNT" , "10 "),
+             ("CYCLECOUNT" , "20 "),
              ("NEXTHOP" , "169.254.0.11 ")
            ]
 
@@ -61,10 +61,8 @@ runExperiment rsh = do
         buildCommand parameters = parameters ++ " /usr/sbin/kakapo ,169.254.0.11,64504 ,169.254.0.12,64504"
         -- buildCommand parameters = "sudo " ++ parameters ++ " /usr/sbin/kakapo"
 
-    --die $ buildCommand $ expandParameters base
     -- rsh $ buildCommand $ expandParameters base
+    -- mapM_ ( rsh . buildCommand ) ( blockGen bsr gsr base )
     mapM_ ( rsh . buildCommand ) ( blockGen bsr gsr base )
-
-    --mapM_ runKakapo $ blockGen bsr gsrx base
-    --mapM_ runKakapo $ blockGen bsrx gsr base
-    -- runKakapo $ expandParameters base
+    mapM_ ( rsh . buildCommand ) ( blockGen bsr gsrx base )
+    mapM_ ( rsh . buildCommand ) ( blockGen bsr gsrx base )
