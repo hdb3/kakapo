@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Sections where
 --module Sections(emptySection,getSection,Section) where
 
+import Data.Hashable
+import GHC.Generics(Generic)
 import Prelude hiding (getLine,rem)
 import Data.Text(Text)
 import qualified Data.Text as T
@@ -11,6 +14,11 @@ import Control.Exception(assert)
 import qualified QFields(parse)
 
 type Section = ( [(Text,Text)] , [(Text,[Text])] , [(Text,Text)] )
+newtype DSection = DSection Section deriving Generic
+instance Hashable DSection
+
+sectionHash :: Section -> Int
+sectionHash = Data.Hashable.hash . DSection
 
 qFields :: Text -> [Text]
 qFields = QFields.parse
@@ -56,6 +64,8 @@ getSection tx =
     in ( (start,columns,end) , rest'')
     -- in assert goodEnd (start,columns,end)
 
+addHASH :: Section -> Section
+addHASH section = let hash = T.pack $ show $ sectionHash section in addToHeader ("HASH", hash) section
 addToHeader :: (Text,Text) -> Section -> Section
 addToHeader kv ( a , b , c) = ( kv : a , b , c)
 
