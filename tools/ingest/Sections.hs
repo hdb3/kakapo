@@ -56,6 +56,9 @@ getSection tx =
     in ( (start,columns,end) , rest'')
     -- in assert goodEnd (start,columns,end)
 
+addToHeader :: (Text,Text) -> Section -> Section
+addToHeader kv ( a , b , c) = ( kv : a , b , c)
+
 getSections :: Text -> [ Section ]
 getSections = getSections' . T.lines
     where
@@ -67,6 +70,7 @@ getSections = getSections' . T.lines
            else
                section : getSections' more
 
+main :: IO ()
 main = do
     content <- T.getContents
     --print $ getSection $ T.lines content
