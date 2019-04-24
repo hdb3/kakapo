@@ -7,16 +7,6 @@ import qualified Data.Map.Strict as Map
 import Stages hiding (main)
 import Summarise hiding (main)
 
-{-
-data KRecV1 = KRecV1 { kV1HASH :: Int
-                     , kv1SOURCE :: T.Text
-                     , kV1PID :: Int
-                     , kV1DESC, kV1START :: T.Text
-                     , kV1BLOCKSIZE , kv1GROUPSIZE , kv1MAXBURSTCOUNT , kv1CYCLECOUNT , kv1CYCLEDELAY :: Int
-                     , kv1RTT , kv1LATENCY , kv1TXDURATION , kv1RXDURATION :: Point
-                     } deriving (Show, Eq)
--}
-
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: T.Text
                                          , blocksize , groupsize :: Int
@@ -29,23 +19,12 @@ reduceToKRecV1GraphPoint getter krec@KRecV1{..} = let blocksize = kV1BLOCKSIZE
                                                       desc = kV1DESC
                                                   in KRecV1GraphPoint{..}
 
-{-
-data ControlParam = Blocksize | Groupsize deriving Show
-data Observable   = RTT | Latency | TxDuration | RxDuration deriving Show
-
-getter Blocksize  = kV1BLOCKSIZE
-getter Groupsize  = kv1GROUPSIZE
-getter RTT        = kv1RTT
-getter Latency    = kv1LATENCY
-getter TxDuration = kv1TXDURATION
-getter RxDuration = kv1RXDURATION
--}
-
 main = do 
-    --output <- produce
-    --produce >>= mapM_ (hPrint stderr <$> (\(t,n,px) -> (T.unpack t , n , length px ))) output 
     produce >>= mapM_ (hPrint stderr <$> (\(t,n,px) -> (T.unpack t , n , length px )))
     hPutStrLn stderr "Done"
+
+graph :: [(T.Text, Int, [KRecV1GraphPoint])] -> IO ()
+graph _ = return ()
 
 produce :: IO [(T.Text, Int, [KRecV1GraphPoint])]
 produce = do
