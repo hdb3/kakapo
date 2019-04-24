@@ -48,7 +48,6 @@ stageThree (path,content) = (path, getSections content)
 stageFour :: (String,[Section]) -> [DataPoint]
 stageFour (path,sections) = map ( processSection . addToHeader ("SOURCE" ,T.pack path)) sections
 
-
 data KRecV1 = KRecV1 { kV1PID :: Int
                      , kV1DESC, kV1START :: T.Text
                      , kV1BLOCKSIZE , kv1GROUPSIZE , kv1MAXBURSTCOUNT , kv1CYCLECOUNT , kv1CYCLEDELAY :: Int
@@ -56,9 +55,25 @@ data KRecV1 = KRecV1 { kV1PID :: Int
                      , kv1SOURCE :: T.Text
                      } deriving (Show, Eq)
 
+
+mapCheck :: [T.Text] -> [(T.Text,t)] -> Bool
+mapCheck keys kvs = go keys
+    where check a = a `elem` map fst kvs
+          go kx = foldr ((&&) . check) True kx
+          --go [] = True
+          --go (k : kx ) = check k && go kx
+
+headerCheckV1 = mapCheck headerKeysV1
+headerKeysV1 = [ "PID" , "DESC" , "START", "BLOCKSIZE", "GROUPSIZE", "MAXBURSTCOUNT", "CYCLECOUNT", "CYCLEDELAY" ]
+
+valueCheckV1 = mapCheck valueKeysV1
+valueKeysV1 = [ "RTT" , "LATENCY" , "TXDURATION", "RXDURATION" ]
+
 stageFive :: DataPoint -> KRecV1
 stageFive ( header , values ) =
     let
+        headerFail = not $ headerCheckV1 header
+        valuesFail = not $ valueCheckV1 values
         lookupHeader k = fromJust $ lookup k header
         lookupValues k = fromJust $ lookup k values
         kv1SOURCE = lookupHeader "SOURCE"
@@ -74,7 +89,9 @@ stageFive ( header , values ) =
         kv1LATENCY = lookupValues "LATENCY"
         kv1TXDURATION = lookupValues "TXDURATION"
         kv1RXDURATION = lookupValues "RXDURATION"
-    in KRecV1 {..}
+    in if headerFail then error $ "headerFail: " ++ show header 
+       else if valuesFail then error $ "valuesFail: " ++ show (header, values)
+       else KRecV1 {..}
 
 getKRecV1 = do
    args <- getArgs
