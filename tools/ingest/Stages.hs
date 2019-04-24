@@ -3,11 +3,13 @@ module Stages where
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Maybe(fromJust)
+import Data.List.Extra(nubOn)
 import Control.Monad.Extra(concatMapM)
 import System.Directory(listDirectory)
 import System.Posix.Files(getFileStatus,isRegularFile,isDirectory,fileAccess)
 import System.FilePath(combine)
 import System.IO.Error(catchIOError)
+import System.IO(stderr,hPutStrLn)
 import System.Environment(getArgs)
 import Sections(Section,getSections,addToHeader)
 import Summarise(Point,DataPoint,processSection)
@@ -43,13 +45,6 @@ stageTwo path = do
 stageThree :: (String,T.Text) -> (String,[Section])
 stageThree (path,content) = (path, getSections content)
 
--- declarations from Summarise / Sections:
--- type Point = (Int,Double,Double,Double)
--- type DataPoint = ( [(T.Text , T.Text) ] , [( T.Text , Point) ])
--- processSection :: Section -> DataPoint
-
---stageFour :: (String,[Section]) -> (String,[DataPoint])
--- stageFour (path,sections) = (path, map processSection sections)
 stageFour :: (String,[Section]) -> [DataPoint]
 stageFour (path,sections) = map ( processSection . addToHeader ("SOURCE" ,T.pack path)) sections
 
@@ -81,18 +76,20 @@ stageFive ( header , values ) =
         kv1RXDURATION = lookupValues "RXDURATION"
     in KRecV1 {..}
 
-main = do
+getKRecV1 = do
    args <- getArgs
    files <- stageOne args
-   --putStrLn $ unlines files
+   hPutStrLn stderr $ "getKRecV1: read " ++ show ( length files ) ++ " files"
    contents <- mapM stageTwo files
-   let lengths = map (\(p,t) -> (p, T.length t)) contents
-   --print lengths
-   let sections = map stageThree contents
-       allSections = concatMap snd sections
-   putStrLn $ "read " ++ show ( length files ) ++ " files and " ++ show ( length allSections ) ++ " sections"
    let dataPoints = concatMap ( stageFour . stageThree ) contents
        krecs  = map stageFive dataPoints
-   --mapM_ print dataPoints
-   mapM_ print krecs
+   hPutStrLn stderr $ "getKRecV1: read " ++ show ( length krecs ) ++ " krecs"
+   let uniqKRecs = nubOn kV1START krecs :: [ KRecV1 ]
+   hPutStrLn stderr $ "getKRecV1: unique " ++ show ( length uniqKRecs ) ++ " krecs"
+   return uniqKRecs
 
+main = do
+   krecs <- getKRecV1
+   --mapM_ print dataPoints
+   --mapM_ print krecs
+   hPutStrLn stderr "Done"

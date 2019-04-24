@@ -37,7 +37,7 @@ parse = normalMode T.empty
     
     normalMode precedingString content =
         let ( nextChunk, remainder ) = T.break pNormal content
-            acc = precedingString `T.append` ( T.strip nextChunk )
+            acc = precedingString `T.append` T.strip nextChunk
         in if T.null remainder then
             [ acc ]
         else if isSeparator ( T.head remainder ) then
@@ -71,7 +71,7 @@ parse = normalMode T.empty
     
     
 main = do
-    let test t = T.putStrLn $ "[" `T.append` t `T.append` "] -> " `T.append` ( T.pack $ show $ parse t)
+    let test t = T.putStrLn $ "[" `T.append` t `T.append` "] -> " `T.append` T.pack ( show $ parse t)
     test ""
     test "123"
     test "123,456"

@@ -5,16 +5,11 @@ import qualified Data.Text.IO as T
 
 import Sections hiding (main)
 
--- type Section = ( [(Text,Text)] , [(Text,[Text])] , [(Text,Text)] )
 type Point = (Int,Double,Double,Double)
 type DataPoint = ( [(T.Text , T.Text) ] , [( T.Text , Point) ])
 
 main :: IO ()
-main = do
-   --infile <- T.lines <$> T.getContents
-   --let dataPoint = processSection $ fst $ getSection infile 
-   --print dataPoint
-   processSection <$> fst <$> getSection <$> T.lines <$> T.getContents >>= print
+main = processSection . fst . getSection . T.lines <$> T.getContents >>= print
 
 processSection :: Section -> DataPoint
 processSection (header,values,_) = (header,averageColumns values)
