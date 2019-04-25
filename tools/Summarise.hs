@@ -28,6 +28,6 @@ getMeanSDandRSD sample =
        ssum = sum sample
        mean = ssum / count
        sqSum = foldl (\x y -> x + y * y) 0 sample
-       sd    = ( sqrt ( (count * sqSum) - (ssum * ssum) )) / count
+       sd    = sqrt ( (count * sqSum) - (ssum * ssum) ) / count
        rsd   = sd / mean 
     in (count, mean, sd, rsd)

@@ -1,7 +1,7 @@
 module Runner where
 import System.Process
 import System.Exit
-import System.IO(hClose,stdout,hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
+import System.IO(hClose,hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
 import Control.Monad
 import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
 import Text.Printf
@@ -44,8 +44,14 @@ bashQ = run_ _devnull bashd
 ssh :: [String] -> String -> IO ()
 ssh = run_ _stderr . sshd
 
-sshLog :: String -> [String] -> String -> IO ( Int , String , String )
-sshLog logRootName params command = do
+sshLog :: String -> [String] -> String -> IO ()
+sshLog n p c = do
+    ( exitStatus , cmdName, stdoutName , stderrName ) <- sshLog_ n p c
+    readFile cmdName >>= hPutStr stderr
+    hPutStrLn stderr $ "output in " ++ stdoutName ++ " and " ++ stderrName
+
+sshLog_ :: String -> [String] -> String -> IO ( Int , String, String , String )
+sshLog_ logRootName params command = do
     let (shell,parameters) = sshd params
     ext <- getNextFileBaseName "." ( logRootName ++ ".cmd" )
     let cmdName = logRootName ++ ".cmd" ++ ext 
@@ -72,7 +78,7 @@ sshLog logRootName params command = do
                          ExitFailure n -> n
     hPutStrLn cmdh $ "Complete, exit code " ++ show exitStatus ++ ", elapsed time " ++ prettyDuration (stToFloat later - stToFloat now)
     hClose cmdh
-    return ( exitStatus , stdoutName , stderrName )
+    return ( exitStatus , cmdName, stdoutName , stderrName )
 
 sshQ = run_ _devnull . sshd
 
@@ -83,16 +89,16 @@ getSSH :: [String] -> String -> IO (Maybe String)
 getSSH params = getRun (sshd params)
 
 getRun (shell,parameters) command = do
-    (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
+    (code, out, err) <- readProcessWithExitCode shell parameters command
     unless ( ExitSuccess == code )
            ( do hPutStrLn System.IO.stderr $ "exit code=" ++ show code
-                unless (null stdout)
-                       ( hPutStrLn System.IO.stderr $ "stdout: \"" ++ stdout ++"...\"" )
-                unless (null stderr)
-                       ( hPutStrLn System.IO.stderr $ "stderr: \"" ++ stderr ++"...\"" )
+                unless (null out)
+                       ( hPutStrLn System.IO.stderr $ "stdout: \"" ++ out ++"...\"" )
+                unless (null err)
+                       ( hPutStrLn System.IO.stderr $ "stderr: \"" ++ err ++"...\"" )
            )
     return $ if ExitSuccess == code
-             then Just stdout
+             then Just out
              else Nothing
 
 run_ _handle (shell,parameters) command = do
@@ -100,18 +106,18 @@ run_ _handle (shell,parameters) command = do
     hPutStr handle $ "using " ++ shell ++ " to execute \"" ++ command ++ "\""
     hFlush handle
     now <- getSystemTime
-    (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
+    (code, out, err) <- readProcessWithExitCode shell parameters command
     later <- getSystemTime
     hPutStrLn handle $ " done, in " ++ prettyDuration (stToFloat later - stToFloat now)
     if ExitSuccess == code then
-        unless (null stdout)
-               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 stdout ++"...\"" )
+        unless (null out)
+               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 out ++"...\"" )
     else do
         hPutStrLn handle $ "exit code=" ++ show code
-        unless (null stdout)
-               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 stdout ++"...\"" )
-        unless (null stderr)
-               ( hPutStrLn handle $ "stderr: \"" ++ take 1000 stderr ++"...\"" )
+        unless (null out)
+               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 out ++"...\"" )
+        unless (null err)
+               ( hPutStrLn handle $ "stderr: \"" ++ take 1000 err ++"...\"" )
 
 stToFloat :: SystemTime -> Double
 stToFloat s = (fromIntegral (systemSeconds s) * 1000000000 + fromIntegral (systemNanoseconds s)) / 1000000000.0

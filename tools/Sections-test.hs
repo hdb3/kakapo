@@ -1,6 +1,6 @@
 module Main where
 
-import System.IO(hPutStr,stderr,hClose,hPutStrLn,openFile,IOMode(WriteMode))
+import System.IO(hPrint,hPutStr,stderr,hClose,hPutStrLn,openFile,IOMode(WriteMode))
 import Control.Exception
 import Sections(emptySection,Section,getSection)
 import Control.DeepSeq
@@ -31,22 +31,21 @@ main' = do
     res <- wrap parse''
     print res
 
-wrap :: (IO Section) -> IO (Either ErrorCall Section)
-wrap f = try f
+wrap :: IO Section -> IO (Either ErrorCall Section)
+wrap = try
 
 parse'' :: IO Section
 parse'' = do
     infile <- getContents
     let section = getSection infile
     h <- openFile "/dev/null" WriteMode
-    hPutStrLn h $ show section
+    hPrint h section
     return section
 
 parse' :: IO Section
 parse' = do
     infile <- getContents
-    section <- evaluate $ force $ getSection infile
-    return section
+    evaluate $ force $ getSection infile
 
 catchErrorFail :: IO Section -> IO Section
 catchErrorFail f = catch f errorFail

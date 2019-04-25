@@ -34,7 +34,7 @@ getSection s =
                         in (init fxx , last fxx)
                         where
                             getLines'  _ [] = []
-                            getLines' tag ( l : lx ) =  let fx = qFields l in if tag == head fx then tail fx : getLines' tag lx else [ ( l : lx ) ]
+                            getLines' tag ( l : lx ) =  let fx = qFields l in if tag == head fx then tail fx : getLines' tag lx else [ l : lx ]
 
 
         getSingleRecord :: String -> [String] -> ([(String,String)], [String])
@@ -60,5 +60,5 @@ getSection s =
         --(end,rest'') = assert (1 < length rest'') ( getEnd rest' )
         --goodEnd = assert  ( null rest'' || ( (not . null . fst . getStart) rest'' ))
 
-    in assert ( null rest'' || ( (not . null . fst . getStart) rest'' )) (start,columns,end)
+    in assert ( null rest'' || (not . null . fst . getStart) rest'' ) (start,columns,end)
     -- in assert goodEnd (start,columns,end)

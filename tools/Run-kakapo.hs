@@ -2,8 +2,7 @@ module Main where
 import System.IO(stderr,hPutStrLn,hPrint)
 import Data.Maybe(fromJust,isJust)
 import System.Environment(getArgs)
-import Data.List(intercalate,lookup)
-import System.Exit
+import Data.List(lookup)
 import Data.Char(isControl)
 import Runner
 
@@ -37,12 +36,12 @@ main = do
 start :: (String , String ) -> ( String , String ) -> IO ()
 start ( sutHostName , kakapoHostName) (repo , app ) = do
     let
-        sut = ssh [ sutHostName ]
+        sut = sshLog "sut" [ sutHostName ]
         getSUT = getSSH [ sutHostName ]
 
-        kakapo = ssh [ "-p" , "65535" , kakapoHostName ]
+        kakapo = sshLog "kakapo" [ "-p" , "65535" , kakapoHostName ]
 
-        kakapoHost = ssh [ kakapoHostName ]
+        kakapoHost = sshLog "kakapoHost" [ kakapoHostName ]
 
     sut $ "docker kill " ++ app
     sut $ "docker pull " ++ repo
@@ -62,7 +61,7 @@ start ( sutHostName , kakapoHostName) (repo , app ) = do
 
     putStrLn "Done"
 
-runExperiment :: ([Char] -> IO()) -> String -> String -> IO()
+runExperiment :: (String -> IO()) -> String -> String -> IO()
 runExperiment rsh logtext app = do
     let
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logtext ++ "\"") kakapoDefaultParameters
@@ -73,8 +72,8 @@ runExperiment rsh logtext app = do
         bsrx = [100000,200000..1000000]
 
         genCommands :: String -> [[(String,String)]] -> String -> [String]
-        genCommands pre parameterLists post = map (\parameterList -> intercalate " " [pre, expandParameters parameterList, post ]) parameterLists
-        expandParameters = intercalate " " . map (\(k,v) -> k ++ "=" ++ v)
+        genCommands pre parameterLists post = map (\parameterList -> unwords [pre, expandParameters parameterList, post ]) parameterLists
+        expandParameters = unwords . map (\(k,v) -> k ++ "=" ++ v)
         kakapoDefaultParameters =
            [
              ("LOGTEXT" , "\"LOGTEXT not provided\" "),

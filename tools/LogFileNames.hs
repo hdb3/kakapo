@@ -1,7 +1,7 @@
 module LogFileNames where
 import System.IO
 import System.Directory
-import Data.List(isPrefixOf,sort)
+import Data.List(isPrefixOf)
 
 {-
 Required: a way to reliablly get the next file index name, when there are very many files.
@@ -26,11 +26,11 @@ getNextFileBaseName cwd root = do
     let matches = filter (isPrefixOf (root ++ ".")) dir
     -- ideally should filter out any non-numeric postfixes....
     -- cheat by converting to numeric before sorting
-    if null matches then do
+    if null matches then
         return $ "." ++ ext 0 
     else do
         let matches' = map ( read . drop (1 + length root)) matches :: [Int]
-        let latest = last $ sort matches'
+        let latest = maximum matches'
         let next = 1 + latest
         return $ "." ++ ext next 
     where
