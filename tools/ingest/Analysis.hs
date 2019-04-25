@@ -13,7 +13,11 @@ import Summarise hiding (main)
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: T.Text
                                          , blocksize , groupsize :: Int
                                          , value :: Point
-                                         } deriving (Show, Eq)
+                                         --} deriving (Show, Eq)
+                                         } deriving Eq
+instance Show KRecV1GraphPoint
+    where
+        show KRecV1GraphPoint {..} = "{ " ++ show blocksize ++ ", " ++ show groupsize ++ " , " ++ show value ++ " }" 
 
 reduceToKRecV1GraphPoint getter krec@KRecV1{..} = let blocksize = kV1BLOCKSIZE
                                                       groupsize = kv1GROUPSIZE
@@ -25,21 +29,27 @@ main = do
     hPutStrLn stdout "Analysis"
     args <- getArgs
     let argc = length args
+        p1 (x,_,_) = x
+        p2 (_,x,_) = x
+        p3 (_,_,x) = x
     if null args then
         die "enter at least a search path"
-    else if argc < 2 then do
-        (errors,krecs) <- getKRecV1_  [(args !! 0)]
-        mapM_ print errors
-        showRange krecs "kV1BLOCKSIZE" kV1BLOCKSIZE
-        showRange krecs "kv1GROUPSIZE" kv1GROUPSIZE
-        showRange krecs "kV1DESC" kV1DESC
-        let pots = collate krecs
-            headers = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
-        mapM_ (hPrint stdout ) headers
     else do
-        krecs <- snd <$> getKRecV1_ [(args !! 0)]
+        (errors,krecs) <- getKRecV1_  [(args !! 0)]
         let pots = collate krecs
-        mapM_ ( hPrint stdout ) pots
+            headers = nub $ map p1 pots
+            summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
+        if argc < 2 then do
+            mapM_ print errors
+            --showRange krecs "kV1BLOCKSIZE" kV1BLOCKSIZE
+            --showRange krecs "kv1GROUPSIZE" kv1GROUPSIZE
+            --showRange krecs "kV1DESC" kV1DESC
+            mapM_ (hPrint stdout ) headers
+            -- mapM_ (hPrint stdout ) summary
+        else do
+            let selector = args !! 1
+                pot = filter ( ( T.pack selector ==) . p1 ) pots
+            mapM_ ( hPrint stdout ) pot
         --hPutStrLn stdout $ unlines $ map fst pots
         
     hPutStrLn stdout "Done"
