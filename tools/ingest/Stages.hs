@@ -100,9 +100,13 @@ stageFive ( header , values ) =
        else if valuesFail then Left $ "valuesFail: " ++ show (header, values)
        else Right KRecV1 {..}
 
+getKRecV1 :: IO ([String], [KRecV1])
 getKRecV1 = do
-   args <- getArgs
-   files <- stageOne args
+   getArgs >>= getKRecV1_
+
+getKRecV1_ :: [String] -> IO ([String], [KRecV1])
+getKRecV1_ dirs = do
+   files <- stageOne dirs
    hPutStrLn stderr $ "getKRecV1: read " ++ show ( length files ) ++ " files"
    contents <- mapM stageTwo files
    let dataPoints = concatMap ( stageFour . stageThree ) contents
