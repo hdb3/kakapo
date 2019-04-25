@@ -21,6 +21,7 @@ reduceToKRecV1GraphPoint getter krec@KRecV1{..} = let blocksize = kV1BLOCKSIZE
 
 main = do 
     produce >>= mapM_ (hPrint stderr <$> (\(t,n,px) -> (T.unpack t , n , length px )))
+    produce >>= graph
     hPutStrLn stderr "Done"
 
 graph :: [(T.Text, Int, [KRecV1GraphPoint])] -> IO ()
