@@ -52,11 +52,13 @@ sshLog n p c = do
 
 sshLog_ :: String -> [String] -> String -> IO ( Int , String, String , String )
 sshLog_ logRootName params command = do
+    logDir <- getLogDir
+    let logPath = logDir ++ "/" ++ logRootName
     let (shell,parameters) = sshd params
-    ext <- getNextFileBaseName "." ( logRootName ++ ".cmd" )
-    let cmdName = logRootName ++ ".cmd" ++ ext 
-        stderrName = logRootName ++ ".stderr" ++ ext 
-        stdoutName = logRootName ++ ".stdout" ++ ext 
+    ext <- getNextFileBaseName logDir ( logRootName ++ ".cmd" )
+    let cmdName = logPath ++ ".cmd" ++ ext 
+        stderrName = logPath ++ ".stderr" ++ ext 
+        stdoutName = logPath ++ ".stdout" ++ ext 
     cmdh <- openFile cmdName WriteMode
     hPutStrLn cmdh $ unwords ( shell : parameters)
     hPutStrLn cmdh command

@@ -1,7 +1,9 @@
 module LogFileNames where
 import System.IO
-import System.Directory
+import System.Environment(lookupEnv)
+import System.Directory(listDirectory,createDirectoryIfMissing)
 import Data.List(isPrefixOf)
+import Data.Maybe(fromJust)
 
 {-
 Required: a way to reliablly get the next file index name, when there are very many files.
@@ -40,3 +42,10 @@ getNextFileBaseName cwd root = do
 
 touch :: String -> IO()
 touch p = openFile p WriteMode >>= hClose
+
+getLogDir :: IO String
+getLogDir = do
+    home <- fromJust <$> lookupEnv "HOME"
+    let defDir = home ++ "/.logs"
+    createDirectoryIfMissing False defDir
+    return defDir
