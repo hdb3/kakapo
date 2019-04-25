@@ -1,9 +1,11 @@
 module Main where
 import System.IO(stderr,hPutStrLn,hPrint)
+import System.Exit(die)
 import Data.Maybe(fromJust,isJust)
 import System.Environment(getArgs)
 import Data.List(lookup)
 import Data.Char(isControl)
+import Control.Monad(when,unless)
 import Runner
 
 localhost = ( "root@localhost" , "root@localhost" )
@@ -15,26 +17,41 @@ bird = ("hdb3/bird","bird")
 presetTargets = [("localhost",localhost) , ("docker02",docker02) ]
 presetPlatforms = [("bird",bird),("frr",frr)]
 
+presetTopics = [ ("SMOKETEST", ( [1..2] , [1..2] , 2)) -- blocksize , groupsize , repeat count
+               , ("BASIC", ( [1..10] ++ [20,30..100] ++[200,300..1000] ++[2000,3000..10000] ++[20000,30000..100000] , [1,2,5,10] , 10))]
+
+getTopic s = fromJust $ lookup s presetTopics 
+
 main = do
     args <- getArgs
-    if 4 == length args then do
+
+    when (null args)
+         (die $ "please specify topic, target systems and platforms\n" ++ showPresets)
+
+    let topic = args !! 0         
+    unless (isJust (lookup topic presetTopics))
+         (die $ "unknown topic\n" ++ showPresets)
+
+    if 5 == length args then do
         hPutStrLn stderr "using raw arguments from command line"
-        start (args !! 0 , args !!1 ) (args !! 2 , args !!3 ) 
-    else if 2 == length args then do
-        let target = lookup ( args !! 0 ) presetTargets
-            platform = lookup ( args !! 1 ) presetPlatforms
+        start topic (args !! 1 , args !! 2 ) (args !! 3 , args !! 4 ) 
+    else if 3 == length args then do
+        let target = lookup ( args !! 1 ) presetTargets
+            platform = lookup ( args !! 2 ) presetPlatforms
         if isJust platform && isJust target then do
             hPutStrLn stderr "using predefined arguments based on command line labels"
-            start (fromJust target) (fromJust platform)
-        else do
-            hPutStrLn stderr "could not find presets"
-            hPrint stderr presetTargets
-            hPrint stderr presetPlatforms
+            start topic (fromJust target) (fromJust platform)
+        else
+            hPutStrLn stderr $ "could not find presets" ++ showPresets
     else
-        hPutStrLn stderr "please specify target systems and platforms"
+        hPutStrLn stderr $ "please specify topic, target systems and platforms\n" ++ showPresets
+    where
+        showPresets = unlines [ show ("Topics", presetTopics)
+                              , show ("Targets", presetTargets)
+                              , show ("Platforms", presetPlatforms) ]
 
-start :: (String , String ) -> ( String , String ) -> IO ()
-start ( sutHostName , kakapoHostName) (repo , app ) = do
+start :: String -> (String , String ) -> ( String , String ) -> IO ()
+start topic ( sutHostName , kakapoHostName) (repo , app ) = do
     let
         sut = sshLog "sut" [ sutHostName ]
         getSUT = getSSH [ sutHostName ]
@@ -54,17 +71,18 @@ start ( sutHostName , kakapoHostName) (repo , app ) = do
     kakapoHost "docker kill kakapo"
     kakapoHost "docker kill kakapo ; docker pull hdb3/kakapo ; docker run --name kakapo --privileged --rm -d --network host --hostname kakapo hdb3/kakapo"
 
-    runExperiment kakapo sysinfo app
+    runExperiment kakapo topic sysinfo app
 
     sut $ "docker kill " ++ app
     kakapoHost "docker kill kakapo"
 
     putStrLn "Done"
 
-runExperiment :: (String -> IO()) -> String -> String -> IO()
-runExperiment rsh logtext app = do
+runExperiment :: (String -> IO()) -> String -> String -> String -> IO()
+runExperiment rsh topic sysinfo app = do
     let
-        base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logtext ++ "\"") kakapoDefaultParameters
+        logText = "TOPIC=\'" ++ topic ++ "\' " ++ sysinfo
+        base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
         gsr = [1..10]
         gsrx = [10,20..50]
         bsr = [1..10] ++ [10,20..100] ++ [100,200..1000] ++ [1000,2000..10000] ++ [10000,20000..100000]
@@ -91,13 +109,15 @@ runExperiment rsh logtext app = do
 
         kvGen k vx m = map (\v -> kvSet k ( show v) m) vx
 
-        blockGen bsRange gsRange base = [ expandParameters $ kvSet "GROUPSIZE" ( show gs ) $ kvSet "BLOCKSIZE" ( show bs ) base | bs <- bsRange , gs <- gsRange ]
+        blockGen bsRange gsRange count base = [ expandParameters $ kvSet "CYCLECOUNT" (show count) $ kvSet "GROUPSIZE" ( show gs ) $ kvSet "BLOCKSIZE" ( show bs ) base | bs <- bsRange , gs <- gsRange ]
 
         buildCommand parameters = parameters ++ " /usr/sbin/kakapo ,169.254.0.11,64504 ,169.254.0.12,64504"
         -- buildCommand parameters = "sudo " ++ parameters ++ " /usr/sbin/kakapo"
 
     -- mapM_ ( rsh . buildCommand ) ( blockGen [1..2] [1..2] base )
-    mapM_ ( rsh . buildCommand ) ( blockGen [1..20] [1..500] base )
+    let (b,g,c) = getTopic topic
+    mapM_ ( rsh . buildCommand ) ( blockGen b g c base )
+    -- mapM_ ( rsh . buildCommand ) ( blockGen [1..20] [1..500] 10 base )
     --mapM_ ( rsh . buildCommand ) ( blockGen bsr gsr base )
     --mapM_ ( rsh . buildCommand ) ( blockGen bsrx gsr base )
     --mapM_ ( rsh . buildCommand ) ( blockGen bsr gsrx base )
