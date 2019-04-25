@@ -29,13 +29,9 @@ getNextFileBaseName cwd root = do
     if null matches then do
         return $ "." ++ ext 0 
     else do
-        print matches
         let matches' = map ( read . drop (1 + length root)) matches :: [Int]
-        print matches'
         let latest = last $ sort matches'
-        print latest
         let next = 1 + latest
-        print next
         return $ "." ++ ext next 
     where
         ext n = pad 4 $ show n
@@ -44,10 +40,3 @@ getNextFileBaseName cwd root = do
 
 touch :: String -> IO()
 touch p = openFile p WriteMode >>= hClose
- 
-main = do
-    let root = "plugh"
-    ext <- getNextFileBaseName "." root
-    print (ext, root ++ ext)
-    touch $ root ++ ext
-    touch $ root ++ ext

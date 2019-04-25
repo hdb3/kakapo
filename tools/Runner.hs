@@ -1,11 +1,11 @@
 module Runner where
 import System.Process
 import System.Exit
-import System.IO(hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
+import System.IO(hClose,stdout,hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
 import Control.Monad
 import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
 import Text.Printf
-import Data.List (intercalate)
+import LogFileNames
 
 {-
     Runner is a repeat execution scheduler for kakapo
@@ -37,17 +37,6 @@ bashd = ("/bin/bash" , [])
 _stderr = return stderr
 _devnull = openFile "/dev/null" WriteMode
 
-
---bashQ = runQ ("/bin/bash" , [])
---ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"]) 
---sshQ host = runQ ("/usr/bin/ssh" , [host, "/bin/bash"]) 
---ssh = ssh_ stderr
---ssh host = run ("/usr/bin/ssh" , [host, "/bin/bash"]) 
---sshQ host = runQ ("/usr/bin/ssh" , [host, "/bin/bash"]) 
---ssh = run . sshd
---runQ = run_ _devnull
---run = run_ _stderr
-
 bash :: String -> IO ()
 bash = run_ _stderr bashd
 bashQ = run_ _devnull bashd
@@ -55,17 +44,45 @@ bashQ = run_ _devnull bashd
 ssh :: [String] -> String -> IO ()
 ssh = run_ _stderr . sshd
 
+sshLog :: String -> [String] -> String -> IO ( Int , String , String )
+sshLog logRootName params command = do
+    let (shell,parameters) = sshd params
+    ext <- getNextFileBaseName "." ( logRootName ++ ".cmd" )
+    let cmdName = logRootName ++ ".cmd" ++ ext 
+        stderrName = logRootName ++ ".stderr" ++ ext 
+        stdoutName = logRootName ++ ".stdout" ++ ext 
+    cmdh <- openFile cmdName WriteMode
+    hPutStrLn cmdh $ unwords ( shell : parameters)
+    hPutStrLn cmdh command
+    hStderr <- openFile stderrName WriteMode
+    hStdout <- openFile stdoutName WriteMode
+    now <- getSystemTime
+    let cp = proc shell parameters
+    (Just stdinHandle , _, _, ph) <- createProcess $ cp
+        { std_in = CreatePipe
+        , std_out = UseHandle hStdout
+        , std_err = UseHandle hStderr
+        }
+    hPutStr stdinHandle command
+    hClose stdinHandle
+    code <- waitForProcess ph
+    later <- getSystemTime
+    let exitStatus = case code of
+                         ExitSuccess -> 0
+                         ExitFailure n -> n
+    hPutStrLn cmdh $ "Complete, exit code " ++ show exitStatus ++ ", elapsed time " ++ prettyDuration (stToFloat later - stToFloat now)
+    hClose cmdh
+    return ( exitStatus , stdoutName , stderrName )
+
 sshQ = run_ _devnull . sshd
 
 getBash :: String -> IO (Maybe String)
 getBash  = getRun bashd
 
---getSSH :: String -> IO (Maybe String)
 getSSH :: [String] -> String -> IO (Maybe String)
 getSSH params = getRun (sshd params)
 
 getRun (shell,parameters) command = do
-    -- hPutStrLn System.IO.stderr $ "getRun: " ++ shell ++ " / " ++ (intercalate " " parameters) ++ " / " ++ command
     (code, stdout, stderr) <- readProcessWithExitCode shell parameters command
     unless ( ExitSuccess == code )
            ( do hPutStrLn System.IO.stderr $ "exit code=" ++ show code
@@ -75,12 +92,11 @@ getRun (shell,parameters) command = do
                        ( hPutStrLn System.IO.stderr $ "stderr: \"" ++ stderr ++"...\"" )
            )
     return $ if ExitSuccess == code
-             then ( Just stdout )
+             then Just stdout
              else Nothing
 
 run_ _handle (shell,parameters) command = do
     handle <- _handle
-    --hPutStr handle $ "using " ++ show (shell,parameters) ++ " to execute \"" ++ command ++ "\""
     hPutStr handle $ "using " ++ shell ++ " to execute \"" ++ command ++ "\""
     hFlush handle
     now <- getSystemTime
