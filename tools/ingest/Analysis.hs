@@ -18,6 +18,8 @@ data KRecV1GraphPoint = KRecV1GraphPoint { desc :: T.Text
 instance Show KRecV1GraphPoint
     where
         show KRecV1GraphPoint {..} = "{ " ++ show blocksize ++ ", " ++ show groupsize ++ " , " ++ show value ++ " }" 
+aggregateKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> ( Int, Point )
+aggregateKRecV1GraphPoints = foldl (\(n,point) krec -> (n+1, value krec `add` point)) (0, ( 0 , 0.0 , 0.0 , 0.0))
 
 reduceToKRecV1GraphPoint getter krec@KRecV1{..} = let blocksize = kV1BLOCKSIZE
                                                       groupsize = kv1GROUPSIZE
