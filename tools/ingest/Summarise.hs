@@ -17,13 +17,13 @@ add ( c1 , m1 , sd1 , rsd1 ) ( c2 , m2 , sd2 , rsd2 ) = let c12 = c1 + c2
                                                             rsd12 = sd12 / fc12
                                                         in ( c12 , m12 , sd12 ,rsd12 )
  
-type DataPoint = ( [(T.Text , T.Text) ] , [( T.Text , Point) ])
+--type DataPoint = ( [(T.Text , T.Text) ] , [( T.Text , Point) ])
 
-main :: IO ()
-main = processSection . fst . getSection . T.lines <$> T.getContents >>= print
+--main :: IO ()
+--main = processSection . fst . getSection . T.lines <$> T.getContents >>= print
 
-processSection :: Section -> DataPoint
-processSection (header,values) = (header,averageColumns values)
+--processSection :: Section -> DataPoint
+--processSection (header,values) = (header,averageColumns values)
 
 averageColumns :: [ ( T.Text , [ T.Text ] ) ] -> [( T.Text , Point )]
 averageColumns = map averageColumn . filter (("SEQ" /=) . T.strip . fst)

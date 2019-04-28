@@ -16,7 +16,7 @@ import System.IO.Error(catchIOError)
 import System.IO(stderr,hPutStrLn,hPrint)
 import System.Environment(getArgs)
 import Sections(Section,getSections,addToHeader,addHASH)
-import Summarise(Point,DataPoint,processSection)
+--import Summarise(Point,DataPoint,processSection)
 
 stageOne :: [String] -> IO [String]
 -- the output is guaranteed to be names of regular files

@@ -2,14 +2,12 @@
 module Analysis where
 import Data.Text(Text)
 import qualified Data.Text as T
-import System.IO(stderr,hPutStrLn,hPrint,stdout)
 import System.Environment(getArgs)
 import System.Exit(die)
 import Data.List(nub)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Stages hiding (main)
-import Summarise hiding (main)
 
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: Text
@@ -31,7 +29,7 @@ reduceToKRecV1GraphPoint selector ( KRecV1 GKRecV1{..} ) = let blocksize = hrV1B
                                                            in KRecV1GraphPoint{..}
 
 main = do 
-    hPutStrLn stdout "Analysis"
+    putStrLn "Analysis"
     args <- getArgs
     let argc = length args
         p1 (x,_,_) = x
@@ -40,43 +38,47 @@ main = do
     if null args then
         die "enter at least a search path"
     else do
-        (errors,krecs) <- getKRecV1_  [(args !! 0)]
+        (errors,krecs) <- getKRecV1_  [ args !! 0 ]
         let pots = collate krecs
             headers = nub $ map p1 pots
             summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
         if argc < 2 then do
             mapM_ print errors
-            --showRange krecs "hrV1BLOCKSIZE" hrV1BLOCKSIZE
-            --showRange krecs "hrV1GROUPSIZE" hrV1GROUPSIZE
-            --showRange krecs "hrV1DESC" hrV1DESC
-            mapM_ (hPrint stdout ) headers
-            -- mapM_ (hPrint stdout ) summary
+            showRange "hrV1DESC" $ map ( hrV1DESC . krecHeader ) krecs
+            showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
+            showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
+            mapM_ print headers
+            -- mapM_ (print ) summary
         else do
             let selector = T.pack $ args !! 1
                 pot = filter ( ( selector == ) . p1 ) pots
             putStrLn $ "found " ++ show (length pot) ++ " matches"
         
-    hPutStrLn stdout "Done"
+    putStrLn "Done"
 
 graph :: [(Text, Int, [KRecV1GraphPoint])] -> IO ()
 graph _ = return ()
 
-collate :: [KRecV1] -> [(Text, Int, [KRecV1GraphPoint])]
+collate :: [KRecV1] -> [(Text, Int, [KRecV1])]
 collate krecs =
     let platformDistribution = buildPots ( hrV1DESC . hrec . kRecV1 ) krecs
         groupsizeDistribution = Map.map ( buildPots ( hrV1GROUPSIZE . hrec . kRecV1 )) platformDistribution
-        rttDistribution = Map.map (Map.map (map ( reduceToKRecV1GraphPoint "RTT" ))) groupsizeDistribution
-        output = unwind rttDistribution
+        --rttDistribution = Map.map (Map.map (map ( reduceToKRecV1GraphPoint "RTT" ))) groupsizeDistribution
+        --output = unwind rttDistribution
+        output = unwind groupsizeDistribution
     in output
 
-showRange :: (Show b, Eq b) => [a] -> String -> (a -> b) -> IO ()
-showRange recs label p = do
-    let vals = map p recs
-        uniqVals = nub vals
-    hPutStrLn stdout $ "showRange (" ++ label ++ ")"
-    hPutStrLn stdout $ show (length vals) ++ " rows"
-    hPutStrLn stdout $ show (length uniqVals) ++ " uniqVals"
-    mapM_ ( hPrint stdout ) (take 20 uniqVals)
+showRange :: (Show b, Eq b, Ord b) => String -> [b] -> IO ()
+showRange label vals = do
+    let uniqVals = nub vals
+        minVal = minimum uniqVals
+        maxVal = maximum uniqVals
+    putStrLn $ "showRange (" ++ label ++ ")"
+    putStrLn $ show (length uniqVals) ++ " uniqVals"
+    if length uniqVals > 10 then
+        putStrLn $ "min/max = " ++ show ( minVal , maxVal )
+    else
+        mapM_ print uniqVals
 
 buildPots :: Ord k => (a -> k) -> [a] -> Map.Map k [a]
 buildPots getter = foldl (\m r -> addItem r (getter r) m) Map.empty
