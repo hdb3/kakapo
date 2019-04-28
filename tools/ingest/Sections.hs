@@ -13,7 +13,10 @@ import Data.List (transpose)
 import Control.Exception(assert)
 import qualified QFields(parse)
 
-type Section = ( [(Text,Text)] , [(Text,[Text])] , [(Text,Text)] )
+type Section = ( [(Text,Text)] , [(Text,[Text])] )
+--collapseTrailer :: Section -> Section
+--collapseTrailer (a,b,c) = (a++c,b,[])
+
 newtype DSection = DSection Section deriving Generic
 instance Hashable DSection
 
@@ -23,7 +26,7 @@ sectionHash = Data.Hashable.hash . DSection
 qFields :: Text -> [Text]
 qFields = QFields.parse
 emptySection :: Section
-emptySection = ([],[],[])
+emptySection = ([],[])
 
 getSection :: [ Text ] -> (Section, [ Text] )
 getSection tx =
@@ -61,13 +64,14 @@ getSection tx =
         --goodEnd = assert  ( null rest'' || ( (not . null . fst . getStart) rest'' ))
 
     --in assert ( null rest'' || ( (not . null . fst . getStart) rest'' )) ( (start,columns,end) , rest'')
-    in ( (start,columns,end) , rest'')
+    in ( (start++end,columns) , rest'')
+    --in ( (start,columns,end) , rest'')
     -- in assert goodEnd (start,columns,end)
 
 addHASH :: Section -> Section
 addHASH section = let hash = T.pack $ show $ sectionHash section in addToHeader ("HASH", hash) section
 addToHeader :: (Text,Text) -> Section -> Section
-addToHeader kv ( a , b , c) = ( kv : a , b , c)
+addToHeader kv ( h , v ) = ( kv : h , v )
 
 getSections :: Text -> [ Section ]
 getSections = getSections' . T.lines
@@ -83,5 +87,4 @@ getSections = getSections' . T.lines
 main :: IO ()
 main = do
     content <- T.getContents
-    --print $ getSection $ T.lines content
     print $ getSections content

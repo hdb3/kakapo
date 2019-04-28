@@ -23,7 +23,7 @@ main :: IO ()
 main = processSection . fst . getSection . T.lines <$> T.getContents >>= print
 
 processSection :: Section -> DataPoint
-processSection (header,values,_) = (header,averageColumns values)
+processSection (header,values) = (header,averageColumns values)
 
 averageColumns :: [ ( T.Text , [ T.Text ] ) ] -> [( T.Text , Point )]
 averageColumns = map averageColumn . filter (("SEQ" /=) . T.strip . fst)
