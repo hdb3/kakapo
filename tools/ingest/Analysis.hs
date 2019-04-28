@@ -4,7 +4,7 @@ import Data.Text(Text)
 import qualified Data.Text as T
 import System.Environment(getArgs)
 import System.Exit(die)
-import Data.List(sortOn,nub)
+import Data.List(sort,sortOn,nub)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Stages hiding (main)
@@ -44,16 +44,18 @@ main = do
             summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
         if argc < 2 then do
             mapM_ print errors
-            mapM_ putStrLn $ map (\(t,n) -> show n ++ " : " ++ T.unpack t) $ sortOn snd $ Map.toList $ countPots $ map ( hrV1DESC . krecHeader ) krecs 
-            --showRange "hrV1DESC" $ map ( hrV1DESC . krecHeader ) krecs
+            mapM_ putStrLn $ countPotsText $ map ( hrV1DESC . krecHeader ) krecs 
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
             mapM_ print headers
-            -- mapM_ (print ) summary
         else do
             let selector = T.pack $ args !! 1
                 pot = filter ( ( selector == ) . p1 ) pots
+                selected = filter ( ( selector == ) . hrV1DESC . krecHeader ) krecs
             putStrLn $ "found " ++ show (length pot) ++ " matches"
+            showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
+            showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
+            mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
         
     putStrLn "Done"
 
@@ -64,8 +66,6 @@ collate :: [KRecV1] -> [(Text, Int, [KRecV1])]
 collate krecs =
     let platformDistribution = buildPots ( hrV1DESC . hrec . kRecV1 ) krecs
         groupsizeDistribution = Map.map ( buildPots ( hrV1GROUPSIZE . hrec . kRecV1 )) platformDistribution
-        --rttDistribution = Map.map (Map.map (map ( reduceToKRecV1GraphPoint "RTT" ))) groupsizeDistribution
-        --output = unwind rttDistribution
         output = unwind groupsizeDistribution
     in output
 
@@ -79,10 +79,23 @@ showRange label vals = do
     if length uniqVals > 10 then
         putStrLn $ "min/max = " ++ show ( minVal , maxVal )
     else
-        mapM_ print uniqVals
+        print $ sort uniqVals
 
-countPots :: Ord a => [a] -> Map.Map a Int
-countPots = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
+countPotsText :: [Text] -> [String]
+countPotsText = countPots_ (\t -> "[" ++ T.unpack t ++ "]")
+
+countPotsInt :: [Int] -> [String]
+countPotsInt = countPots_ show
+
+countPots_ :: Ord a => ( a -> String) -> [a] -> [String]
+countPots_ toString = map (\(t,n) -> show n ++ " : " ++ toString t) . sortOn snd . Map.toList . countPots'
+    where countPots'  :: Ord a => [a] -> Map.Map a Int
+          countPots' = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
+
+--countPots :: [Text] -> [String]
+--countPots = map (\(t,n) -> show n ++ " : " ++ T.unpack t) . sortOn snd . Map.toList . countPots'
+    --where countPots'  :: Ord a => [a] -> Map.Map a Int
+          --countPots' = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
 
 buildPots :: Ord k => (a -> k) -> [a] -> Map.Map k [a]
 buildPots getter = foldl (\m r -> addItem r (getter r) m) Map.empty
