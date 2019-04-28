@@ -4,7 +4,7 @@ import Data.Text(Text)
 import qualified Data.Text as T
 import System.Environment(getArgs)
 import System.Exit(die)
-import Data.List(nub)
+import Data.List(sortOn,nub)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Stages hiding (main)
@@ -44,7 +44,8 @@ main = do
             summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
         if argc < 2 then do
             mapM_ print errors
-            showRange "hrV1DESC" $ map ( hrV1DESC . krecHeader ) krecs
+            mapM_ putStrLn $ map (\(t,n) -> show n ++ " : " ++ T.unpack t) $ sortOn snd $ Map.toList $ countPots $ map ( hrV1DESC . krecHeader ) krecs 
+            --showRange "hrV1DESC" $ map ( hrV1DESC . krecHeader ) krecs
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
             mapM_ print headers
@@ -79,6 +80,9 @@ showRange label vals = do
         putStrLn $ "min/max = " ++ show ( minVal , maxVal )
     else
         mapM_ print uniqVals
+
+countPots :: Ord a => [a] -> Map.Map a Int
+countPots = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
 
 buildPots :: Ord k => (a -> k) -> [a] -> Map.Map k [a]
 buildPots getter = foldl (\m r -> addItem r (getter r) m) Map.empty
