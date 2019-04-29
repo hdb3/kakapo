@@ -23,12 +23,13 @@ presetPlatforms = [("bird",bird),("frr",frr)]
 presetTopics = [
                  ("SMOKETEST", ( [1..2] , [1..2] , 2))
                , ("BASIC", ( [1..10] ++ [20,30..100] ++[200,300..1000] ++[2000,3000..10000] ++[20000,30000..100000] , [1,2,5,10] , 10))
-               , ("EXPBS", ( exp2limited 1000000 , [1] , 10))
-               , ("EXPBSLARGE", ( exp2limited 100000 , [10] , 10))
-               , ("EXPBSVLARGE", ( exp2limited 10000 , [100] , 10))
+               , ("EXPBS", ( expPlimited 5 1000000 , [1] , 10))
+               , ("EXPBSLARGE", ( expPlimited 5 100000 , [10] , 10))
+               , ("EXPBSVLARGE", ( expPlimited 5 10000 , [100] , 10))
                ]
-exp2limited limit = takeWhile ( limit > ) $ go 1
-    where go n = n : go (n * 2)
+
+expPlimited pow limit = takeWhile ( limit+1 > ) $ map floor $ go 1.0
+    where go n = n : go (n * (10 ** (1/pow)))
 
 getTopic s = fromJust $ lookup s presetTopics 
 
