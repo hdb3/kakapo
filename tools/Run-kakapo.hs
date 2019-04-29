@@ -6,6 +6,9 @@ import System.Environment(getArgs)
 import Data.List(lookup)
 import Data.Char(isControl)
 import Control.Monad(when,unless)
+import Data.UUID(toString)
+import Data.UUID.V1(nextUUID)
+
 import Runner
 
 localhost = ( "root@localhost" , "root@localhost" )
@@ -17,8 +20,15 @@ bird = ("hdb3/bird","bird")
 presetTargets = [("localhost",localhost) , ("docker02",docker02) ]
 presetPlatforms = [("bird",bird),("frr",frr)]
 
-presetTopics = [ ("SMOKETEST", ( [1..2] , [1..2] , 2)) -- blocksize , groupsize , repeat count
-               , ("BASIC", ( [1..10] ++ [20,30..100] ++[200,300..1000] ++[2000,3000..10000] ++[20000,30000..100000] , [1,2,5,10] , 10))]
+presetTopics = [
+                 ("SMOKETEST", ( [1..2] , [1..2] , 2))
+               , ("BASIC", ( [1..10] ++ [20,30..100] ++[200,300..1000] ++[2000,3000..10000] ++[20000,30000..100000] , [1,2,5,10] , 10))
+               , ("EXPBS", ( exp2limited 1000000 , [1] , 10))
+               , ("EXPBSLARGE", ( exp2limited 100000 , [10] , 10))
+               , ("EXPBSVLARGE", ( exp2limited 10000 , [100] , 10))
+               ]
+exp2limited limit = takeWhile ( limit > ) $ go 1
+    where go n = n : go (n * 2)
 
 getTopic s = fromJust $ lookup s presetTopics 
 
@@ -71,17 +81,18 @@ start topic ( sutHostName , kakapoHostName) (repo , app ) = do
     kakapoHost "docker kill kakapo"
     kakapoHost "docker kill kakapo ; docker pull hdb3/kakapo ; docker run --name kakapo --privileged --rm -d --network host --hostname kakapo hdb3/kakapo"
 
-    runExperiment kakapo topic sysinfo app
+    runExperiment kakapo sutHostName topic sysinfo app
 
     sut $ "docker kill " ++ app
     kakapoHost "docker kill kakapo"
 
     putStrLn "Done"
 
-runExperiment :: (String -> IO()) -> String -> String -> String -> IO()
-runExperiment rsh topic sysinfo app = do
+runExperiment :: (String -> IO()) -> String -> String -> String -> String -> IO()
+runExperiment rsh sut topic sysinfo app = do
+    uuid <- ( toString . fromJust ) <$> nextUUID
     let
-        logText = "TOPIC=\'" ++ topic ++ "\' " ++ sysinfo
+        logText = "TOPIC=\'" ++ topic ++ "\' " ++ " SUT=" ++ sut ++ " " ++ " UUID=" ++ uuid ++ " " ++ sysinfo
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
         gsr = [1..10]
         gsrx = [10,20..50]
