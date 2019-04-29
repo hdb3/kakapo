@@ -8,8 +8,10 @@ import System.IO(stderr,hPutStrLn,hPrint)
 import Data.List(sort,sortOn,nub)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
+
 import Stages hiding (main)
 import Mean
+import GPlot hiding (main)
 
 
 putStrLn' = hPutStrLn stderr
@@ -49,7 +51,6 @@ main = do
             mapM_ putStrLn' $ countPotsText $ map ( hrV1DESC . krecHeader ) krecs 
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
-            --mapM_ print' headers
         else if argc == 2 then do
             let selector = T.pack $ args !! 1
                 pot = filter ( ( selector == ) . fst' ) pots
@@ -70,8 +71,13 @@ main = do
             -- too verbose:
             --mapM_ putStrLn' $ countPotsInt $ map ( hrV1BLOCKSIZE . krecHeader ) selected
             let plot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , reduceToKRecV1GraphPoint' "RTT" krec )) selected
-                plotText = unlines $ map (\(a,(x,y)) -> show a ++ " , " ++ show x ++ " , " ++ show y ) plot
-            putStrLn plotText 
+                plotText3 = unlines $ map (\(a,(x,y)) -> show a ++ " , " ++ show x ++ " , " ++ show y ) plot
+                plotText = unlines $ map (\(a,(x,_)) -> "( " ++ show a ++ " , " ++ show x ++ " )") plot
+                title = "RTT for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
+                plotter = gplot title "RTT" "seconds" "block size"
+                gnuPlotInput = map (\(a,(x,y)) -> (a,x)) plot
+            plotter gnuPlotInput
+            --putStrLn plotText 
         else putStrLn' "tl;dr"
         
     putStrLn' "Done"
@@ -105,7 +111,7 @@ countPotsInt :: [Int] -> [String]
 countPotsInt = countPots_ show
 
 countPots_ :: Ord a => ( a -> String) -> [a] -> [String]
-countPots_ toString = map (\(t,n) -> show n ++ " : " ++ toString t) . sortOn snd . Map.toList . countPots'
+countPots_ toString = map (\(t,n) -> show n ++ " : " ++ toString t) . sortOn fst . Map.toList . countPots'
     where countPots'  :: Ord a => [a] -> Map.Map a Int
           countPots' = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
 

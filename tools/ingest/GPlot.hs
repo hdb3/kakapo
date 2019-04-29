@@ -8,8 +8,8 @@ import qualified Graphics.Gnuplot.Graph.TwoDimensional as Graph2D
 import qualified Graphics.Gnuplot.LineSpecification as LineSpec
 import qualified Graphics.Gnuplot.Frame.OptionSet as Opts
 
-plot :: String -> String -> String -> String -> [(Int,Double)] -> IO ()
-plot title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
+gplot :: String -> String -> String -> String -> [(Int,Double)] -> IO ()
+gplot title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
     where
         plot2d = Frame.cons frameSpec $ fmap lineSpec $ Plot2D.list Graph2D.lines points
         lineSpec = Graph2D.lineSpec $ LineSpec.title lineTitle $ LineSpec.lineWidth 2.5 $ LineSpec.deflt
@@ -21,7 +21,7 @@ plot title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
 main :: IO ()
 main =
     do
-    let plotSpec = plot "Title" "lineTitle" "yLabel" "xLabel"
+    let plotSpec = gplot "Title" "lineTitle" "yLabel" "xLabel"
         rawData :: [( Int , Double )]
         rawData = [ ( 1 , 4.7431578947368424e-4 )
                   , ( 2 , 4.749947368421053e-3 )
