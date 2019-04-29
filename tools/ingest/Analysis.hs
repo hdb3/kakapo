@@ -8,6 +8,7 @@ import Data.List(sort,sortOn,nub)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Stages hiding (main)
+import Mean
 
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: Text
@@ -21,12 +22,8 @@ instance Show KRecV1GraphPoint
 concatKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> KRecV1GraphPoint
 concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
-reduceToKRecV1GraphPoint :: Text -> KRecV1 -> KRecV1GraphPoint
-reduceToKRecV1GraphPoint selector ( KRecV1 GKRecV1{..} ) = let blocksize = hrV1BLOCKSIZE hrec
-                                                               groupsize = hrV1GROUPSIZE hrec
-                                                               desc = hrV1DESC hrec
-                                                               value = fromJust $ lookup selector values
-                                                           in KRecV1GraphPoint{..}
+reduceToKRecV1GraphPoint :: Text -> KRecV1 -> (Double,Double)
+reduceToKRecV1GraphPoint selector = meanRSD . average . fromJust . lookup selector . krecValues
 
 main = do 
     putStrLn "Analysis"
@@ -62,11 +59,12 @@ main = do
                 selector2 = read $ args !! 2
                 crit1 = ( selector1 == ) . hrV1DESC . krecHeader
                 crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
-                --pot = filter ( ( selector == ) . fst' ) pots
                 selected = filter crit1 $ filter crit2 krecs
             putStrLn $ "found " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
+            mapM_ putStrLn $ countPotsInt $ map ( hrV1BLOCKSIZE . krecHeader ) selected
+            let plot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , reduceToKRecV1GraphPoint "RTT" krec )) selected
+            mapM_ print plot 
         else putStrLn "tl;dr"
         
     putStrLn "Done"
@@ -103,11 +101,6 @@ countPots_ :: Ord a => ( a -> String) -> [a] -> [String]
 countPots_ toString = map (\(t,n) -> show n ++ " : " ++ toString t) . sortOn snd . Map.toList . countPots'
     where countPots'  :: Ord a => [a] -> Map.Map a Int
           countPots' = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
-
---countPots :: [Text] -> [String]
---countPots = map (\(t,n) -> show n ++ " : " ++ T.unpack t) . sortOn snd . Map.toList . countPots'
-    --where countPots'  :: Ord a => [a] -> Map.Map a Int
-          --countPots' = foldl (\m a -> Map.insertWith (+) a 1 m) Map.empty
 
 buildPots :: Ord k => (a -> k) -> [a] -> Map.Map k [a]
 buildPots getter = foldl (\m r -> addItem r (getter r) m) Map.empty
