@@ -16,6 +16,14 @@ gplot title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
         frameSpec = Opts.xLabel xLabel $ Opts.yLabel yLabel $ Opts.title title $ Opts.deflt
         ignore a = a >> return ()
         
+gplotDouble :: String -> String -> String -> String -> [(Double,Double)] -> IO ()
+gplotDouble title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
+    where
+        plot2d = Frame.cons frameSpec $ fmap lineSpec $ Plot2D.list Graph2D.points points
+        lineSpec = Graph2D.lineSpec $ LineSpec.title lineTitle $ LineSpec.lineWidth 2.5 $ LineSpec.deflt
+        frameSpec = Opts.xLabel xLabel $ Opts.yLabel yLabel $ Opts.title title $ Opts.deflt
+        ignore a = a >> return ()
+        
 
 
 main :: IO ()

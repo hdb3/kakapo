@@ -82,8 +82,12 @@ main = do
                 plotText = unlines $ map (\(a,(x,_)) -> "( " ++ show a ++ " , " ++ show x ++ " )") plot
                 title = "RTT for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
                 plotter = gplot title "RTT" "seconds" "block size"
+                logPlotter = gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size"
                 gnuPlotInput = map (\(a,(x,y)) -> (a,x)) plot
+                --gnuLogPlotInput = map (\(a,(x,y)) -> (logBase 10 ( fromIntegral a) , logBase 10 x)) plot
+                gnuLogPlotInput = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x)) gnuPlotInput
             plotter gnuPlotInput
+            logPlotter gnuLogPlotInput
             --putStrLn plotText 
         else putStrLn' "tl;dr"
         
