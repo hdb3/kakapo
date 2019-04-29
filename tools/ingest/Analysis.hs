@@ -32,30 +32,42 @@ main = do
     putStrLn "Analysis"
     args <- getArgs
     let argc = length args
-        p1 (x,_,_) = x
-        p2 (_,x,_) = x
-        p3 (_,_,x) = x
+        fst' (x,_,_) = x
+        snd' (_,x,_) = x
+        thrd' (_,_,x) = x
     if null args then
         die "enter at least a search path"
     else do
         (errors,krecs) <- getKRecV1_  [ args !! 0 ]
         let pots = collate krecs
-            headers = nub $ map p1 pots
+            headers = nub $ map fst' pots
             summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
-        if argc < 2 then do
+        if argc == 1 then do
             mapM_ print errors
             mapM_ putStrLn $ countPotsText $ map ( hrV1DESC . krecHeader ) krecs 
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
             mapM_ print headers
-        else do
+        else if argc == 2 then do
             let selector = T.pack $ args !! 1
-                pot = filter ( ( selector == ) . p1 ) pots
+                pot = filter ( ( selector == ) . fst' ) pots
                 selected = filter ( ( selector == ) . hrV1DESC . krecHeader ) krecs
             putStrLn $ "found " ++ show (length pot) ++ " matches"
+            putStrLn $ "found(2) " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
             mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
+        else if argc == 3 then do
+            let selector1 = T.pack $ args !! 1
+                selector2 = read $ args !! 2
+                crit1 = ( selector1 == ) . hrV1DESC . krecHeader
+                crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
+                --pot = filter ( ( selector == ) . fst' ) pots
+                selected = filter crit1 $ filter crit2 krecs
+            putStrLn $ "found " ++ show (length selected) ++ " matches"
+            showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
+            mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
+        else putStrLn "tl;dr"
         
     putStrLn "Done"
 
