@@ -4,12 +4,16 @@ import Data.Text(Text)
 import qualified Data.Text as T
 import System.Environment(getArgs)
 import System.Exit(die)
+import System.IO(stderr,hPutStrLn,hPrint)
 import Data.List(sort,sortOn,nub)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Stages hiding (main)
 import Mean
 
+
+putStrLn' = hPutStrLn stderr
+print' x = putStrLn' (show x)
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: Text
                                          , blocksize , groupsize :: Int
@@ -24,9 +28,10 @@ concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
 reduceToKRecV1GraphPoint :: Text -> KRecV1 -> (Double,Double)
 reduceToKRecV1GraphPoint selector = meanRSD . average . fromJust . lookup selector . krecValues
+reduceToKRecV1GraphPoint' selector = meanRSD . average . tail . fromJust . lookup selector . krecValues
 
 main = do 
-    putStrLn "Analysis"
+    putStrLn' "Analysis"
     args <- getArgs
     let argc = length args
         fst' (x,_,_) = x
@@ -40,34 +45,36 @@ main = do
             headers = nub $ map fst' pots
             summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
         if argc == 1 then do
-            mapM_ print errors
-            mapM_ putStrLn $ countPotsText $ map ( hrV1DESC . krecHeader ) krecs 
+            mapM_ print' errors
+            mapM_ putStrLn' $ countPotsText $ map ( hrV1DESC . krecHeader ) krecs 
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
-            mapM_ print headers
+            --mapM_ print' headers
         else if argc == 2 then do
             let selector = T.pack $ args !! 1
                 pot = filter ( ( selector == ) . fst' ) pots
                 selected = filter ( ( selector == ) . hrV1DESC . krecHeader ) krecs
-            putStrLn $ "found " ++ show (length pot) ++ " matches"
-            putStrLn $ "found(2) " ++ show (length selected) ++ " matches"
+            putStrLn' $ "found " ++ show (length pot) ++ " matches"
+            putStrLn' $ "found(2) " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
-            mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
+            mapM_ putStrLn' $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
         else if argc == 3 then do
             let selector1 = T.pack $ args !! 1
                 selector2 = read $ args !! 2
                 crit1 = ( selector1 == ) . hrV1DESC . krecHeader
                 crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
                 selected = filter crit1 $ filter crit2 krecs
-            putStrLn $ "found " ++ show (length selected) ++ " matches"
+            putStrLn' $ "found " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            mapM_ putStrLn $ countPotsInt $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            let plot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , reduceToKRecV1GraphPoint "RTT" krec )) selected
-            mapM_ print plot 
-        else putStrLn "tl;dr"
+            -- too verbose:
+            --mapM_ putStrLn' $ countPotsInt $ map ( hrV1BLOCKSIZE . krecHeader ) selected
+            let plot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , reduceToKRecV1GraphPoint' "RTT" krec )) selected
+                plotText = unlines $ map (\(a,(x,y)) -> show a ++ " , " ++ show x ++ " , " ++ show y ) plot
+            putStrLn plotText 
+        else putStrLn' "tl;dr"
         
-    putStrLn "Done"
+    putStrLn' "Done"
 
 graph :: [(Text, Int, [KRecV1GraphPoint])] -> IO ()
 graph _ = return ()
@@ -84,12 +91,12 @@ showRange label vals = do
     let uniqVals = nub vals
         minVal = minimum uniqVals
         maxVal = maximum uniqVals
-    putStrLn $ "showRange (" ++ label ++ ")"
-    putStrLn $ show (length uniqVals) ++ " uniqVals"
+    putStrLn' $ "showRange (" ++ label ++ ")"
+    putStrLn' $ show (length uniqVals) ++ " uniqVals"
     if length uniqVals > 10 then
-        putStrLn $ "min/max = " ++ show ( minVal , maxVal )
+        putStrLn' $ "min/max = " ++ show ( minVal , maxVal )
     else
-        print $ sort uniqVals
+        print' $ sort uniqVals
 
 countPotsText :: [Text] -> [String]
 countPotsText = countPots_ (\t -> "[" ++ T.unpack t ++ "]")
