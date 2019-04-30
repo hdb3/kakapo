@@ -10,6 +10,10 @@ import qualified Graphics.Gnuplot.LineSpecification as LineSpec
 import qualified Graphics.Gnuplot.Frame.OptionSet as Opts
 import qualified Graphics.Gnuplot.Value.Tuple as Tuple
 import qualified Graphics.Gnuplot.Value.Atom as Atom
+import System.Exit (ExitCode)
+
+plotter :: (Atom.C x, Atom.C y) => Frame.T (Graph2D.T x y) -> IO ExitCode
+plotter = Plot.plot X11.cons
 
 lineSpecDefault  = LineSpec.lineWidth 2.5 LineSpec.deflt
 
@@ -20,14 +24,22 @@ gplotDouble :: String -> String -> String -> String -> [(Double,Double)] -> IO (
 gplotDouble = gplot
 
 gplot :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> String -> [(x,y)] -> IO ()
-gplot title lineTitle yLabel xLabel points = gplotN title yLabel xLabel [ (lineTitle,points) ]
+gplot title lineTitle xLabel yLabel points = gplotN title yLabel xLabel [ (lineTitle,points) ]
 
 gplotN :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> [(String,[(x,y)])] -> IO ()
-gplotN title yLabel xLabel graphs = void $ Plot.plot X11.cons plot2d
+gplotN title xLabel yLabel graphs = void $ plotter plot2d
     where
         plots = mconcat $ map (\(s,px) -> lineSpec s  <$> ( Plot2D.list Graph2D.points px) ) graphs
         plot2d = Frame.cons ( frameSpec title xLabel yLabel ) plots
 
+renderCurve :: (Atom.C x, Atom.C y) => String -> String -> String -> Plot2D.T x y -> IO ()
+renderCurve title xLabel yLabel curve = void $ plotter $ Frame.cons ( frameSpec title xLabel yLabel ) curve 
+
+renderCurves :: (Atom.C x, Atom.C y) => String -> String -> String -> [ Plot2D.T x y ] -> IO ()
+renderCurves t x y = renderCurve t x y . mconcat 
+
+makeCurve :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) => String -> [(x, y)] -> Plot2D.T x y
+makeCurve lineTitle points = lineSpec lineTitle <$> Plot2D.list Graph2D.points points
 
 main :: IO ()
 main =
@@ -85,3 +97,26 @@ main =
                   ]
     plotSpec rawData
     gplotN title yLabel xLabel [ ("rawData" , rawData ) , ("rawData'" , rawData' ) ]
+    let c1 = makeCurve "raw" rawData
+        c2 = makeCurve "cooked" rawData'
+    renderCurves "assembled in bits" "bitty x" "bitty y" [ c1 , c2 ]
+
+{- failed attempts to use other display options, e.g. synchronous calls to gnuplot
+   the 'plotter = Plot.plotDefault' 'works' but is ugly.....
+
+
+--plotter = Plot.plot ( X11.noPersist X11.cons )
+--plotter = Plot.plotDefault
+
+plotterSync :: (Atom.C x, Atom.C y) => Frame.T (Graph2D.T x y) -> IO ExitCode
+plotterSync = Plot.plot ( X11.noPersist X11.cons )
+--gplot_ :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> [(String,[(x,y)])] -> IO ()
+gplot_ plot title yLabel xLabel graphs = void $ plot plot2d
+    where
+        plots = mconcat $ map (\(s,px) -> lineSpec s  <$> ( Plot2D.list Graph2D.points px) ) graphs
+        plot2d = Frame.cons ( frameSpec title xLabel yLabel ) plots
+
+k :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> [(String,[(x,y)])] -> IO ()
+k = gplot_ plotter
+
+-}
