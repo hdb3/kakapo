@@ -102,6 +102,8 @@ main = do
             gplot ( title ++ " (second least value plot)") "RTT" "seconds" "block size"
                   ( metric getSndLeast "RTT" )
 
+            gplotN title "seconds" "block size" [ ("mean RTT" , means) , ("least RTT" , ( metric getLeast "RTT" ))] 
+
         else putStrLn' "tl;dr"
         
     putStrLn' "Done"

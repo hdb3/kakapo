@@ -1,5 +1,6 @@
 module GPlot where
 
+import Control.Monad(void)
 import qualified Graphics.Gnuplot.Advanced as Plot
 import qualified Graphics.Gnuplot.Terminal.X11 as X11
 import qualified Graphics.Gnuplot.Frame as Frame
@@ -8,28 +9,38 @@ import qualified Graphics.Gnuplot.Graph.TwoDimensional as Graph2D
 import qualified Graphics.Gnuplot.LineSpecification as LineSpec
 import qualified Graphics.Gnuplot.Frame.OptionSet as Opts
 
-gplot :: String -> String -> String -> String -> [(Int,Double)] -> IO ()
-gplot title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
-    where
-        plot2d = Frame.cons frameSpec $ fmap lineSpec $ Plot2D.list Graph2D.points points
-        lineSpec = Graph2D.lineSpec $ LineSpec.title lineTitle $ LineSpec.lineWidth 2.5 $ LineSpec.deflt
-        frameSpec = Opts.xLabel xLabel $ Opts.yLabel yLabel $ Opts.title title $ Opts.deflt
-        ignore a = a >> return ()
-        
-gplotDouble :: String -> String -> String -> String -> [(Double,Double)] -> IO ()
-gplotDouble title lineTitle yLabel xLabel points = ignore $ Plot.plot X11.cons plot2d
-    where
-        plot2d = Frame.cons frameSpec $ fmap lineSpec $ Plot2D.list Graph2D.points points
-        lineSpec = Graph2D.lineSpec $ LineSpec.title lineTitle $ LineSpec.lineWidth 2.5 $ LineSpec.deflt
-        frameSpec = Opts.xLabel xLabel $ Opts.yLabel yLabel $ Opts.title title $ Opts.deflt
-        ignore a = a >> return ()
-        
+lineSpecDefault  = LineSpec.lineWidth 2.5 LineSpec.deflt
 
+lineSpec title = Graph2D.lineSpec $ LineSpec.title title lineSpecDefault
+frameSpec title xLabel yLabel = Opts.title title $ Opts.xLabel xLabel $ Opts.yLabel yLabel Opts.deflt
+
+gplot :: String -> String -> String -> String -> [(Int,Double)] -> IO ()
+gplot title lineTitle yLabel xLabel points = void $ Plot.plot X11.cons plot2d
+    where
+        plot2d = Frame.cons ( frameSpec title xLabel yLabel) $
+                 lineSpec lineTitle <$>
+                 Plot2D.list Graph2D.points points
+
+gplotDouble :: String -> String -> String -> String -> [(Double,Double)] -> IO ()
+gplotDouble title lineTitle yLabel xLabel points = void $ Plot.plot X11.cons plot2d
+    where
+        plot2d = Frame.cons ( frameSpec title xLabel yLabel ) $
+                 lineSpec lineTitle <$>
+                 Plot2D.list Graph2D.points points
+
+gplotN :: String -> String -> String -> [(String,[(Int,Double)])] -> IO ()
+gplotN title yLabel xLabel graphs = void $ Plot.plot X11.cons plot2d
+    where
+        plots :: Plot2D.T Int Double
+        --plots = mconcat $ map ( Plot2D.list Graph2D.points . snd ) graphs
+        plots = mconcat $ map (\(s,px) -> lineSpec s  <$> ( Plot2D.list Graph2D.points px) ) graphs
+        plot2d = Frame.cons ( frameSpec title xLabel yLabel ) plots
 
 main :: IO ()
 main =
     do
     let plotSpec = gplot "Title" "lineTitle" "yLabel" "xLabel"
+        rawData' = map (\(x,y) -> (x, 2 *y)) rawData
         rawData :: [( Int , Double )]
         rawData = [ ( 1 , 4.7431578947368424e-4 )
                   , ( 2 , 4.749947368421053e-3 )
