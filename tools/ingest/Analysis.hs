@@ -29,9 +29,18 @@ instance Show KRecV1GraphPoint
 concatKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> KRecV1GraphPoint
 concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
+getLeast :: Text -> KRecV1 -> Double
+getLeast selector = mean . least . getObservable selector
+
+getSndLeast :: Text -> KRecV1 -> Double
+getSndLeast selector = mean . sndLeast . getObservable selector
+
 reduceToKRecV1GraphPoint :: Text -> KRecV1 -> (Double,Double)
 reduceToKRecV1GraphPoint selector = meanRSD . average . fromJust . lookup selector . krecValues
 reduceToKRecV1GraphPoint' selector = meanRSD . average . tail . fromJust . lookup selector . krecValues
+
+getObservable :: Text -> KRecV1 -> [Text]
+getObservable selector = fromJust . lookup selector . krecValues
 
 main = do 
     putStrLn' "Analysis"
@@ -78,16 +87,25 @@ main = do
             -- too verbose:
             --mapM_ putStrLn' $ countPotsInt $ map ( hrV1BLOCKSIZE . krecHeader ) selected
             let plot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , reduceToKRecV1GraphPoint' "RTT" krec )) selected
-                plotText3 = unlines $ map (\(a,(x,y)) -> show a ++ " , " ++ show x ++ " , " ++ show y ) plot
+                --plotText3 = unlines $ map (\(a,(x,y)) -> show a ++ " , " ++ show x ++ " , " ++ show y ) plot
                 plotText = unlines $ map (\(a,(x,_)) -> "( " ++ show a ++ " , " ++ show x ++ " )") plot
                 title = "RTT for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
                 plotter = gplot title "RTT" "seconds" "block size"
-                logPlotter = gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size"
                 gnuPlotInput = map (\(a,(x,y)) -> (a,x)) plot
-                --gnuLogPlotInput = map (\(a,(x,y)) -> (logBase 10 ( fromIntegral a) , logBase 10 x)) plot
-                gnuLogPlotInput = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x)) gnuPlotInput
             plotter gnuPlotInput
+
+
+            let logPlotter = gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size"
+                gnuLogPlotInput = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x)) gnuPlotInput
             logPlotter gnuLogPlotInput
+
+            let lplot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getLeast "RTT" krec )) selected
+                leastPlotter = gplot ( title ++ " (least value plot)") "RTT" "seconds" "block size"
+            leastPlotter lplot
+
+            gplot ( title ++ " (second least value plot)") "RTT" "seconds" "block size"
+                  ( sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getSndLeast "RTT" krec )) selected )
+
             --putStrLn plotText 
         else putStrLn' "tl;dr"
         
