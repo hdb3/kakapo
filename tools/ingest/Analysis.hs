@@ -82,31 +82,26 @@ main = do
                 crit1 = ( selector1 == ) . hrV1DESC . krecHeader
                 crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
                 selected = filter crit1 $ filter crit2 krecs
+                metric summer name = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , summer name krec )) selected
             putStrLn' $ "found " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            -- too verbose:
-            --mapM_ putStrLn' $ countPotsInt $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            let plot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , reduceToKRecV1GraphPoint' "RTT" krec )) selected
-                --plotText3 = unlines $ map (\(a,(x,y)) -> show a ++ " , " ++ show x ++ " , " ++ show y ) plot
-                plotText = unlines $ map (\(a,(x,_)) -> "( " ++ show a ++ " , " ++ show x ++ " )") plot
+
+            let means = map (\(a,(x,y)) -> (a,x)) $ metric reduceToKRecV1GraphPoint' "RTT"
+
                 title = "RTT for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
-                plotter = gplot title "RTT" "seconds" "block size"
-                gnuPlotInput = map (\(a,(x,y)) -> (a,x)) plot
-            plotter gnuPlotInput
+            gplot title "RTT" "seconds" "block size"
+                  means
 
 
-            let logPlotter = gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size"
-                gnuLogPlotInput = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x)) gnuPlotInput
-            logPlotter gnuLogPlotInput
+            gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size"
+                        ( map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x)) means )
 
-            let lplot = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getLeast "RTT" krec )) selected
-                leastPlotter = gplot ( title ++ " (least value plot)") "RTT" "seconds" "block size"
-            leastPlotter lplot
+            gplot ( title ++ " (least value plot)") "RTT" "seconds" "block size"
+                  ( metric getLeast "RTT" )
 
             gplot ( title ++ " (second least value plot)") "RTT" "seconds" "block size"
-                  ( sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getSndLeast "RTT" krec )) selected )
+                  ( metric getSndLeast "RTT" )
 
-            --putStrLn plotText 
         else putStrLn' "tl;dr"
         
     putStrLn' "Done"
