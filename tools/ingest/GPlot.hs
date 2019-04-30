@@ -8,38 +8,32 @@ import qualified Graphics.Gnuplot.Plot.TwoDimensional as Plot2D
 import qualified Graphics.Gnuplot.Graph.TwoDimensional as Graph2D
 import qualified Graphics.Gnuplot.LineSpecification as LineSpec
 import qualified Graphics.Gnuplot.Frame.OptionSet as Opts
+import qualified Graphics.Gnuplot.Value.Tuple as Tuple
+import qualified Graphics.Gnuplot.Value.Atom as Atom
 
 lineSpecDefault  = LineSpec.lineWidth 2.5 LineSpec.deflt
 
 lineSpec title = Graph2D.lineSpec $ LineSpec.title title lineSpecDefault
 frameSpec title xLabel yLabel = Opts.title title $ Opts.xLabel xLabel $ Opts.yLabel yLabel Opts.deflt
 
-gplot :: String -> String -> String -> String -> [(Int,Double)] -> IO ()
-gplot title lineTitle yLabel xLabel points = void $ Plot.plot X11.cons plot2d
-    where
-        plot2d = Frame.cons ( frameSpec title xLabel yLabel) $
-                 lineSpec lineTitle <$>
-                 Plot2D.list Graph2D.points points
-
 gplotDouble :: String -> String -> String -> String -> [(Double,Double)] -> IO ()
-gplotDouble title lineTitle yLabel xLabel points = void $ Plot.plot X11.cons plot2d
-    where
-        plot2d = Frame.cons ( frameSpec title xLabel yLabel ) $
-                 lineSpec lineTitle <$>
-                 Plot2D.list Graph2D.points points
+gplotDouble = gplot
 
-gplotN :: String -> String -> String -> [(String,[(Int,Double)])] -> IO ()
+gplot :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> String -> [(x,y)] -> IO ()
+gplot title lineTitle yLabel xLabel points = gplotN title yLabel xLabel [ (lineTitle,points) ]
+
+gplotN :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> [(String,[(x,y)])] -> IO ()
 gplotN title yLabel xLabel graphs = void $ Plot.plot X11.cons plot2d
     where
-        plots :: Plot2D.T Int Double
-        --plots = mconcat $ map ( Plot2D.list Graph2D.points . snd ) graphs
         plots = mconcat $ map (\(s,px) -> lineSpec s  <$> ( Plot2D.list Graph2D.points px) ) graphs
         plot2d = Frame.cons ( frameSpec title xLabel yLabel ) plots
+
 
 main :: IO ()
 main =
     do
-    let plotSpec = gplot "Title" "lineTitle" "yLabel" "xLabel"
+    let title = "Title" ; lineTitle = "lineTitle" ; yLabel =  "yLabel" ; xLabel = "xLabel"
+        plotSpec = gplot title lineTitle yLabel xLabel
         rawData' = map (\(x,y) -> (x, 2 *y)) rawData
         rawData :: [( Int , Double )]
         rawData = [ ( 1 , 4.7431578947368424e-4 )
@@ -90,3 +84,4 @@ main =
                   , ( 100000 , 13.330933000000002 )
                   ]
     plotSpec rawData
+    gplotN title yLabel xLabel [ ("rawData" , rawData ) , ("rawData'" , rawData' ) ]
