@@ -73,6 +73,9 @@ sshLog_ logRootName params command = do
         }
     hPutStr stdinHandle command
     hClose stdinHandle
+    hPutStrLn stderr $ "remote shell started with: " ++ unwords ( shell : parameters)
+    hPutStrLn stderr $ "remote shell command: " ++ command
+    hFlush stderr
     code <- waitForProcess ph
     later <- getSystemTime
     let exitStatus = case code of

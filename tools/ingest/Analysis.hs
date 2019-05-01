@@ -115,7 +115,7 @@ main = do
 
             --gplotN title "seconds" "block size" [ ("mean RTT" , means) , ("least RTT" , ( metric getLeast "RTT" ))] 
             renderCurves title "seconds" "block size" [cMeans , cLeastRTT]
-            renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cMeans , cLeastRTT]
+            renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cLogMeans , cLogLeastRTT]
 
         else putStrLn' "tl;dr"
         
