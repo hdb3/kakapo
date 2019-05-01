@@ -16,9 +16,10 @@ docker02 = ( "root@docker02" , "root@10.30.65.214" )
 
 frr = ( "hdb3/frr", "frr")
 bird = ("hdb3/bird","bird")
+hbgp = ("hdb3/hbgp","hbgp")
 
 presetTargets = [("localhost",localhost) , ("docker02",docker02) ]
-presetPlatforms = [("bird",bird),("frr",frr)]
+presetPlatforms = [("bird",bird),("frr",frr),("hbgp",hbgp)]
 
 presetTopics = [
                  ("SMOKETEST", ( [1..2] , [1..2] , 2))
