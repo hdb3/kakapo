@@ -87,22 +87,35 @@ main = do
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
 
             let means = map (\(a,(x,y)) -> (a,x)) $ metric reduceToKRecV1GraphPoint' "RTT"
-
+                cMeans = makeCurve "mean RTT" means
                 title = "RTT for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
-            gplot title "RTT" "seconds" "block size"
-                  means
+            --gplot title "RTT" "seconds" "block size" means
+            renderCurve "RTT" "block size" "seconds" cMeans
 
+            let loglog :: [(Int,Double)] -> [(Double,Double)]
+                loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
+                logMeans = loglog means
 
-            gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size"
-                        ( map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x)) means )
+            --gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size" logMeans
 
-            gplot ( title ++ " (least value plot)") "RTT" "seconds" "block size"
-                  ( metric getLeast "RTT" )
+            let cLogMeans = makeCurve "log mean RTT" logMeans
 
-            gplot ( title ++ " (second least value plot)") "RTT" "seconds" "block size"
-                  ( metric getSndLeast "RTT" )
+            renderCurve "RTT (log plot)" "block size" "seconds" cLogMeans
 
-            gplotN title "seconds" "block size" [ ("mean RTT" , means) , ("least RTT" , ( metric getLeast "RTT" ))] 
+            let leastRTT = metric getLeast "RTT"
+                logLeastRTT = loglog leastRTT
+                cLogLeastRTT = makeCurve "log least RTT" logLeastRTT
+            --gplot ( title ++ " (least value plot)") "RTT" "seconds" "block size" leastRTT
+            let cLeastRTT = makeCurve "min RTT" leastRTT
+            renderCurve "RTT (minimums)" "block size" "seconds" cLeastRTT
+
+            let sndLeastRTT = metric getSndLeast "RTT"
+                cSndLeastRTT = makeCurve "2nd min RTT" leastRTT
+            --gplot ( title ++ " (second least value plot)") "RTT" "seconds" "block size" sndLeastRTT
+
+            --gplotN title "seconds" "block size" [ ("mean RTT" , means) , ("least RTT" , ( metric getLeast "RTT" ))] 
+            renderCurves title "seconds" "block size" [cMeans , cLeastRTT]
+            renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cMeans , cLeastRTT]
 
         else putStrLn' "tl;dr"
         
