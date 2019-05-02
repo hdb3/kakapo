@@ -1,6 +1,7 @@
 module GPlot where
 
 import Control.Monad(void)
+import Control.Arrow(second)
 import qualified Graphics.Gnuplot.Advanced as Plot
 import qualified Graphics.Gnuplot.Terminal.X11 as X11
 import qualified Graphics.Gnuplot.Frame as Frame
@@ -29,7 +30,7 @@ gplot title lineTitle xLabel yLabel points = gplotN title yLabel xLabel [ (lineT
 gplotN :: (Tuple.C x, Tuple.C y, Atom.C x, Atom.C y) => String -> String -> String -> [(String,[(x,y)])] -> IO ()
 gplotN title xLabel yLabel graphs = void $ plotter plot2d
     where
-        plots = mconcat $ map (\(s,px) -> lineSpec s  <$> ( Plot2D.list Graph2D.points px) ) graphs
+        plots = mconcat $ map (\(s,px) -> lineSpec s  <$> Plot2D.list Graph2D.points px ) graphs
         plot2d = Frame.cons ( frameSpec title xLabel yLabel ) plots
 
 renderCurve :: (Atom.C x, Atom.C y) => String -> String -> String -> Plot2D.T x y -> IO ()
@@ -46,7 +47,7 @@ main =
     do
     let title = "Title" ; lineTitle = "lineTitle" ; yLabel =  "yLabel" ; xLabel = "xLabel"
         plotSpec = gplot title lineTitle yLabel xLabel
-        rawData' = map (\(x,y) -> (x, 2 *y)) rawData
+        rawData' = map (second (2 *)) rawData
         rawData :: [( Int , Double )]
         rawData = [ ( 1 , 4.7431578947368424e-4 )
                   , ( 2 , 4.749947368421053e-3 )

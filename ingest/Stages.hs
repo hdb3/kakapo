@@ -16,7 +16,6 @@ import System.IO.Error(catchIOError)
 import System.IO(stderr,hPutStrLn,hPrint)
 import System.Environment(getArgs)
 import Sections(Section,getSections,addToHeader,addHASH)
---import Summarise(Point,DataPoint,processSection)
 
 stageOne :: [String] -> IO [String]
 -- the output is guaranteed to be names of regular files
@@ -56,17 +55,17 @@ stageThree (path,content) = (path, getSections content)
 
 stageFour :: (String,[Section]) -> [Section]
 -- NOTE: adding the HASH _before_ adding the source so that copied file content is properly identified as equivalent
-stageFour (path,sections) = map ((addToHeader ("SOURCE", T.pack path)) . addHASH) sections
+stageFour (path,sections) = map (addToHeader ("SOURCE", T.pack path) . addHASH) sections
 
 data HeaderRecV1 = HeaderRecV1 { hrV1HASH , hrV1PID , hrV1BLOCKSIZE , hrV1GROUPSIZE , hrV1MAXBURSTCOUNT , hrV1CYCLECOUNT , hrV1CYCLEDELAY :: Int
                                , hrV1DESC, hrV1START, hrV1STOP, hrV1SOURCE :: Text
                                } deriving (Show, Eq)
 
 data GKRecV1 a = GKRecV1 { hrec :: HeaderRecV1, values :: a } deriving (Show, Eq)
-newtype KRecV1 = KRecV1 { kRecV1 :: (GKRecV1 [(Text, [Text])]) } deriving (Show, Eq)
+newtype KRecV1 = KRecV1 { kRecV1 :: GKRecV1 [(Text, [Text])] } deriving (Show, Eq)
 krecHeader = hrec . kRecV1
 krecValues = values . kRecV1
-krecValue k = ( lookup k ) . krecValues
+krecValue k = lookup k . krecValues
 
 mapCheck :: [Text] -> [(Text,t)] -> Bool
 mapCheck keys kvs = foldr ((&&) . check) True keys
@@ -83,7 +82,7 @@ doCycleCheck krecs = do
     where
 
         cycleCheck :: KRecV1 -> Bool
-        cycleCheck = (\(a,b) -> a == b) . cycleComp
+        cycleCheck = uncurry (==) . cycleComp
 
         cycleComp :: KRecV1 -> (Int,Int)
         cycleComp  (KRecV1 GKRecV1{..}) = ( length $ fromJust $ lookup "SEQ" values , hrV1CYCLECOUNT hrec)
@@ -110,22 +109,11 @@ stageFive (header,values) =
         hrV1CYCLEDELAY  = lookupHeaderInt "CYCLEDELAY"
         hrec = HeaderRecV1 {..}
 
-        --valueCheckV1 = mapCheck valueKeysV1
-        --valueKeysV1 = [ "RTT" , "LATENCY" , "TXDURATION", "RXDURATION" ]
-        --valuesFail = not $ valueCheckV1 values
-        --lookupValues k = fromJust $ lookup k values
-        --kv1RTT  = lookupValues "RTT"
-        --kv1LATENCY = lookupValues "LATENCY"
-        --kv1TXDURATION = lookupValues "TXDURATION"
-        --kv1RXDURATION = lookupValues "RXDURATION"
-
     in if headerFail then Left $ "headerFail: " ++ show header 
-       --else if valuesFail then Left $ "valuesFail: " ++ show (header, values)
        else Right $ GKRecV1 hrec values
 
 getKRecV1 :: IO ([String], [KRecV1])
-getKRecV1 = do
-   getArgs >>= getKRecV1_
+getKRecV1 = getArgs >>= getKRecV1_
 
 getKRecV1_ :: [String] -> IO ([String], [KRecV1])
 getKRecV1_ dirs = do
@@ -136,14 +124,12 @@ getKRecV1_ dirs = do
        (errors,krecs)  = partitionEithers $ map stageFive dataPoints
    hPutStrLn stderr $ "getKRecV1: read " ++ show ( length krecs ) ++ " krecs"
    hPutStrLn stderr $ "getKRecV1: found " ++ show ( length errors ) ++ " errors"
-   let uniqKRecs = nubOn ( hrV1HASH . hrec ) krecs -- :: [ KRecV1 ]
+   let uniqKRecs = nubOn ( hrV1HASH . hrec ) krecs
    hPutStrLn stderr $ "getKRecV1: unique " ++ show ( length uniqKRecs ) ++ " uniqKRecs"
    completeKRecs <- doCycleCheck $ map KRecV1 uniqKRecs
    return (errors, completeKRecs)
 
 main = do
    (errors,krecs) <- getKRecV1
-   --mapM_ print dataPoints
-   --mapM_ print krecs
    mapM_ print errors
    hPutStrLn stderr "Done"

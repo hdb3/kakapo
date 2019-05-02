@@ -69,7 +69,7 @@ main = do
             mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
 
         else do
-            let getArgFields n dflt = if n < argc then ( qFields (args !! n)) else dflt
+            let getArgFields n dflt = if n < argc then  qFields (args !! n) else dflt
                 getArgFields' n = getArgFields n []
                 res = [ getGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
                                                    b <- getArgFields' 2 , -- the control parameter to fix
@@ -114,7 +114,7 @@ main = do
                               ( readMaybe headerDesc )
 
             crit1 = ( selector1 == ) . hrV1DESC . krecHeader
-            crit2 = ( (read selector2) == ) . hrV1GROUPSIZE . krecHeader
+            crit2 = ( read selector2 == ) . hrV1GROUPSIZE . krecHeader
 
             -- 'selected' is unrefined list of krecs
             selected = filter crit1 $ filter crit2 krecs
@@ -187,13 +187,13 @@ plot title graph = do
  
 
         logs :: (Int,Double) -> (Double,Double)
-        logs = (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
+        logs (a, x) = (logBase 10 (fromIntegral a), logBase 10 x)
 
         curveBuilder :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) =>
                                  ((Int,[Double]) -> (x, y)) -> String -> [(Int,[Double])] -> Plot2D.T x y
         curveBuilder f t g = makeCurve t (map f g) -- `asTypeOf` _
         meanBuilder t g = curveBuilder (second mean) ("mean " ++ t ) (tail g) -- `asTypeOf` _
-        logBuilder t g = curveBuilder (logs . (second mean)) ("log " ++ t ) (tail g) --  `asTypeOf` _
+        logBuilder t g = curveBuilder (logs . second mean) ("log " ++ t ) (tail g) --  `asTypeOf` _
         leastBuilder t = curveBuilder (second minimum) ("least " ++ t )
         logLeastBuilder t = curveBuilder (logs . second minimum) ("log least " ++ t )
         sndLeastBuilder t = curveBuilder (second sndLeast) ("2nd least " ++ t )
