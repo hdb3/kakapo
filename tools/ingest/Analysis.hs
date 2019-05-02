@@ -29,18 +29,21 @@ instance Show KRecV1GraphPoint
 concatKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> KRecV1GraphPoint
 concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
-getLeast :: Text -> KRecV1 -> Double
+getLeast :: String -> KRecV1 -> Double
 getLeast selector = mean . least . getObservable selector
 
-getSndLeast :: Text -> KRecV1 -> Double
+getSndLeast :: String -> KRecV1 -> Double
 getSndLeast selector = mean . sndLeast . getObservable selector
 
-reduceToKRecV1GraphPoint :: Text -> KRecV1 -> (Double,Double)
-reduceToKRecV1GraphPoint selector = meanRSD . average . fromJust . lookup selector . krecValues
-reduceToKRecV1GraphPoint' selector = meanRSD . average . tail . fromJust . lookup selector . krecValues
+getMean :: String -> KRecV1 -> Double
+getMean selector = mean . average . getObservable selector
 
-getObservable :: Text -> KRecV1 -> [Text]
-getObservable selector = fromJust . lookup selector . krecValues
+reduceToKRecV1GraphPoint :: String -> KRecV1 -> (Double,Double)
+reduceToKRecV1GraphPoint selector = meanRSD . average . getObservable selector
+reduceToKRecV1GraphPoint' selector = meanRSD . average . tail . getObservable selector
+
+getObservable :: String -> KRecV1 -> [Text]
+getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
 
 main = do 
     putStrLn' "Analysis"
@@ -77,8 +80,11 @@ main = do
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
             mapM_ putStrLn' $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
-        else if argc == 3 then do
+        else if argc == 3 then
+            putStrLn' "please provide a specific metric, e.g. RTT, LATENCY, RXDURATION, TXDURATION"
+        else if argc == 4 then do
             let selector2 = read $ args !! 2
+                selector3 = args !! 3
                 crit1 = ( selector1 == ) . hrV1DESC . krecHeader
                 crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
                 selected = filter crit1 $ filter crit2 krecs
@@ -86,34 +92,29 @@ main = do
             putStrLn' $ "found " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
 
-            let means = map (\(a,(x,y)) -> (a,x)) $ metric reduceToKRecV1GraphPoint' "RTT"
-                cMeans = makeCurve "mean RTT" means
-                title = "RTT for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
-            --gplot title "RTT" "seconds" "block size" means
-            renderCurve "RTT" "block size" "seconds" cMeans
+            let means = map (\(a,(x,y)) -> (a,x)) $ metric reduceToKRecV1GraphPoint' selector3
+                cMeans = makeCurve ( "mean " ++ selector3 ) means
+                title = selector3 ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
+            renderCurve selector3 "block size" "seconds" cMeans
 
             let loglog :: [(Int,Double)] -> [(Double,Double)]
                 loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
                 logMeans = loglog means
 
-            --gplotDouble ( title ++ " (logarithmic plot)") "RTT" "log seconds" "log block size" logMeans
 
-            let cLogMeans = makeCurve "log mean RTT" logMeans
+            let cLogMeans = makeCurve ( "log mean " ++ selector3 ) logMeans
 
-            renderCurve "RTT (log plot)" "block size" "seconds" cLogMeans
+            renderCurve (selector3 ++ " (log plot)") "block size" "seconds" cLogMeans
 
-            let leastRTT = metric getLeast "RTT"
+            let leastRTT = metric getLeast selector3
                 logLeastRTT = loglog leastRTT
-                cLogLeastRTT = makeCurve "log least RTT" logLeastRTT
-            --gplot ( title ++ " (least value plot)") "RTT" "seconds" "block size" leastRTT
-            let cLeastRTT = makeCurve "min RTT" leastRTT
-            renderCurve "RTT (minimums)" "block size" "seconds" cLeastRTT
+                cLogLeastRTT = makeCurve ( "log least" ++ selector3 ) logLeastRTT
+            let cLeastRTT = makeCurve ( "min " ++ selector3 ) leastRTT
+            renderCurve ( selector3 ++ " (minimums)") "block size" "seconds" cLeastRTT
 
-            let sndLeastRTT = metric getSndLeast "RTT"
-                cSndLeastRTT = makeCurve "2nd min RTT" leastRTT
-            --gplot ( title ++ " (second least value plot)") "RTT" "seconds" "block size" sndLeastRTT
+            let sndLeastRTT = metric getSndLeast selector3
+                cSndLeastRTT = makeCurve ( "2nd min" ++ selector3 ) leastRTT
 
-            --gplotN title "seconds" "block size" [ ("mean RTT" , means) , ("least RTT" , ( metric getLeast "RTT" ))] 
             renderCurves title "seconds" "block size" [cMeans , cLeastRTT]
             renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cLogMeans , cLogLeastRTT]
 
