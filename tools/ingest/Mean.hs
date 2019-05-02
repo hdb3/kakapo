@@ -3,17 +3,14 @@ import qualified Data.Text as T
 import Data.List(sort)
 
 type Point = (Int,Double,Double,Double)
-mean (_,x,_,_) = x
-meanRSD (_,x,_,y) = (x,y)
+--tuple42_2 (_,x,_,_) = x
+--tuple42_24 (_,x,_,y) = (x,y)
 
-readFloat :: T.Text -> Double
-readFloat s = read (T.unpack s) :: Double
+mean :: [Double] -> Double
+mean = (\(_,x,_,_) -> x) . meanRSD
 
-average ::  [ T.Text ] -> Point
-average = getMeanSDandRSD . map readFloat
-    where
-    getMeanSDandRSD :: [Double] -> Point
-    getMeanSDandRSD sample = 
+meanRSD :: [Double] -> (Int,Double,Double,Double)
+meanRSD sample = 
         let
            count = fromIntegral $ length sample
            ssum  = sum sample
@@ -23,15 +20,9 @@ average = getMeanSDandRSD . map readFloat
            rsd   = sd / mean 
         in (length sample, mean, sd, rsd)
 
-least ::  [ T.Text ] -> Point
-least = getLeast . map readFloat
-    where
-        getLeast :: [Double] -> Point
-        getLeast sample = (length sample, minimum sample, 0.0, 0.0)
+--least :: [Double] -> Double
+--least sample = minimum sample
 
-sndLeast ::  [ T.Text ] -> Point
-sndLeast = getSndLeast . map readFloat
-    where
-        getSndLeast :: [Double] -> Point
-        getSndLeast sample | 1 < length sample = (length sample, (sort sample) !! 1, 0.0, 0.0)
-                           | otherwise = (length sample, minimum sample, 0.0, 0.0)
+sndLeast :: [Double] -> Double
+sndLeast sample | 1 < length sample = (sort sample) !! 1
+                | otherwise =  minimum sample

@@ -14,7 +14,6 @@ import Stages hiding (main)
 import Mean
 import GPlot hiding (main)
 
-
 putStrLn' = hPutStrLn stderr
 print' x = putStrLn' (show x)
 
@@ -29,6 +28,7 @@ instance Show KRecV1GraphPoint
 concatKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> KRecV1GraphPoint
 concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
+{-
 getLeast :: String -> KRecV1 -> Double
 getLeast selector = mean . least . getObservable selector
 
@@ -42,8 +42,7 @@ reduceToKRecV1GraphPoint :: String -> KRecV1 -> (Double,Double)
 reduceToKRecV1GraphPoint selector = meanRSD . average . getObservable selector
 reduceToKRecV1GraphPoint' selector = meanRSD . average . tail . getObservable selector
 
-getObservable :: String -> KRecV1 -> [Text]
-getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
+-}
 
 main = do 
     putStrLn' "Analysis"
@@ -87,43 +86,65 @@ main = do
                 selector3 = args !! 3
                 crit1 = ( selector1 == ) . hrV1DESC . krecHeader
                 crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
+
+                -- 'selected' is unrefined list of krecs
                 selected = filter crit1 $ filter crit2 krecs
-                metric summer name = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , summer name krec )) selected
-            putStrLn' $ "found " ++ show (length selected) ++ " matches"
-            showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
 
-            let means = map (\(a,(x,y)) -> (a,x)) $ metric reduceToKRecV1GraphPoint' selector3
-                cMeans = makeCurve ( "mean " ++ selector3 ) means
+                -- for simple plots we need - just one parameter (say, BLOCKSIZE) from the header -- we assume all others are fixed!
+                --                          - and, some data points, for a single metric/observable, e.g. RTT, etc.
+                -- this constitutes a single graph, albeit plottable in different way and with different summations (means, etc)
+                -- Regradless, the data structure is [(Int,[Double])]
+
+
+                readFloat :: T.Text -> Double
+                readFloat s = read (T.unpack s) :: Double
+
+                getObservable' :: String -> KRecV1 -> [Double]
+                getObservable' s kx = map readFloat ( getObservable s kx )
+
+                getObservable :: String -> KRecV1 -> [Text]
+                getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
+
+
+                graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' selector3 krec )) selected
                 title = selector3 ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
-            renderCurve selector3 "block size" "seconds" cMeans
-
-            let loglog :: [(Int,Double)] -> [(Double,Double)]
-                loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
-                logMeans = loglog means
-
-
-            let cLogMeans = makeCurve ( "log mean " ++ selector3 ) logMeans
-
-            renderCurve (selector3 ++ " (log plot)") "block size" "seconds" cLogMeans
-
-            let leastRTT = metric getLeast selector3
-                logLeastRTT = loglog leastRTT
-                cLogLeastRTT = makeCurve ( "log least" ++ selector3 ) logLeastRTT
-            let cLeastRTT = makeCurve ( "min " ++ selector3 ) leastRTT
-            renderCurve ( selector3 ++ " (minimums)") "block size" "seconds" cLeastRTT
-
-            let sndLeastRTT = metric getSndLeast selector3
-                cSndLeastRTT = makeCurve ( "2nd min" ++ selector3 ) leastRTT
-
-            renderCurves title "seconds" "block size" [cMeans , cLeastRTT]
-            renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cLogMeans , cLogLeastRTT]
+            -- showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
+            plot title graph
 
         else putStrLn' "tl;dr"
-        
     putStrLn' "Done"
 
-graph :: [(Text, Int, [KRecV1GraphPoint])] -> IO ()
-graph _ = return ()
+
+plot :: String -> [(Int,[Double])] -> IO ()
+plot title graph = do
+
+    putStrLn' $ "plotting " ++ show (length graph) ++ " matches"
+
+    let apply f = map (\(a,xs) -> (a,f xs)) 
+        loglog :: [(Int,Double)] -> [(Double,Double)]
+        loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
+
+        means = apply mean (tail graph)
+        cMeans = makeCurve "mean " means
+
+        logMeans = loglog means
+        cLogMeans = makeCurve "log mean " logMeans
+
+        leastRTT = apply minimum graph
+        logLeastRTT = loglog leastRTT
+        cLogLeastRTT = makeCurve "log least" logLeastRTT
+        cLeastRTT = makeCurve "min " leastRTT
+
+        sndLeastRTT = apply sndLeast graph
+        cSndLeastRTT = makeCurve "2nd min" leastRTT
+
+    renderCurve title "block size" "seconds" cMeans
+    renderCurve (title ++ " (log plot)") "block size" "seconds" cLogMeans
+    renderCurve ( title ++ " (minimums)") "block size" "seconds" cLeastRTT
+    renderCurves title "block size" "seconds" [cMeans , cLeastRTT]
+    renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cLogMeans , cLogLeastRTT]
+
+        
 
 collate :: [KRecV1] -> [(Text, Int, [KRecV1])]
 collate krecs =
