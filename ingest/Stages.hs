@@ -13,7 +13,7 @@ import System.Directory(listDirectory)
 import System.Posix.Files(getFileStatus,isRegularFile,isDirectory,fileAccess)
 import System.FilePath(combine)
 import System.IO.Error(catchIOError)
-import System.IO(stderr,hPutStrLn,hPrint)
+import System.IO(stderr,hPutStrLn)
 import System.Environment(getArgs)
 import Sections(Section,getSections,addToHeader,addHASH)
 
@@ -63,14 +63,18 @@ data HeaderRecV1 = HeaderRecV1 { hrV1HASH , hrV1PID , hrV1BLOCKSIZE , hrV1GROUPS
 
 data GKRecV1 a = GKRecV1 { hrec :: HeaderRecV1, values :: a } deriving (Show, Eq)
 newtype KRecV1 = KRecV1 { kRecV1 :: GKRecV1 [(Text, [Text])] } deriving (Show, Eq)
+
+krecHeader :: KRecV1 -> HeaderRecV1
 krecHeader = hrec . kRecV1
+
+krecValues :: KRecV1 -> [(Text, [Text])]
 krecValues = values . kRecV1
-krecValue k = lookup k . krecValues
 
 mapCheck :: [Text] -> [(Text,t)] -> Bool
 mapCheck keys kvs = foldr ((&&) . check) True keys
     where check a = a `elem` map fst kvs
 
+doCycleCheck :: [KRecV1] -> IO [KRecV1]
 doCycleCheck krecs = do
    let (complete,incomplete) = partition cycleCheck krecs
    when (0 /= length incomplete)
@@ -129,7 +133,8 @@ getKRecV1_ dirs = do
    completeKRecs <- doCycleCheck $ map KRecV1 uniqKRecs
    return (errors, completeKRecs)
 
+main :: IO ()
 main = do
    (errors,krecs) <- getKRecV1
    mapM_ print errors
-   hPutStrLn stderr "Done"
+   hPutStrLn stderr $ "Done, " ++ show (length krecs) ++ " records found" 

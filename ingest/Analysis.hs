@@ -4,7 +4,6 @@ import Data.Text(Text)
 import qualified Data.Text as T
 import System.Environment(getArgs)
 import System.Exit(die)
---import System.IO(stderr,hPutStrLn,hPrint)
 import Data.List(sort,sortOn,nub,partition)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
@@ -12,12 +11,6 @@ import Text.Read(readMaybe)
 import Control.Arrow (second)
 import Data.Char (isSpace)
 
-import qualified Graphics.Gnuplot.Plot.TwoDimensional as Plot2D
-import qualified Graphics.Gnuplot.Value.Tuple as Tuple
-import qualified Graphics.Gnuplot.Value.Atom as Atom
-
-
-import Sections(qFields)
 import Stages hiding (main)
 import Mean
 import GPlot hiding (main)
@@ -33,6 +26,7 @@ instance Show KRecV1GraphPoint
 concatKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> KRecV1GraphPoint
 concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
+main :: IO ()
 main = do 
     putStrLn "Analysis"
     args <- getArgs
@@ -45,7 +39,6 @@ main = do
         let pots = collate krecs
             selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
             selectionText = map (\(t,x,y) -> "(" ++ show y ++ " , " ++ T.unpack t ++ " , " ++ show x ++ " )") selection
-            summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
             -- only works for single parameters here...., but we may not care....
             selector1 = maybe ( T.pack $ args !! 1)
                               ( fst3 . (selection !!))
@@ -98,9 +91,6 @@ main = do
                    ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
                    s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
 
-    --getGraph krecs selector1 selector2 selector3 selector4 = show (selector1,selector2,selector3,selector4)
-    --getGraph _ _ _ _ _ _ = ([], T.unpack "", "", "", "", "")
-    --getGraph _ headerDesc selector2 metric reduce linlog = ( [], headerDesc, selector2, metric, reduce, linlog)
 
     getGraph krecs headerDesc selector2 metric reduce linlog =
     -- scope for validation: selector1 is either an index (Int) or full descriptor
@@ -139,21 +129,16 @@ main = do
             graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' metric krec )) selected
             title = metric ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
 
+            graphMean = map (second ( mean. tail) )
+            graphMin = map (second minimum)
+            graphMax = map (second maximum)
+
             path = case reduce of
                 "MEAN" -> graphMean graph 
                 "MIN" -> graphMin graph 
                 "MAX" -> graphMax graph 
        in (path, T.unpack selector1, selector2, metric, reduce, linlog)
 
-
-graphMean :: [(Int,[Double])] -> [(Int,Double)]
-graphMean = map (second ( mean. tail) )
-
-graphMin :: [(Int,[Double])] -> [(Int,Double)]
-graphMin = map (second minimum)
-
-graphMax :: [(Int,[Double])] -> [(Int,Double)]
-graphMax = map (second maximum)
 
 loglog :: [(Int,Double)] -> [(Double,Double)]
 loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
@@ -164,7 +149,6 @@ plotLog gx | null gx = return()
     putStrLn $ "plotLog: " ++ show (length gx ) ++ " paths"
     renderCurves " (log plot)" "block size" "seconds" $ map getCurve gx
     where
-    plotLinear1 (g, s1, s2 ,s3, s4, s5 ) = putStrLn $ "          : " ++ show (length g) ++ " points " ++ s1 ++ "/" ++ s2 ++ "/" ++ s3 ++ "/" ++ s4 ++ "/" ++ s5
     getCurve (g, s1, s2 ,s3, s4, s5 ) = makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) ( loglog g)
 
 plotLinear :: [([(Int,Double)], String, String, String, String, String)] -> IO ()
@@ -178,37 +162,6 @@ plotLinear gx | null gx = return()
     plotLinear1 (g, s1, s2 ,s3, s4, s5 ) = putStrLn $ "          : " ++ show (length g) ++ " points " ++ s1 ++ "/" ++ s2 ++ "/" ++ s3 ++ "/" ++ s4 ++ "/" ++ s5
     getCurve (g, s1, s2 ,s3, s4, s5 ) = makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) g
 
-plot :: String -> [(Int,[Double])] -> IO ()
-plot title graph = do
-
-    putStrLn $ "plotting " ++ show (length graph) ++ " matches"
-
-    let
- 
-
-        logs :: (Int,Double) -> (Double,Double)
-        logs (a, x) = (logBase 10 (fromIntegral a), logBase 10 x)
-
-        curveBuilder :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) =>
-                                 ((Int,[Double]) -> (x, y)) -> String -> [(Int,[Double])] -> Plot2D.T x y
-        curveBuilder f t g = makeCurve t (map f g) -- `asTypeOf` _
-        meanBuilder t g = curveBuilder (second mean) ("mean " ++ t ) (tail g) -- `asTypeOf` _
-        logBuilder t g = curveBuilder (logs . second mean) ("log " ++ t ) (tail g) --  `asTypeOf` _
-        leastBuilder t = curveBuilder (second minimum) ("least " ++ t )
-        logLeastBuilder t = curveBuilder (logs . second minimum) ("log least " ++ t )
-        sndLeastBuilder t = curveBuilder (second sndLeast) ("2nd least " ++ t )
-
-        --graphSpecs :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) => [ (String , String -> [(Int, [Double])] -> Plot2D.T x y)]
-        --graphSpecs = []
-        -- graphSpecs :: (Atom.C x, Atom.C y) => [ (String , Plot2D.T x y) ]
-        --graphSpecs = [("LIN",meanBuilder) , ("LOG",logBuilder) , ("MIN",leastBuilder) , ("LOGMIN",logLeastBuilder)]
-
-    renderCurve title "block size" "seconds" $ meanBuilder "" graph
-    renderCurve (title ++ " (log plot)") "block size" "seconds" $ logBuilder "" graph
-    renderCurve ( title ++ " (minimums)") "block size" "seconds" $ leastBuilder "" graph
-    renderCurves title "block size" "seconds" [meanBuilder "" graph , leastBuilder "" graph]
-    renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [logBuilder "" graph , logLeastBuilder "" graph]
-        
 
 collate :: [KRecV1] -> [(Text, Int, [KRecV1])]
 collate krecs =

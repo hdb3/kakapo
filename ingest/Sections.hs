@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Sections where
---module Sections(emptySection,getSection,Section) where
 
 import Data.Hashable
 import GHC.Generics(Generic)
@@ -14,8 +13,6 @@ import Control.Exception(assert)
 import qualified QFields(parse)
 
 type Section = ( [(Text,Text)] , [(Text,[Text])] )
---collapseTrailer :: Section -> Section
---collapseTrailer (a,b,c) = (a++c,b,[])
 
 newtype DSection = DSection Section deriving Generic
 instance Hashable DSection
