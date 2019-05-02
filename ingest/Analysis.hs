@@ -10,6 +10,7 @@ import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Text.Read(readMaybe)
 
+import Sections(qFields)
 import Stages hiding (main)
 import Mean
 import GPlot hiding (main)
