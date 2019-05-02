@@ -8,6 +8,7 @@ import Data.Char(isControl)
 import Control.Monad(when,unless)
 import Data.UUID(toString)
 import Data.UUID.V1(nextUUID)
+import Data.Time.Clock.System ( systemSeconds, getSystemTime )
 
 import Runner
 
@@ -93,8 +94,9 @@ start topic ( sutHostName , kakapoHostName) (repo , app ) = do
 runExperiment :: (String -> IO()) -> String -> String -> String -> String -> IO()
 runExperiment rsh sut topic sysinfo app = do
     uuid <- ( toString . fromJust ) <$> nextUUID
+    time <- (show . systemSeconds ) <$> getSystemTime
     let
-        logText = "TOPIC=\'" ++ topic ++ "\' " ++ " SUT=" ++ sut ++ " " ++ " UUID=" ++ uuid ++ " " ++ sysinfo
+        logText = "TOPIC=\'" ++ topic ++ "\' " ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
         gsr = [1..10]
         gsrx = [10,20..50]
