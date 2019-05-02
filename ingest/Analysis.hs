@@ -4,19 +4,23 @@ import Data.Text(Text)
 import qualified Data.Text as T
 import System.Environment(getArgs)
 import System.Exit(die)
-import System.IO(stderr,hPutStrLn,hPrint)
-import Data.List(sort,sortOn,nub)
+--import System.IO(stderr,hPutStrLn,hPrint)
+import Data.List(sort,sortOn,nub,partition)
 import Data.Maybe(fromJust)
 import qualified Data.Map.Strict as Map
 import Text.Read(readMaybe)
+import Control.Arrow (second)
+import Data.Char (isSpace)
+
+import qualified Graphics.Gnuplot.Plot.TwoDimensional as Plot2D
+import qualified Graphics.Gnuplot.Value.Tuple as Tuple
+import qualified Graphics.Gnuplot.Value.Atom as Atom
+
 
 import Sections(qFields)
 import Stages hiding (main)
 import Mean
 import GPlot hiding (main)
-
-putStrLn' = hPutStrLn stderr
-print' x = putStrLn' (show x)
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: Text
                                          , blocksize , groupsize :: Int
@@ -29,29 +33,11 @@ instance Show KRecV1GraphPoint
 concatKRecV1GraphPoints :: [ KRecV1GraphPoint ] -> KRecV1GraphPoint
 concatKRecV1GraphPoints = foldl1 (\k0 k -> k0 { value = value k0 ++ value k } )
 
-{-
-getLeast :: String -> KRecV1 -> Double
-getLeast selector = mean . least . getObservable selector
-
-getSndLeast :: String -> KRecV1 -> Double
-getSndLeast selector = mean . sndLeast . getObservable selector
-
-getMean :: String -> KRecV1 -> Double
-getMean selector = mean . average . getObservable selector
-
-reduceToKRecV1GraphPoint :: String -> KRecV1 -> (Double,Double)
-reduceToKRecV1GraphPoint selector = meanRSD . average . getObservable selector
-reduceToKRecV1GraphPoint' selector = meanRSD . average . tail . getObservable selector
-
--}
-
 main = do 
-    putStrLn' "Analysis"
+    putStrLn "Analysis"
     args <- getArgs
     let argc = length args
-        fst' (x,_,_) = x
-        snd' (_,x,_) = x
-        thrd' (_,_,x) = x
+        fst3 (x,_,_) = x
     if null args then
         die "enter at least a search path"
     else do
@@ -60,91 +46,168 @@ main = do
             selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
             selectionText = map (\(t,x,y) -> "(" ++ show y ++ " , " ++ T.unpack t ++ " , " ++ show x ++ " )") selection
             summary = map (\(t,n,px) -> (T.unpack t , n , length px )) pots
+            -- only works for single parameters here...., but we may not care....
             selector1 = maybe ( T.pack $ args !! 1)
-                              ( fst' . (selection !!) )
+                              ( fst3 . (selection !!))
                               ( readMaybe (args !! 1))
         if argc == 1 then do
-            putStrLn' "*** Errors ***"
-            mapM_ putStrLn' errors
-            putStrLn' "\n*** Headers ***"
-            mapM_ putStrLn' selectionText
-            putStrLn' ""
+            putStrLn "*** Errors ***"
+            mapM_ putStrLn errors
+            putStrLn "\n*** Headers ***"
+            mapM_ putStrLn selectionText
+            putStrLn ""
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
         else if argc == 2 then do
             let
-                pot = filter ( ( selector1 == ) . fst' ) pots
+                pot = filter ( ( selector1 == ) . fst3 ) pots
                 selected = filter ( ( selector1 == ) . hrV1DESC . krecHeader ) krecs
-            putStrLn' $ "found " ++ show (length pot) ++ " matches"
-            putStrLn' $ "found(2) " ++ show (length selected) ++ " matches"
+            putStrLn $ "found " ++ show (length pot) ++ " matches"
+            putStrLn $ "found(2) " ++ show (length selected) ++ " matches"
             showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
-            mapM_ putStrLn' $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
-        else if argc == 3 then
-            putStrLn' "please provide a specific metric, e.g. RTT, LATENCY, RXDURATION, TXDURATION"
-        else if argc == 4 then do
-            let selector2 = read $ args !! 2
-                selector3 = args !! 3
-                crit1 = ( selector1 == ) . hrV1DESC . krecHeader
-                crit2 = ( selector2 == ) . hrV1GROUPSIZE . krecHeader
+            mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
 
-                -- 'selected' is unrefined list of krecs
-                selected = filter crit1 $ filter crit2 krecs
+        else do
+            let getArgFields n dflt = if n < argc then ( qFields (args !! n)) else dflt
+                getArgFields' n = getArgFields n []
+                res = [ getGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
+                                                   b <- getArgFields' 2 , -- the control parameter to fix
+                                                   c <- getArgFields 3 ["RTT"] ,
+                                                   d <- getArgFields 4 ["MEAN"] ,
+                                                   e <- getArgFields 5 ["LINEAR"] ]
+                (linearGraphs,logGraphs) = partition isLinear res
+                isLinear (_,_,_,_,_,s) = s == "LINEAR"
+            putStrLn $ show (length res) ++ " graphs returned"
+            plotLinear linearGraphs
+            plotLog logGraphs
 
-                -- for simple plots we need - just one parameter (say, BLOCKSIZE) from the header -- we assume all others are fixed!
-                --                          - and, some data points, for a single metric/observable, e.g. RTT, etc.
-                -- this constitutes a single graph, albeit plottable in different way and with different summations (means, etc)
-                -- Regradless, the data structure is [(Int,[Double])]
+            return ()
+    putStrLn "Done"
+
+    where
+
+    -- copied for simplicity and independence from tools/Sections.hs
+    qFields :: String -> [String]
+    qFields s = let
+        trim = dropWhile isSpace
+        backTrim = takeWhile (not . isSpace) . trim
+        isComma c = ',' == c
+        in case (trim . dropWhile isComma . trim) s of
+                   "" -> []
+                   ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
+                   s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
+
+    --getGraph krecs selector1 selector2 selector3 selector4 = show (selector1,selector2,selector3,selector4)
+    --getGraph _ _ _ _ _ _ = ([], T.unpack "", "", "", "", "")
+    --getGraph _ headerDesc selector2 metric reduce linlog = ( [], headerDesc, selector2, metric, reduce, linlog)
+
+    getGraph krecs headerDesc selector2 metric reduce linlog =
+    -- scope for validation: selector1 is either an index (Int) or full descriptor
+    --                                 in future should allow to specify a field selection like UUID
+    --                       selector is for now only the blocksize, but shortly alternatively groupsize, Int in either case
+        let 
+            fst3 (x,_,_) = x
+            selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
+            selector1 = maybe ( T.pack headerDesc )
+                              ( fst3 . (selection !!) )
+                              ( readMaybe headerDesc )
+
+            crit1 = ( selector1 == ) . hrV1DESC . krecHeader
+            crit2 = ( (read selector2) == ) . hrV1GROUPSIZE . krecHeader
+
+            -- 'selected' is unrefined list of krecs
+            selected = filter crit1 $ filter crit2 krecs
+
+            -- for simple plots we need - just one parameter (say, BLOCKSIZE) from the header -- we assume all others are fixed!
+            --                          - and, some data points, for a single metric/observable, e.g. RTT, etc.
+            -- this constitutes a single graph, albeit plottable in different way and with different summations (means, etc)
+            -- Regradless, the data structure is [(Int,[Double])]
 
 
-                readFloat :: T.Text -> Double
-                readFloat s = read (T.unpack s) :: Double
+            readFloat :: T.Text -> Double
+            readFloat s = read (T.unpack s) :: Double
 
-                getObservable' :: String -> KRecV1 -> [Double]
-                getObservable' s kx = map readFloat ( getObservable s kx )
+            getObservable' :: String -> KRecV1 -> [Double]
+            getObservable' s kx = map readFloat ( getObservable s kx )
 
-                getObservable :: String -> KRecV1 -> [Text]
-                getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
+            getObservable :: String -> KRecV1 -> [Text]
+            getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
 
 
-                graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' selector3 krec )) selected
-                title = selector3 ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
-            -- showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            plot title graph
+            -- graph is the fully extracted raw sample set:  [(Int,[Double])]
+            graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' metric krec )) selected
+            title = metric ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
 
-        else putStrLn' "tl;dr"
-    putStrLn' "Done"
+            path = case reduce of
+                "MEAN" -> graphMean graph 
+                "MIN" -> graphMin graph 
+                "MAX" -> graphMax graph 
+       in (path, T.unpack selector1, selector2, metric, reduce, linlog)
 
+
+graphMean :: [(Int,[Double])] -> [(Int,Double)]
+graphMean = map (second ( mean. tail) )
+
+graphMin :: [(Int,[Double])] -> [(Int,Double)]
+graphMin = map (second minimum)
+
+graphMax :: [(Int,[Double])] -> [(Int,Double)]
+graphMax = map (second maximum)
+
+loglog :: [(Int,Double)] -> [(Double,Double)]
+loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
+
+plotLog :: [([(Int,Double)], String, String, String, String, String)] -> IO ()
+plotLog gx | null gx = return()
+           | otherwise = do
+    putStrLn $ "plotLog: " ++ show (length gx ) ++ " paths"
+    renderCurves " (log plot)" "block size" "seconds" $ map getCurve gx
+    where
+    plotLinear1 (g, s1, s2 ,s3, s4, s5 ) = putStrLn $ "          : " ++ show (length g) ++ " points " ++ s1 ++ "/" ++ s2 ++ "/" ++ s3 ++ "/" ++ s4 ++ "/" ++ s5
+    getCurve (g, s1, s2 ,s3, s4, s5 ) = makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) ( loglog g)
+
+plotLinear :: [([(Int,Double)], String, String, String, String, String)] -> IO ()
+plotLinear gx | null gx = return()
+              | otherwise = do
+    putStrLn $ "plotLinear: " ++ show (length gx ) ++ " paths"
+    mapM_ plotLinear1 gx
+    putStrLn ""
+    renderCurves " (linear plot)" "block size" "seconds" $ map getCurve gx
+    where
+    plotLinear1 (g, s1, s2 ,s3, s4, s5 ) = putStrLn $ "          : " ++ show (length g) ++ " points " ++ s1 ++ "/" ++ s2 ++ "/" ++ s3 ++ "/" ++ s4 ++ "/" ++ s5
+    getCurve (g, s1, s2 ,s3, s4, s5 ) = makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) g
 
 plot :: String -> [(Int,[Double])] -> IO ()
 plot title graph = do
 
-    putStrLn' $ "plotting " ++ show (length graph) ++ " matches"
+    putStrLn $ "plotting " ++ show (length graph) ++ " matches"
 
-    let apply f = map (\(a,xs) -> (a,f xs)) 
-        loglog :: [(Int,Double)] -> [(Double,Double)]
-        loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
+    let
+ 
 
-        means = apply mean (tail graph)
-        cMeans = makeCurve "mean " means
+        logs :: (Int,Double) -> (Double,Double)
+        logs = (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
 
-        logMeans = loglog means
-        cLogMeans = makeCurve "log mean " logMeans
+        curveBuilder :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) =>
+                                 ((Int,[Double]) -> (x, y)) -> String -> [(Int,[Double])] -> Plot2D.T x y
+        curveBuilder f t g = makeCurve t (map f g) -- `asTypeOf` _
+        meanBuilder t g = curveBuilder (second mean) ("mean " ++ t ) (tail g) -- `asTypeOf` _
+        logBuilder t g = curveBuilder (logs . (second mean)) ("log " ++ t ) (tail g) --  `asTypeOf` _
+        leastBuilder t = curveBuilder (second minimum) ("least " ++ t )
+        logLeastBuilder t = curveBuilder (logs . second minimum) ("log least " ++ t )
+        sndLeastBuilder t = curveBuilder (second sndLeast) ("2nd least " ++ t )
 
-        leastRTT = apply minimum graph
-        logLeastRTT = loglog leastRTT
-        cLogLeastRTT = makeCurve "log least" logLeastRTT
-        cLeastRTT = makeCurve "min " leastRTT
+        --graphSpecs :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) => [ (String , String -> [(Int, [Double])] -> Plot2D.T x y)]
+        --graphSpecs = []
+        -- graphSpecs :: (Atom.C x, Atom.C y) => [ (String , Plot2D.T x y) ]
+        --graphSpecs = [("LIN",meanBuilder) , ("LOG",logBuilder) , ("MIN",leastBuilder) , ("LOGMIN",logLeastBuilder)]
 
-        sndLeastRTT = apply sndLeast graph
-        cSndLeastRTT = makeCurve "2nd min" leastRTT
-
-    renderCurve title "block size" "seconds" cMeans
-    renderCurve (title ++ " (log plot)") "block size" "seconds" cLogMeans
-    renderCurve ( title ++ " (minimums)") "block size" "seconds" cLeastRTT
-    renderCurves title "block size" "seconds" [cMeans , cLeastRTT]
-    renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [cLogMeans , cLogLeastRTT]
-
+    renderCurve title "block size" "seconds" $ meanBuilder "" graph
+    renderCurve (title ++ " (log plot)") "block size" "seconds" $ logBuilder "" graph
+    renderCurve ( title ++ " (minimums)") "block size" "seconds" $ leastBuilder "" graph
+    renderCurves title "block size" "seconds" [meanBuilder "" graph , leastBuilder "" graph]
+    renderCurves ( title ++ " (logarithmic plot)")  "seconds" "block size" [logBuilder "" graph , logLeastBuilder "" graph]
         
 
 collate :: [KRecV1] -> [(Text, Int, [KRecV1])]
@@ -159,12 +222,12 @@ showRange label vals = do
     let uniqVals = nub vals
         minVal = minimum uniqVals
         maxVal = maximum uniqVals
-    putStrLn' $ "showRange (" ++ label ++ ")"
-    putStrLn' $ show (length uniqVals) ++ " uniqVals"
+    putStrLn $ "showRange (" ++ label ++ ")"
+    putStrLn $ show (length uniqVals) ++ " uniqVals"
     if length uniqVals > 10 then
-        putStrLn' $ "min/max = " ++ show ( minVal , maxVal )
+        putStrLn $ "min/max = " ++ show ( minVal , maxVal )
     else
-        print' $ sort uniqVals
+        print $ sort uniqVals
 
 countPotsText :: [Text] -> [String]
 countPotsText = countPots_ (\t -> "[" ++ T.unpack t ++ "]")

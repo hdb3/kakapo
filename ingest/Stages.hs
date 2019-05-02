@@ -76,7 +76,9 @@ doCycleCheck krecs = do
    let (complete,incomplete) = partition cycleCheck krecs
    when (0 /= length incomplete)
         ( do hPutStrLn stderr $ "complete/incomplete count: " ++ show (length complete, length incomplete)
-             mapM_ print $ map (\krec -> (cycleComp krec , krec)) incomplete )
+             -- this may be useful on occasion, but rarely, so commented in the absence of a verbose flag
+             --mapM_ print $ map (\krec -> (cycleComp krec , krec)) incomplete
+        )
    return complete
     where
 
