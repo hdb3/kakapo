@@ -1,7 +1,9 @@
 module Runner where
 import System.Process
+import Control.Concurrent(forkIO)
 import System.Exit
-import System.IO(hClose,hFlush,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
+import System.IO(Handle,hIsEOF,hSetBuffering,BufferMode(NoBuffering),hClose,hFlush,stdout,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
+import Data.ByteString(hGet,hPut)
 import Control.Monad
 import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
 import Text.Printf
@@ -66,11 +68,13 @@ sshLog_ logRootName params command = do
     hStdout <- openFile stdoutName WriteMode
     now <- getSystemTime
     let cp = proc shell parameters
-    (Just stdinHandle , _, _, ph) <- createProcess $ cp
+    (Just stdinHandle , Just stdoutHandle, Just stderrHandle, ph) <- createProcess $ cp
         { std_in = CreatePipe
-        , std_out = UseHandle hStdout
-        , std_err = UseHandle hStderr
+        , std_out =  CreatePipe
+        , std_err = CreatePipe
         }
+    _ <- forkIO $ tee stdoutHandle hStdout
+    _ <- forkIO $ tee stderrHandle hStderr
     hPutStr stdinHandle command
     hClose stdinHandle
     hPutStrLn stderr $ "remote shell started with: " ++ unwords ( shell : parameters)
@@ -128,3 +132,16 @@ stToFloat :: SystemTime -> Double
 stToFloat s = (fromIntegral (systemSeconds s) * 1000000000 + fromIntegral (systemNanoseconds s)) / 1000000000.0
 
 prettyDuration dT = if 1.0 > dT then printf "%.3f ms" (1000*dT) else printf "%.3f s" dT
+
+tee :: Handle -> Handle -> IO()
+tee hIn hOut = do
+    hSetBuffering hIn NoBuffering
+    hSetBuffering hOut NoBuffering
+    hSetBuffering stdout NoBuffering
+    loop
+    where
+    loop = hIsEOF hIn >>= \p -> if p then return ()  else do
+        b <- hGet hIn 1024
+        hPut hOut b >> hFlush hOut
+        hPut stdout b >> hFlush stdout
+        loop
