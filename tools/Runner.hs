@@ -33,7 +33,7 @@ import LogFileNames
           local and remote execution behaviour
 -}
 
-defaultSSHparams = [ "-t" , "-t" , "-q" , "-o" , "UserKnownHostsFile=/dev/null" , "-o" , "StrictHostKeyChecking=no" ]
+defaultSSHparams = [ "-q" , "-o" , "UserKnownHostsFile=/dev/null" , "-o" , "StrictHostKeyChecking=no" ]
 sshd params = ("/usr/bin/ssh" , defaultSSHparams ++ params ++ ["/bin/bash"])
 bashd = ("/bin/bash" , [])
 _stderr = return stderr
