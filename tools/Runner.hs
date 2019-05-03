@@ -141,7 +141,7 @@ tee hIn hOut = do
     loop
     where
     loop = hIsEOF hIn >>= \p -> if p then return ()  else do
-        b <- hGet hIn 1024
+        b <- hGet hIn ( 1024 * 1024 )
         hPut hOut b >> hFlush hOut
         hPut stdout b >> hFlush stdout
         loop
