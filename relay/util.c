@@ -26,9 +26,10 @@ int parseAddress (char* s, struct in_addr* dst , struct in_addr* src) {
 }
 
 int die(char *mess) {
-  if (0 != errno)
+  if (0 != errno) {
+    fprintf(stderr, "(%d) ", errno);
     perror(mess);
-  else
+  } else
     fprintf(stderr, "%s\n", mess);
   exit(1);
 }

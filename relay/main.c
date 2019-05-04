@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <stdint.h>
 
@@ -20,8 +21,6 @@
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 
 struct peer {
-  // uint32_t remote;
-  // uint32_t local;
   int sock;
   struct sockaddr_in remote, local;
 };
@@ -30,7 +29,7 @@ int getPeer(char *s, struct peer *p) {
 
   p->remote = (struct sockaddr_in) {AF_INET, htons(179), (struct in_addr){0}};
   p->local = (struct sockaddr_in) {AF_INET, htons(0), (struct in_addr){0}};
-  0 != parseAddress(s, &(p->local.sin_addr) , &(p->remote.sin_addr) ) ||
+  0 != parseAddress(s, &(p->remote.sin_addr) , &(p->local.sin_addr) ) ||
       die("Failed to parse addresses");
 
   0 < (p->sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
@@ -43,6 +42,14 @@ int getPeer(char *s, struct peer *p) {
 
 void run(struct peer* peer1, struct peer* peer2) {
     printf("run\n");
+    fcntl (peer1->sock, F_SETFL, O_NONBLOCK);
+    fcntl (peer2->sock, F_SETFL, O_NONBLOCK);
+    EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) ||
+      die("Failed to start connect with peer1");
+    EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
+      die("Failed to start connect with peer2");
+    while (1)
+      sleep(100);
 };
 
 int main(int argc, char *argv[]) {
