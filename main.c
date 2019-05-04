@@ -270,6 +270,8 @@ uint32_t senderwait() {
 
 int main(int argc, char *argv[]) {
 
+  setvbuf(stdout, NULL, _IOLBF, 0);
+  setvbuf(stderr, NULL, _IOLBF, 0);
   pid = getpid();
   fprintf(stderr, "%d: kakapo\n", pid);
   if (1 > argc) {
