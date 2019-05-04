@@ -70,7 +70,24 @@ void waitonconnect (int fd1, int fd2 ) {
 
 int action (struct peer* p, fd_set* rset, fd_set* wset) {
     int res;
-    if (p->nread) {
+    if ( p->nread ==0 ) {
+    // we are in read mode
+        if ( FD_ISSET ( p->sock , rset)) {
+            res = read(p->sock, p->buf, BUFSIZE);
+            if ( res > 0 ) {
+                p->nread = res;
+                p->nwrite = 0;
+                FD_SET ( p->sock , wset); // set this flag so that the immediare write can happen
+            } else if ( res = 0 )  // normal end-of-stream
+                return 1;
+            else if ( res = EAGAIN )  // nothing available but not an error
+                printf("got nothing from a read, just saying....\n");
+            else
+                die ("unexpected condition in action/read mode");
+        };
+    };
+
+    if ( p->nread > 0 ) {
     // we are in write mode
         if ( FD_ISSET ( p->sock , wset)) {
             res = write(p->sock, p->buf+p->nwrite, p->nread - p->nwrite);
@@ -80,21 +97,8 @@ int action (struct peer* p, fd_set* rset, fd_set* wset) {
                 die ("unexpected condition in action/read mode");
             if ( p->nwrite = p->nread )
                 p->nread = 0; // signal change of mode
-        } else
-            return 0; // this was not our event...
-    } else {
-    // we are in read mode
-        if ( FD_ISSET ( p->sock , rset)) {
-            res = read(p->sock, p->buf, BUFSIZE);
-            if ( res > 0 ) {
-                p->nread = res;
                 p->nwrite = 0;
-            } else if ( res = 0 )  // normal end-of-stream
-                return 1;
-            else
-                die ("unexpected condition in action/read mode");
-        } else
-            return 0; // this was not our event...
+        };
     };
 
     if (p->nread) {
@@ -114,12 +118,15 @@ void run(struct peer* peer1, struct peer* peer2) {
     fd_set rset, wset;
     FD_ZERO (&rset); FD_SET (peer1->sock, &rset); FD_SET (peer2->sock, &rset);
     FD_ZERO (&wset); FD_SET (peer1->sock, &wset); FD_SET (peer2->sock, &wset);
-    peer1-> buf = malloc(BUFSIZE); peer1-> nread = 0;
-    peer2-> buf = malloc(BUFSIZE); peer2-> nread = 0;
+    peer1-> buf = malloc(BUFSIZE); peer1-> nread = 0; peer1->nwrite = 0;
+    peer2-> buf = malloc(BUFSIZE); peer2-> nread = 0; peer2->nwrite = 0;
     while ( 1 ) {
-        select (FD_SETSIZE, &rset, &wset, NULL, NULL);
+        int res = select (FD_SETSIZE, &rset, &wset, NULL, NULL);
+        printf("select yielded %d\n", res);
         if ( action(peer1, &rset, &wset) ) break;
         if ( action(peer1, &rset, &wset) ) break;
+        printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
+        printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
     };
     free ( peer1-> buf);
     free ( peer2-> buf);
