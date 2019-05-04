@@ -68,6 +68,17 @@ void waitonconnect (int fd1, int fd2 ) {
   };
 };
 
+void showselectflags ( char* ctxt, fd_set* rset, fd_set* wset, int fd1, int fd2 ) {
+    printf("select flags: %s  peer1: [ ", ctxt);
+    if ( FD_ISSET ( fd1 , rset )) printf("READ ");
+    if ( FD_ISSET ( fd1 , wset )) printf("WRITE ");
+    printf(" ]\n");
+    printf("select flags: %s  peer2: [ ", ctxt);
+    if ( FD_ISSET ( fd2 , rset )) printf("READ ");
+    if ( FD_ISSET ( fd2 , wset )) printf("WRITE ");
+    printf(" ]\n");
+};
+
 int action (struct peer* p, fd_set* rset, fd_set* wset) {
     int res;
     if ( p->nread ==0 ) {
@@ -78,6 +89,7 @@ int action (struct peer* p, fd_set* rset, fd_set* wset) {
                 p->nread = res;
                 p->nwrite = 0;
                 FD_SET ( p->sock , wset); // set this flag so that the immediare write can happen
+                // printf("read success on fd%d\n", p->sock);
             } else if ( res = 0 )  // normal end-of-stream
                 return 1;
             else if ( res = EAGAIN )  // nothing available but not an error
@@ -91,9 +103,10 @@ int action (struct peer* p, fd_set* rset, fd_set* wset) {
     // we are in write mode
         if ( FD_ISSET ( p->sock , wset)) {
             res = write(p->sock, p->buf+p->nwrite, p->nread - p->nwrite);
-            if ( res > 0 )
+            if ( res > 0 ) {
                 p->nwrite += res;
-            else
+                // printf("write success on fd%d\n", p->sock);
+            } else
                 die ("unexpected condition in action/read mode");
             if ( p->nwrite = p->nread )
                 p->nread = 0; // signal change of mode
@@ -122,11 +135,13 @@ void run(struct peer* peer1, struct peer* peer2) {
     peer2-> buf = malloc(BUFSIZE); peer2-> nread = 0; peer2->nwrite = 0;
     while ( 1 ) {
         int res = select (FD_SETSIZE, &rset, &wset, NULL, NULL);
-        printf("select yielded %d\n", res);
+        // showselectflags("after select", &rset, &wset, peer1->sock, peer2->sock);
+        // printf("select yielded %d\n", res);
         if ( action(peer1, &rset, &wset) ) break;
-        if ( action(peer1, &rset, &wset) ) break;
-        printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
-        printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
+        if ( action(peer2, &rset, &wset) ) break;
+        // printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
+        // printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
+        // showselectflags("after action", &rset, &wset, peer1->sock, peer2->sock);
     };
     free ( peer1-> buf);
     free ( peer2-> buf);
