@@ -92,10 +92,12 @@ int action (struct peer* p, fd_set* rset, fd_set* wset) {
                 // printf("read success on fd%d\n", p->sock);
             } else if ( res = 0 )  // normal end-of-stream
                 return 1;
-            else if ( res = EAGAIN )  // nothing available but not an error
+            else if ( errno == EAGAIN )  // nothing available but not an error
                 printf("got nothing from a read, just saying....\n");
-            else
-                die ("unexpected condition in action/read mode");
+            else {
+                printf("end of stream, errno: %d\n",errno);
+                return 1;
+            };
         };
     };
 
@@ -135,16 +137,18 @@ void run(struct peer* peer1, struct peer* peer2) {
     peer2-> buf = malloc(BUFSIZE); peer2-> nread = 0; peer2->nwrite = 0;
     while ( 1 ) {
         int res = select (FD_SETSIZE, &rset, &wset, NULL, NULL);
-        // showselectflags("after select", &rset, &wset, peer1->sock, peer2->sock);
-        // printf("select yielded %d\n", res);
+        //showselectflags("after select", &rset, &wset, peer1->sock, peer2->sock);
+        //printf("select yielded %d\n", res);
         if ( action(peer1, &rset, &wset) ) break;
         if ( action(peer2, &rset, &wset) ) break;
-        // printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
-        // printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
-        // showselectflags("after action", &rset, &wset, peer1->sock, peer2->sock);
+        //printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
+        //printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
+        //showselectflags("after action", &rset, &wset, peer1->sock, peer2->sock);
     };
     free ( peer1-> buf);
     free ( peer2-> buf);
+    close (peer1->sock);
+    close (peer2->sock);
 };
 
 void start(struct peer* peer1, struct peer* peer2) {
