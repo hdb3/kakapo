@@ -40,6 +40,23 @@ int getPeer(char *s, struct peer *p) {
 
 };
 
+void waitonready (int fd1, int fd2 ) {
+  fd_set set;
+  struct timeval timeout = {1,0};
+
+  FD_ZERO (&set);
+  FD_SET (fd1, &set);
+  FD_SET (fd2, &set);
+
+  while ( 2 > select (FD_SETSIZE, &set, NULL, NULL, 0)) {
+      select (FD_SETSIZE, &set, &set, &set, &timeout);
+      if ( 0 < select (FD_SETSIZE, NULL, NULL, &set, 0))
+          break;
+  };
+  if ( 0 < select (FD_SETSIZE, NULL, NULL, &set, 0))
+      die("exception while waiting for connect");
+};
+
 void run(struct peer* peer1, struct peer* peer2) {
     printf("run\n");
     fcntl (peer1->sock, F_SETFL, O_NONBLOCK);
@@ -48,8 +65,10 @@ void run(struct peer* peer1, struct peer* peer2) {
       die("Failed to start connect with peer1");
     EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer2");
-    while (1)
-      sleep(100);
+    waitonready(peer1->sock,peer2->sock);
+    printf("connected\n");
+    //while (1)
+      //sleep(100);
 };
 
 int main(int argc, char *argv[]) {
