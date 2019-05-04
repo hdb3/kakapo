@@ -72,23 +72,29 @@ int action (struct peer* p, fd_set* rset, fd_set* wset) {
     int res;
     if (p->nread) {
     // we are in write mode
-        res = write(p->sock, p->buf+p->nwrite, p->nread - p->nwrite);
-        if ( res > 0 )
-            p->nwrite += res;
-        else
-            die ("unexpected condition in action/read mode");
-        if ( p->nwrite = p->nread )
-            p->nread = 0; // signal change of mode
+        if ( FD_ISSET ( p->sock , wset)) {
+            res = write(p->sock, p->buf+p->nwrite, p->nread - p->nwrite);
+            if ( res > 0 )
+                p->nwrite += res;
+            else
+                die ("unexpected condition in action/read mode");
+            if ( p->nwrite = p->nread )
+                p->nread = 0; // signal change of mode
+        } else
+            return 0; // this was not our event...
     } else {
     // we are in read mode
-        res = read(p->sock, p->buf, BUFSIZE);
-        if ( res > 0 ) {
-            p->nread = res;
-            p->nwrite = 0;
-        } else if ( res = 0 )  // normal end-of-stream
-            return 1;
-        else
-            die ("unexpected condition in action/read mode");
+        if ( FD_ISSET ( p->sock , rset)) {
+            res = read(p->sock, p->buf, BUFSIZE);
+            if ( res > 0 ) {
+                p->nread = res;
+                p->nwrite = 0;
+            } else if ( res = 0 )  // normal end-of-stream
+                return 1;
+            else
+                die ("unexpected condition in action/read mode");
+        } else
+            return 0; // this was not our event...
     };
 
     if (p->nread) {
@@ -100,6 +106,7 @@ int action (struct peer* p, fd_set* rset, fd_set* wset) {
         FD_SET ( p->sock , rset );
         FD_CLR ( p->sock , wset );
     };
+    return 0;
 };
  
 void run(struct peer* peer1, struct peer* peer2) {
@@ -107,8 +114,8 @@ void run(struct peer* peer1, struct peer* peer2) {
     fd_set rset, wset;
     FD_ZERO (&rset); FD_SET (peer1->sock, &rset); FD_SET (peer2->sock, &rset);
     FD_ZERO (&wset); FD_SET (peer1->sock, &wset); FD_SET (peer2->sock, &wset);
-    peer1-> buf = malloc(BUFSIZE);
-    peer2-> buf = malloc(BUFSIZE);
+    peer1-> buf = malloc(BUFSIZE); peer1-> nread = 0;
+    peer2-> buf = malloc(BUFSIZE); peer2-> nread = 0;
     while ( 1 ) {
         select (FD_SETSIZE, &rset, &wset, NULL, NULL);
         if ( action(peer1, &rset, &wset) ) break;
