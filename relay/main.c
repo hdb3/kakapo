@@ -41,20 +41,26 @@ int getPeer(char *s, struct peer *p) {
 };
 
 void waitonready (int fd1, int fd2 ) {
-  fd_set set;
+  fd_set set, tset;
   struct timeval timeout = {1,0};
+  struct timeval notime = {0,0};
 
   FD_ZERO (&set);
   FD_SET (fd1, &set);
   FD_SET (fd2, &set);
 
-  while ( 2 > select (FD_SETSIZE, &set, NULL, NULL, 0)) {
-      select (FD_SETSIZE, &set, &set, &set, &timeout);
-      if ( 0 < select (FD_SETSIZE, NULL, NULL, &set, 0))
-          break;
+  tset = set;
+  while ( 2 > select (FD_SETSIZE, &tset, NULL, NULL, &notime)) {
+      if ( FD_ISSET ( fd1 , &tset)) {
+          tset = set;
+          FD_CLR ( fd1 , &tset);
+      } else if ( FD_ISSET ( fd2 , &tset)) {
+          tset = set;
+          FD_CLR ( fd2 , &set);
+      }
+      select (FD_SETSIZE, &tset, NULL, NULL, &timeout);
+      tset = set;
   };
-  if ( 0 < select (FD_SETSIZE, NULL, NULL, &set, 0))
-      die("exception while waiting for connect");
 };
 
 void run(struct peer* peer1, struct peer* peer2) {
