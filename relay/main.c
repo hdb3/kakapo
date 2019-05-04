@@ -19,10 +19,12 @@
 
 
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
+#define BUFSIZE ( 1024 * 1024 )
 
 struct peer {
-  int sock;
+  int sock, nread, nwrite;
   struct sockaddr_in remote, local;
+  void *buf;
 };
 
 int getPeer(char *s, struct peer *p) {
@@ -40,7 +42,10 @@ int getPeer(char *s, struct peer *p) {
 
 };
 
-void waitonready (int fd1, int fd2 ) {
+/// NOTE this is currently wiat on READ ready, i.e. input is avaliable
+//       if the connection event itefl is wanted then it would be better to check for the WRITE condition not the READ condition
+//       i.e. set the bits in the second paramter to select rather than the first
+void waitonconnect (int fd1, int fd2 ) {
   fd_set set, tset;
   struct timeval timeout = {1,0};
   struct timeval notime = {0,0};
@@ -63,18 +68,67 @@ void waitonready (int fd1, int fd2 ) {
   };
 };
 
+int action (struct peer* p, fd_set* rset, fd_set* wset) {
+    int res;
+    if (p->nread) {
+    // we are in write mode
+        res = write(p->sock, p->buf+p->nwrite, p->nread - p->nwrite);
+        if ( res > 0 )
+            p->nwrite += res;
+        else
+            die ("unexpected condition in action/read mode");
+        if ( p->nwrite = p->nread )
+            p->nread = 0; // signal change of mode
+    } else {
+    // we are in read mode
+        res = read(p->sock, p->buf, BUFSIZE);
+        if ( res > 0 ) {
+            p->nread = res;
+            p->nwrite = 0;
+        } else if ( res = 0 )  // normal end-of-stream
+            return 1;
+        else
+            die ("unexpected condition in action/read mode");
+    };
+
+    if (p->nread) {
+    // we are now/still in write mode
+        FD_SET ( p->sock , wset );
+        FD_CLR ( p->sock , rset );
+    } else {
+    // we are now in read mode
+        FD_SET ( p->sock , rset );
+        FD_CLR ( p->sock , wset );
+    };
+};
+ 
 void run(struct peer* peer1, struct peer* peer2) {
     printf("run\n");
+    fd_set rset, wset;
+    FD_ZERO (&rset); FD_SET (peer1->sock, &rset); FD_SET (peer2->sock, &rset);
+    FD_ZERO (&wset); FD_SET (peer1->sock, &wset); FD_SET (peer2->sock, &wset);
+    peer1-> buf = malloc(BUFSIZE);
+    peer2-> buf = malloc(BUFSIZE);
+    while ( 1 ) {
+        select (FD_SETSIZE, &rset, &wset, NULL, NULL);
+        if ( action(peer1, &rset, &wset) ) break;
+        if ( action(peer1, &rset, &wset) ) break;
+    };
+    free ( peer1-> buf);
+    free ( peer2-> buf);
+};
+
+void start(struct peer* peer1, struct peer* peer2) {
+    printf("start\n");
     fcntl (peer1->sock, F_SETFL, O_NONBLOCK);
     fcntl (peer2->sock, F_SETFL, O_NONBLOCK);
     EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer1");
     EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer2");
-    waitonready(peer1->sock,peer2->sock);
+    waitonconnect(peer1->sock,peer2->sock);
     printf("connected\n");
-    //while (1)
-      //sleep(100);
+    run(peer1, peer2);
 };
 
 int main(int argc, char *argv[]) {
@@ -85,5 +139,6 @@ int main(int argc, char *argv[]) {
 
   if ( 0 != getPeer(argv[1],&peer1)) die("could not intialise peer for arg 1");
   if ( 0 != getPeer(argv[2],&peer2)) die("could not intialise peer for arg 2");
-  run(&peer1, &peer2);
+  start(&peer1, &peer2);
+  printf("all done\n");
 }
