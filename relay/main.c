@@ -152,9 +152,12 @@ void run(struct peer* peer1, struct peer* peer2) {
 };
 
 void start(struct peer* peer1, struct peer* peer2) {
+    int i;
     printf("start\n");
     fcntl (peer1->sock, F_SETFL, O_NONBLOCK);
     fcntl (peer2->sock, F_SETFL, O_NONBLOCK);
+    i=1; setsockopt(peer1->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+    i=1; setsockopt(peer2->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
     EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer1");
     EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
