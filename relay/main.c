@@ -42,10 +42,7 @@ int getPeer(char *s, struct peer *p) {
 
 };
 
-/// NOTE this is currently wiat on READ ready, i.e. input is avaliable
-//       if the connection event itefl is wanted then it would be better to check for the WRITE condition not the READ condition
-//       i.e. set the bits in the second paramter to select rather than the first
-void waitonconnect (int fd1, int fd2 ) {
+int waitonconnect (int fd1, int fd2 ) {
   fd_set set, tset;
   struct timeval timeout = {1,0};
   struct timeval notime = {0,0};
@@ -66,6 +63,18 @@ void waitonconnect (int fd1, int fd2 ) {
       select (FD_SETSIZE, NULL, &tset, NULL, &timeout);
       tset = set;
   };
+  int err,szerr;
+  szerr = sizeof(err) ; getsockopt(fd1, SOL_SOCKET, SO_ERROR, (void *)&err, &szerr);
+  if (szerr != sizeof(err) || err != 0) {
+    printf("connect error on fd1 (%d)\n",err);
+    return -1;
+  };
+  szerr = sizeof(err) ; getsockopt(fd1, SOL_SOCKET, SO_ERROR, (void *)&err, &szerr);
+  if (szerr != sizeof(err) || err != 0) {
+    printf("connect error on fd2 (%d)\n",err);
+    return -1;
+  };
+  return 0;
 };
 
 void showselectflags ( char* ctxt, fd_set* rset, fd_set* wset, int fd1, int fd2 ) {
@@ -147,34 +156,44 @@ void run(struct peer* peer1, struct peer* peer2) {
     };
     free ( peer1-> buf);
     free ( peer2-> buf);
-    close (peer1->sock);
-    close (peer2->sock);
 };
 
-void start(struct peer* peer1, struct peer* peer2) {
+int start(char* p1, char* p2) {
     int i;
+    struct peer peer1, peer2;
+
     printf("start\n");
-    fcntl (peer1->sock, F_SETFL, O_NONBLOCK);
-    fcntl (peer2->sock, F_SETFL, O_NONBLOCK);
-    i=1; setsockopt(peer1->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-    i=1; setsockopt(peer2->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-    EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) ||
+    if ( 0 != getPeer(p1,&peer1)) die("could not intialise peer for arg 1");
+    if ( 0 != getPeer(p2,&peer2)) die("could not intialise peer for arg 2");
+    fcntl (peer1.sock, F_SETFL, O_NONBLOCK);
+    fcntl (peer2.sock, F_SETFL, O_NONBLOCK);
+    i=1; setsockopt(peer1.sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+    i=1; setsockopt(peer2.sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+    EINPROGRESS != (connect(peer1.sock, &peer1.remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer1");
-    EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
+    EINPROGRESS != (connect(peer2.sock, &peer2.remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer2");
-    waitonconnect(peer1->sock,peer2->sock);
-    printf("connected\n");
-    run(peer1, peer2);
+    int res = waitonconnect(peer1.sock,peer2.sock);
+    if (0 == res) {
+        printf("connected\n");
+        run(&peer1, &peer2);
+    } else {
+        printf("rejected\n");
+    };
+    close (peer1.sock);
+    close (peer2.sock);
+    return res;
 };
 
 int main(int argc, char *argv[]) {
 
-  struct peer peer1, peer2;
-
   if ( argc != 3 ) die("expecting just two arguments");
 
-  if ( 0 != getPeer(argv[1],&peer1)) die("could not intialise peer for arg 1");
-  if ( 0 != getPeer(argv[2],&peer2)) die("could not intialise peer for arg 2");
-  start(&peer1, &peer2);
+  while (1) {
+    while (0 != start(argv[1],argv[2])) {
+        printf("retrying\n");
+        sleep(3);
+    };
+  };
   printf("all done\n");
 }
