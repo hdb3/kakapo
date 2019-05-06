@@ -55,7 +55,7 @@ void waitonconnect (int fd1, int fd2 ) {
   FD_SET (fd2, &set);
 
   tset = set;
-  while ( 2 > select (FD_SETSIZE, &tset, NULL, NULL, &notime)) {
+  while ( 2 > select (FD_SETSIZE, NULL, &tset, NULL, &notime)) {
       if ( FD_ISSET ( fd1 , &tset)) {
           tset = set;
           FD_CLR ( fd1 , &tset);
@@ -63,7 +63,7 @@ void waitonconnect (int fd1, int fd2 ) {
           tset = set;
           FD_CLR ( fd2 , &set);
       }
-      select (FD_SETSIZE, &tset, NULL, NULL, &timeout);
+      select (FD_SETSIZE, NULL, &tset, NULL, &timeout);
       tset = set;
   };
 };
