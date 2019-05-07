@@ -355,7 +355,9 @@ void *session(void *x) {
 
     getsockaddresses();
 
-    setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+    int one = one;
+    setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
+    setsockopt(sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
     bufferInit(&sb, sock, BUFFSIZE, TIMEOUT);
 
     // char * m =
@@ -364,7 +366,9 @@ void *session(void *x) {
         sd->as, HOLDTIME, htonl(localip),
         NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
+    flags(sock,__FILE__,__LINE__);
     (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
+    flags(sock,__FILE__,__LINE__);
 
     do
       msgtype = getBGPMessage(&sb); // this is expected to be an Open
@@ -374,8 +378,10 @@ void *session(void *x) {
     if (1 != msgtype)
       goto exit;
 
+    flags(sock,__FILE__,__LINE__);
     (0 < send(sock, keepalive, 19, 0)) ||
         die("Failed to send keepalive to peer");
+    flags(sock,__FILE__,__LINE__);
 
     do
       msgtype = getBGPMessage(&sb); // this is expected to be a Keepalive
@@ -397,8 +403,10 @@ void *session(void *x) {
       case 2: // Update
         break;
       case 4: // Keepalive
+        flags(sock,__FILE__,__LINE__);
         (0 < send(sock, keepalive, 19, 0)) ||
             die("Failed to send keepalive to peer");
+        flags(sock,__FILE__,__LINE__);
         break;
       case 0: // this is an idle recv timeout event
         break;
