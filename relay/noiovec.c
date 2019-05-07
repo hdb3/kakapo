@@ -97,7 +97,9 @@ int action(struct peer *p, struct peer *p2, fd_set *rset, fd_set *wset) {
   if (p->nread == 0) {
     // we are in read mode
     if (FD_ISSET(p->sock, rset)) {
+      flags(p->sock,__FILE__,__LINE__);
       res = read(p->sock, p->buf, BUFSIZE);
+      flags(p->sock,__FILE__,__LINE__);
       if (res > 0) {
         p->nread = res;
         p->nwrite = 0;
@@ -106,7 +108,7 @@ int action(struct peer *p, struct peer *p2, fd_set *rset, fd_set *wset) {
       } else if (res = 0)       // normal end-of-stream
         return 1;
       else if (errno == EAGAIN) // nothing available but not an error
-        printf("got nothing from a read, just saying....\n");
+        ; // printf("got nothing from a read, just saying....\n");
       else {
         printf("end of stream, errno: %d\n", errno);
         return 1;
@@ -117,12 +119,16 @@ int action(struct peer *p, struct peer *p2, fd_set *rset, fd_set *wset) {
   if (p->nread > 0) {
     // we are in write mode
     if (FD_ISSET(p2->sock, wset)) {
+      flags(p2->sock,__FILE__,__LINE__);
       res = write(p2->sock, p->buf + p->nwrite, p->nread - p->nwrite);
+      flags(p2->sock,__FILE__,__LINE__);
       if (res > 0) {
         p->nwrite += res;
         // printf("write success on fd%d\n", p->sock);
-      } else
-        die("unexpected condition in action/read mode");
+      } else if (errno == EAGAIN) // nothing available but not an error
+        ; // printf("got nothing from a read, just saying....\n");
+      else
+        die("unexpected condition in action/write mode");
       if (p->nwrite = p->nread)
         p->nread = 0; // signal change of mode
       p->nwrite = 0;
@@ -158,15 +164,10 @@ void run(struct peer *peer1, struct peer *peer2) {
   peer2->nwrite = 0;
   while (1) {
     int res = select(FD_SETSIZE, &rset, &wset, NULL, NULL);
-    //showselectflags("after select", &rset, &wset, peer1->sock, peer2->sock);
-    //printf("select yielded %d\n", res);
     if (action(peer1, peer2, &rset, &wset))
       break;
     if (action(peer2, peer1, &rset, &wset))
       break;
-    //printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
-    //printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
-    //showselectflags("after action", &rset, &wset, peer1->sock, peer2->sock);
   };
   free(peer1->buf);
   free(peer2->buf);
@@ -185,13 +186,19 @@ int start(char *p1, char *p2) {
   fcntl(peer2.sock, F_SETFL, O_NONBLOCK);
   i = 1;
   setsockopt(peer1.sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+  setsockopt(peer1.sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&i, sizeof(i));
   i = 1;
   setsockopt(peer2.sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+  setsockopt(peer2.sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&i, sizeof(i));
   EINPROGRESS != (connect(peer1.sock, &peer1.remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer1");
   EINPROGRESS != (connect(peer2.sock, &peer2.remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer2");
+  flags(peer1.sock,__FILE__,__LINE__);
+  flags(peer2.sock,__FILE__,__LINE__);
   int res = waitonconnect(peer1.sock, peer2.sock);
+  flags(peer1.sock,__FILE__,__LINE__);
+  flags(peer2.sock,__FILE__,__LINE__);
   if (0 == res) {
     printf("connected\n");
     run(&peer1, &peer2);

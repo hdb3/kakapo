@@ -19,7 +19,6 @@
 #include "util.h"
 
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
-//#define BUFSIZE ( 1024 * 1024 )
 #define BUFSIZE (1024 * 1024 * 64)
 #define MINREAD 4096
 
@@ -137,7 +136,9 @@ int readaction(struct peer *p, fd_set *set) {
   if (FD_ISSET(p->sock, set) && canRead(p->sock, p->nread, p->nwrite)) {
     //if ( FD_ISSET ( p->sock , set) && (MINREAD < BUFSIZE + p->nwrite - p->nread) ) {
     niovec = setupIOVECs(iovecs, p->buf, p->nread, p->nwrite + BUFSIZE);
+    flags(p->sock,__FILE__,__LINE__);
     res = readv(p->sock, iovecs, niovec);
+    flags(p->sock,__FILE__,__LINE__);
     if (res > 0) {
       p->nread += res;
     } else if (res = 0) // normal end-of-stream
@@ -162,7 +163,9 @@ int writeaction(struct peer *p, int sock2, fd_set *set) {
     // try write in case we just got read afeteer the last select()
     // if ( FD_ISSET ( sock2 , set) && (0 < p->nread - p->nwrite) ) {
     niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nread);
+    flags(sock2,__FILE__,__LINE__);
     res = writev(sock2, iovecs, niovec);
+    flags(sock2,__FILE__,__LINE__);
     if (res > 0) {
       p->nwrite += res;
     } else if (res = 0) // probably an error!!!!
@@ -184,7 +187,6 @@ int setflags(struct peer *p, int sock2, fd_set *rset, fd_set *wset) {
     FD_CLR(sock2, wset);
 
   if (canRead(p->sock, p->nread, p->nwrite))
-    //if (MINREAD < BUFSIZE + p->nwrite - p->nread)
     FD_SET(p->sock, rset);
   else
     FD_CLR(p->sock, rset);
@@ -202,8 +204,6 @@ void run(struct peer *peer1, struct peer *peer2) {
   FD_SET(peer2->sock, &wset);
   while (1) {
     int res = select(FD_SETSIZE, &rset, &wset, NULL, NULL);
-    //showselectflags("after select", &rset, &wset, peer1->sock, peer2->sock);
-    //printf("select yielded %d\n", res);
     if (readaction(peer1, &rset))
       break;
     if (readaction(peer2, &rset))
@@ -214,9 +214,6 @@ void run(struct peer *peer1, struct peer *peer2) {
       break;
     setflags(peer1, peer2->sock, &rset, &wset);
     setflags(peer2, peer1->sock, &rset, &wset);
-    //printf("peer1: %d %d %d\n", peer1->sock, peer1->nread, peer1->nwrite);
-    //printf("peer2: %d %d %d\n", peer2->sock, peer2->nread, peer2->nwrite);
-    //showselectflags("after action", &rset, &wset, peer1->sock, peer2->sock);
   };
 };
 
@@ -236,7 +233,11 @@ int start(struct peer *peer1, struct peer *peer2) {
       die("Failed to start connect with peer1");
   EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer2");
+  flags(peer1->sock,__FILE__,__LINE__);
+  flags(peer2->sock,__FILE__,__LINE__);
   int res = waitonconnect(peer1->sock, peer2->sock);
+  flags(peer1->sock,__FILE__,__LINE__);
+  flags(peer2->sock,__FILE__,__LINE__);
   if (0 == res) {
     printf("connected\n");
     run(peer1, peer2);
@@ -257,11 +258,11 @@ int main(int argc, char *argv[]) {
   initPeer(argv[1], &peer1);
   initPeer(argv[2], &peer2);
 
-  // while (1) {
-  while (0 != start(&peer1, &peer2)) {
-    printf("retrying\n");
-    sleep(3);
+  while (1) {
+    while (0 != start(&peer1, &peer2)) {
+      printf("retrying\n");
+      sleep(3);
+    };
   };
-  // };
   printf("all done\n");
 }
