@@ -13,7 +13,9 @@
 // Parsing address parameters
 // The subject can be either 192.168.1.2,8.8.8.8 or 192.168.1.2.  If it is the shorter form then the second value is read as if 0.0.0.0.
 
-int parseAddress(char *s, struct in_addr *dst, struct in_addr *src) {
+int parseAddress(char *ss, struct in_addr *dst, struct in_addr *src) {
+  // make a local copy becuase we modify it....
+  char *s = strdupa(ss);
   char *commaloc = strchr(s, ',');
   if (NULL == commaloc) {
     // default second value to zero / 0.0.0.0
