@@ -97,9 +97,9 @@ int action(struct peer *p, struct peer *p2, fd_set *rset, fd_set *wset) {
   if (p->nread == 0) {
     // we are in read mode
     if (FD_ISSET(p->sock, rset)) {
-      flags(p->sock,__FILE__,__LINE__);
+      flags(p->sock, __FILE__, __LINE__);
       res = read(p->sock, p->buf, BUFSIZE);
-      flags(p->sock,__FILE__,__LINE__);
+      flags(p->sock, __FILE__, __LINE__);
       if (res > 0) {
         p->nread = res;
         p->nwrite = 0;
@@ -108,7 +108,7 @@ int action(struct peer *p, struct peer *p2, fd_set *rset, fd_set *wset) {
       } else if (res = 0)       // normal end-of-stream
         return 1;
       else if (errno == EAGAIN) // nothing available but not an error
-        ; // printf("got nothing from a read, just saying....\n");
+        ;                       // printf("got nothing from a read, just saying....\n");
       else {
         printf("end of stream, errno: %d\n", errno);
         return 1;
@@ -119,14 +119,14 @@ int action(struct peer *p, struct peer *p2, fd_set *rset, fd_set *wset) {
   if (p->nread > 0) {
     // we are in write mode
     if (FD_ISSET(p2->sock, wset)) {
-      flags(p2->sock,__FILE__,__LINE__);
+      flags(p2->sock, __FILE__, __LINE__);
       res = write(p2->sock, p->buf + p->nwrite, p->nread - p->nwrite);
-      flags(p2->sock,__FILE__,__LINE__);
+      flags(p2->sock, __FILE__, __LINE__);
       if (res > 0) {
         p->nwrite += res;
         // printf("write success on fd%d\n", p->sock);
       } else if (errno == EAGAIN) // nothing available but not an error
-        ; // printf("got nothing from a read, just saying....\n");
+        ;                         // printf("got nothing from a read, just saying....\n");
       else
         die("unexpected condition in action/write mode");
       if (p->nwrite = p->nread)
@@ -194,11 +194,11 @@ int start(char *p1, char *p2) {
       die("Failed to start connect with peer1");
   EINPROGRESS != (connect(peer2.sock, &peer2.remote, SOCKADDRSZ)) ||
       die("Failed to start connect with peer2");
-  flags(peer1.sock,__FILE__,__LINE__);
-  flags(peer2.sock,__FILE__,__LINE__);
+  flags(peer1.sock, __FILE__, __LINE__);
+  flags(peer2.sock, __FILE__, __LINE__);
   int res = waitonconnect(peer1.sock, peer2.sock);
-  flags(peer1.sock,__FILE__,__LINE__);
-  flags(peer2.sock,__FILE__,__LINE__);
+  flags(peer1.sock, __FILE__, __LINE__);
+  flags(peer2.sock, __FILE__, __LINE__);
   if (0 == res) {
     printf("connected\n");
     run(&peer1, &peer2);

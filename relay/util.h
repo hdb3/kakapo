@@ -6,6 +6,6 @@
 
 int parseAddress(char *s, struct in_addr *dst, struct in_addr *src);
 int die(char *mess);
-void flags (int fd, char* file, int line);
+void flags(int fd, char *file, int line);
 
 #endif
