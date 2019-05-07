@@ -20,8 +20,8 @@
 
 
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
-#define BUFSIZE ( 1024 * 1024 )
-//#define BUFSIZE ( 1024 * 1024 * 16 )
+//#define BUFSIZE ( 1024 * 1024 )
+#define BUFSIZE ( 1024 * 1024 * 64 )
 #define MINREAD 4096
 
 struct peer {
@@ -78,7 +78,7 @@ int waitonconnect (int fd1, int fd2 ) {
     printf("connect error on fd1 (%d)\n",err);
     return -1;
   };
-  szerr = sizeof(err) ; getsockopt(fd1, SOL_SOCKET, SO_ERROR, (void *)&err, &szerr);
+  szerr = sizeof(err) ; getsockopt(fd2, SOL_SOCKET, SO_ERROR, (void *)&err, &szerr);
   if (szerr != sizeof(err) || err != 0) {
     printf("connect error on fd2 (%d)\n",err);
     return -1;
