@@ -51,7 +51,7 @@ main = do
     start topic (fromJust platform) (args !! 2) (args !! 3)
 
 start :: String -> (String , String ) -> String -> String -> IO ()
-start topic (repo , app ) sutHostName  kakapoHostName = do
+start topic (repo , app ) sutHostName kakapoHostName = do
     let
         sut = docker sutHostName
         kakapo = docker kakapoHostName

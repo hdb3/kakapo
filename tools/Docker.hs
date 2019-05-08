@@ -44,9 +44,9 @@ import RunnerBase (stdoutRunner)
 -}
 
 dockerCMD :: String -> [String] -> String -> IO ( Maybe String )
-dockerCMD host commands stdin =  stdoutRunner "/usr/bin/docker" [("DOCKER_HOST",host)] commands stdin
+dockerCMD host = stdoutRunner "/usr/bin/docker" [("DOCKER_HOST",host)]
 
-docker :: String ->  [String] ->  IO ()
+docker :: String -> [String] -> IO ()
 docker host commands = void $ runner "/usr/bin/docker" [("DOCKER_HOST",host)] commands ""
 
 runner :: String -> [(String,String)] -> [String] -> String -> IO Int
@@ -79,7 +79,7 @@ runner_ executable environment arguments stdin = do
         cp' = cp { env = Just environment }
     (Just stdinHandle , Just stdoutHandle, Just stderrHandle, ph) <- createProcess $ cp'
         { std_in = CreatePipe
-        , std_out =  CreatePipe
+        , std_out = CreatePipe
         , std_err = CreatePipe
         }
     void $ forkIO $ tee stdoutHandle hStdout
@@ -110,7 +110,7 @@ tee hIn hOut = do
     hSetBuffering stdout NoBuffering
     loop
     where
-    loop = hIsEOF hIn >>= \p -> if p then return ()  else do
+    loop = hIsEOF hIn >>= \p -> if p then return () else do
         b <- hGet hIn ( 1024 * 1024 )
         hPut hOut b >> hFlush hOut
         hPut stdout b >> hFlush stdout

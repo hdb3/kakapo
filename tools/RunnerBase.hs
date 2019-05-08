@@ -40,25 +40,21 @@ qRunner :: (Handle,Handle) -> String -> [(String,String)] -> [String] -> String 
 qRunner (hStdout,hStderr) executable environment arguments stdin = do
     (Just stdinHandle , Nothing, Nothing, ph) <- createProcess $ (proc executable arguments) { env = Just environment }
         { std_in = CreatePipe
-        , std_out =  UseHandle hStdout
+        , std_out = UseHandle hStdout
         , std_err = UseHandle hStderr
         }
     hPutStr stdinHandle stdin
     hClose stdinHandle
     exitCode <- waitForProcess ph
-    --hClose hStdout
-    --hClose hStderr
     return exitCode
 
 tRunner :: (Handle,Handle) -> String -> [(String,String)] -> [String] -> String -> IO ExitCode
 tRunner (hStdout,hStderr) executable environment arguments stdin = do
     (Just stdinHandle , Just stdoutHandle, Just stderrHandle, ph) <- createProcess $ (proc executable arguments) { env = Just environment }
         { std_in = CreatePipe
-        , std_out =  CreatePipe
+        , std_out = CreatePipe
         , std_err = CreatePipe
         }
-    --void $ forkIO $ tee stdoutHandle hStdout
-    --void $ forkIO $ tee stderrHandle hStderr
     mvA <- forkIO' $ tee stdoutHandle hStdout
     mvB <- forkIO' $ tee stderrHandle hStderr
     hPutStr stdinHandle stdin
@@ -67,25 +63,26 @@ tRunner (hStdout,hStderr) executable environment arguments stdin = do
     takeMVar mvB
     waitForProcess ph
 
-tee :: Handle -> Handle -> IO()
-tee hIn hOut = do
-    hSetBuffering hIn NoBuffering
-    hSetBuffering hOut NoBuffering
-    hSetBuffering stdout NoBuffering
-    loop
     where
-    loop = hIsEOF hIn >>= \p -> if p then return () else do
-    --loop = hIsEOF hIn >>= \p -> if p then hClose hOut else do
-        b <- hGet hIn ( 1024 * 1024 )
-        hPut hOut b >> hFlush hOut
-        hPut stdout b >> hFlush stdout
-        loop
 
-forkIO' :: IO () -> IO (MVar ())
-forkIO' io = do
-    mvar <- newEmptyMVar
-    forkFinally io (\_ -> putMVar mvar ())
-    return mvar
+    tee :: Handle -> Handle -> IO()
+    tee hIn hOut = do
+        hSetBuffering hIn NoBuffering
+        hSetBuffering hOut NoBuffering
+        hSetBuffering stdout NoBuffering
+        loop
+        where
+        loop = hIsEOF hIn >>= \p -> if p then return () else do
+            b <- hGet hIn ( 1024 * 1024 )
+            hPut stdout b >> hFlush stdout
+            hPut hOut b >> hFlush hOut
+            loop
+
+    forkIO' :: IO () -> IO (MVar ())
+    forkIO' io = do
+        mvar <- newEmptyMVar
+        forkFinally io (\_ -> putMVar mvar ())
+        return mvar
 
 getLogFiles logRootName = do
     logDir <- getLogDir

@@ -33,8 +33,8 @@ getSection s =
         getLines t' lx' = let fxx = getLines' t' lx' 
                         in (init fxx , last fxx)
                         where
-                            getLines'  _ [] = []
-                            getLines' tag ( l : lx ) =  let fx = qFields l in if tag == head fx then tail fx : getLines' tag lx else [ l : lx ]
+                            getLines' _ [] = []
+                            getLines' tag ( l : lx ) = let fx = qFields l in if tag == head fx then tail fx : getLines' tag lx else [ l : lx ]
 
 
         getSingleRecord :: String -> [String] -> ([(String,String)], [String])
