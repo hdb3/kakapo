@@ -10,24 +10,7 @@ import Data.UUID.V1(nextUUID)
 import Data.Time.Clock.System ( systemSeconds, getSystemTime )
 
 import Docker
-
-frr = ( "hdb3/frr", "frr")
-bird = ("hdb3/bird","bird")
-hbgp = ("hdb3/hbgp","hbgp")
-relay = ("hdb3/relay","relay")
-
-presetPlatforms = [("bird",bird),("frr",frr),("hbgp",hbgp),("relay",relay)]
-
-presetTopics = [
-                 ("SMOKETEST", ( [1..2] , [1..2] , 2))
-               , ("BASIC", ( [1..10] ++ [20,30..100] ++[200,300..1000] ++[2000,3000..10000] ++[20000,30000..100000] , [1,2,5,10] , 10))
-               , ("EXPBS", ( expPlimited 10 1000000 , [1] , 20))
-               , ("EXPBSLARGE", ( expPlimited 10 100000 , [10] , 20))
-               , ("EXPBSVLARGE", ( expPlimited 10 10000 , [100] , 20))
-               ]
-
-expPlimited pow limit = takeWhile ( limit+1 > ) $ map floor $ go 1.0
-    where go n = n : go (n * (10 ** (1/pow)))
+import Presets
 
 getTopic s = fromJust $ lookup s presetTopics 
 
