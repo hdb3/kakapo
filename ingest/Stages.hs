@@ -3,7 +3,7 @@ module Stages where
 import Data.Text(Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Data.Maybe(fromJust)
+import Data.Maybe(fromJust,fromMaybe)
 import Data.Either(partitionEithers)
 import Data.List(partition)
 import Data.List.Extra(nubOn)
@@ -89,7 +89,9 @@ doCycleCheck krecs = do
         cycleCheck = uncurry (==) . cycleComp
 
         cycleComp :: KRecV1 -> (Int,Int)
-        cycleComp  (KRecV1 GKRecV1{..}) = ( length $ fromJust $ lookup "SEQ" values , hrV1CYCLECOUNT hrec)
+        cycleComp  (KRecV1 GKRecV1{..}) = ( length $ lookupSEQ values , hrV1CYCLECOUNT hrec)
+            where 
+                lookupSEQ values = fromMaybe (error $ "lookup SEQ failed " ++ show hrec) ( lookup "SEQ" values)
 
 stageFive :: ( [(T.Text , T.Text) ] , a ) -> Either String ( GKRecV1 a)
 stageFive (header,values) =

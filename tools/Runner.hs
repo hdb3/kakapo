@@ -70,7 +70,7 @@ sshLog_ logRootName params command = do
     let cp = proc shell parameters
     (Just stdinHandle , Just stdoutHandle, Just stderrHandle, ph) <- createProcess $ cp
         { std_in = CreatePipe
-        , std_out =  CreatePipe
+        , std_out = CreatePipe
         , std_err = CreatePipe
         }
     _ <- forkIO $ tee stdoutHandle hStdout
@@ -92,7 +92,7 @@ sshLog_ logRootName params command = do
 sshQ = run_ _devnull . sshd
 
 getBash :: String -> IO (Maybe String)
-getBash  = getRun bashd
+getBash = getRun bashd
 
 getSSH :: [String] -> String -> IO (Maybe String)
 getSSH params = getRun (sshd params)
@@ -140,7 +140,7 @@ tee hIn hOut = do
     hSetBuffering stdout NoBuffering
     loop
     where
-    loop = hIsEOF hIn >>= \p -> if p then return ()  else do
+    loop = hIsEOF hIn >>= \p -> if p then return () else do
         b <- hGet hIn ( 1024 * 1024 )
         hPut hOut b >> hFlush hOut
         hPut stdout b >> hFlush stdout
