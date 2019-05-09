@@ -1,11 +1,10 @@
 module RunnerBase where
 import System.Process
 import System.Directory(createDirectoryIfMissing)
-import Control.Concurrent(forkIO,MVar,putMVar,forkFinally,newEmptyMVar,takeMVar)
+import Control.Concurrent(MVar,putMVar,forkFinally,newEmptyMVar,takeMVar)
 import System.Exit
 import System.IO(openTempFile,Handle,hIsEOF,hSetBuffering,BufferMode(NoBuffering),hClose,hFlush,stdout,hPutStr,openFile,IOMode(WriteMode))
 import Data.ByteString(hGet,hPut)
-import Control.Monad
 import LogFileNames
 import System.FilePath.Posix(takeFileName)
 
