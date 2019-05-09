@@ -1,147 +1,108 @@
-module Runner where
-import System.Process
-import Control.Concurrent(forkIO)
-import System.Exit
-import System.IO(Handle,hIsEOF,hSetBuffering,BufferMode(NoBuffering),hClose,hFlush,stdout,stderr,hPutStr,hPutStrLn,openFile,IOMode(WriteMode))
-import Data.ByteString(hGet,hPut)
-import Control.Monad
-import Data.Time.Clock.System (getSystemTime,SystemTime,systemSeconds,systemNanoseconds)
-import Text.Printf
-import LogFileNames
+module Main where
+import System.Exit(die)
+import Data.Maybe(fromJust,isJust)
+import System.Environment(getArgs)
+import Data.List(lookup)
+import Data.Char(isControl)
+import Control.Monad(when,unless,void)
+import Data.UUID(toString)
+import Data.UUID.V1(nextUUID)
+import Data.Time.Clock.System ( systemSeconds, getSystemTime )
 
-{-
-    Runner is a repeat execution scheduler for kakapo
-    It runs kakapo with a varying set of test parameters
-    It monitors the exit status and ruuning time of each invocation
-    It can repeat failed tests
-    It will eventually give up if it cannot complete commands at all.
-    It captures application output on stdout in a file for further processing.
-    It relays stderr to ????
+import Docker
+import Presets
 
-    It requires a command line generator which can produce as many instances of the required command as needed.
+getTopic s = fromJust $ lookup s presetTopics 
 
-    Special attention is required for handling of environment varaiables because they are extensively used by kakapo to configure its behavioir:
-    in order to enable seamless conversion for remote operation the System.Process environment control is not used.
-    Instead, the command executed is a shell, which allows the shell to perform the required transfer of text into the environment.
-    This faciltates simple conversion to a remote shell execution.
+main = do
+    args <- getArgs
 
-    Note: bash and ssh are not interchangeable
-        - bash _requires_ command strings to be read from files, never from positional parameters
-        - ssh _requires_ at least one positional parameter in order to suppress 'interactive' style 
-          responses from the remote host
-    However: by invoking ssh with the single command parameter "/bin/bash" it is possible to achive parity between 
-          local and remote execution behaviour
--}
+    when (null args)
+         (die $ "please specify topic, platform, SUT target and kakapo target\n" ++ show presetTopics ++ show presetPlatforms)
 
-defaultSSHparams = [ "-q" , "-o" , "UserKnownHostsFile=/dev/null" , "-o" , "StrictHostKeyChecking=no" ]
-sshd params = ("/usr/bin/ssh" , defaultSSHparams ++ params ++ ["/bin/bash"])
-bashd = ("/bin/bash" , [])
-_stderr = return stderr
-_devnull = openFile "/dev/null" WriteMode
+    unless (4 == length args)
+         (die "expecting exactly 4 parameters (topic, platform, SUT target and kakapo target)")
 
-bash :: String -> IO ()
-bash = run_ _stderr bashd
-bashQ = run_ _devnull bashd
+    let topic = args !! 0
+    unless (isJust $ lookup topic presetTopics)
+         (die $ "unknown topic\n" ++ show presetTopics)
 
-ssh :: [String] -> String -> IO ()
-ssh = run_ _stderr . sshd
+    let platform = lookup ( args !! 1 ) presetPlatforms
+    unless (isJust platform)
+         (die $ "unknown platform\n" ++ show presetPlatforms)
 
-sshLog :: String -> [String] -> String -> IO ()
-sshLog n p c = do
-    ( exitStatus , cmdName, stdoutName , stderrName ) <- sshLog_ n p c
-    readFile cmdName >>= hPutStr stderr
-    hPutStrLn stderr $ "output in " ++ stdoutName ++ " and " ++ stderrName
+    start topic (fromJust platform) (args !! 2) (args !! 3)
 
-sshLog_ :: String -> [String] -> String -> IO ( Int , String, String , String )
-sshLog_ logRootName params command = do
-    logDir <- getLogDir
-    let logPath = logDir ++ "/" ++ logRootName
-    let (shell,parameters) = sshd params
-    ext <- getNextFileBaseName logDir ( logRootName ++ ".cmd" )
-    let cmdName = logPath ++ ".cmd" ++ ext 
-        stderrName = logPath ++ ".stderr" ++ ext 
-        stdoutName = logPath ++ ".stdout" ++ ext 
-    cmdh <- openFile cmdName WriteMode
-    hPutStrLn cmdh $ unwords ( shell : parameters)
-    hPutStrLn cmdh command
-    hStderr <- openFile stderrName WriteMode
-    hStdout <- openFile stdoutName WriteMode
-    now <- getSystemTime
-    let cp = proc shell parameters
-    (Just stdinHandle , Just stdoutHandle, Just stderrHandle, ph) <- createProcess $ cp
-        { std_in = CreatePipe
-        , std_out = CreatePipe
-        , std_err = CreatePipe
-        }
-    _ <- forkIO $ tee stdoutHandle hStdout
-    _ <- forkIO $ tee stderrHandle hStderr
-    hPutStr stdinHandle command
-    hClose stdinHandle
-    hPutStrLn stderr $ "remote shell started with: " ++ unwords ( shell : parameters)
-    hPutStrLn stderr $ "remote shell command: " ++ command
-    hFlush stderr
-    code <- waitForProcess ph
-    later <- getSystemTime
-    let exitStatus = case code of
-                         ExitSuccess -> 0
-                         ExitFailure n -> n
-    hPutStrLn cmdh $ "Complete, exit code " ++ show exitStatus ++ ", elapsed time " ++ prettyDuration (stToFloat later - stToFloat now)
-    hClose cmdh
-    return ( exitStatus , cmdName, stdoutName , stderrName )
+start :: String -> (String , String ) -> String -> String -> IO ()
+start topic (repo , app ) sutHostName kakapoHostName = do
+    let
+        sut = docker sutHostName
+        kakapo = docker kakapoHostName
 
-sshQ = run_ _devnull . sshd
+    let dockerFlags name = [ "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
+        dockerInteractive name = "-i" : dockerFlags name
+        dockerDaemon name = "-d" : dockerFlags name
+        dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands 
+    
+    sut ["kill",app]
+    
+    sut ["pull",repo]
+    sysinfo' <- dockerCMD sutHostName ( ["run"] ++ dockerInteractive app ++ [ repo , "sysinfo"] ) ""
+    let sysinfo = maybe "VERSION=\"UNKNOWN\" MEMSIZE=-1 CORES=-1 THREADS=-1" (map (\c -> if isControl c then ' ' else c)) sysinfo'
+    putStrLn $ "Sysinfo: " ++ sysinfo
 
-getBash :: String -> IO (Maybe String)
-getBash = getRun bashd
+    
+    void $ dockerRun sutHostName (dockerDaemon app) repo []
 
-getSSH :: [String] -> String -> IO (Maybe String)
-getSSH params = getRun (sshd params)
+    kakapo ["kill","kakapo"]
+    kakapo ["pull","hdb3/kakapo"]
 
-getRun (shell,parameters) command = do
-    (code, out, err) <- readProcessWithExitCode shell parameters command
-    unless ( ExitSuccess == code )
-           ( do hPutStrLn System.IO.stderr $ "exit code=" ++ show code
-                unless (null out)
-                       ( hPutStrLn System.IO.stderr $ "stdout: \"" ++ out ++"...\"" )
-                unless (null err)
-                       ( hPutStrLn System.IO.stderr $ "stderr: \"" ++ err ++"...\"" )
-           )
-    return $ if ExitSuccess == code
-             then Just out
-             else Nothing
+    -- let kakapoDocker = dockerRun kakapoHostName (dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/sbin/kakapo"]) "hdb3/kakapo" 
+    let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , "hdb3/kakapo" ]) (unwords parameters)
 
-run_ _handle (shell,parameters) command = do
-    handle <- _handle
-    hPutStr handle $ "using " ++ shell ++ " to execute \"" ++ command ++ "\""
-    hFlush handle
-    now <- getSystemTime
-    (code, out, err) <- readProcessWithExitCode shell parameters command
-    later <- getSystemTime
-    hPutStrLn handle $ " done, in " ++ prettyDuration (stToFloat later - stToFloat now)
-    if ExitSuccess == code then
-        unless (null out)
-               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 out ++"...\"" )
-    else do
-        hPutStrLn handle $ "exit code=" ++ show code
-        unless (null out)
-               ( hPutStrLn handle $ "stdout: \"" ++ take 1000 out ++"...\"" )
-        unless (null err)
-               ( hPutStrLn handle $ "stderr: \"" ++ take 1000 err ++"...\"" )
+    kakapoDocker [ "ip" , "address" , "add" , "169.254.0.11/32" , "dev" , "lo"]
+    kakapoDocker [ "ip" , "address" , "add" , "169.254.0.12/32" , "dev" , "lo"]
+    runExperiment kakapoDocker sutHostName topic sysinfo app
 
-stToFloat :: SystemTime -> Double
-stToFloat s = (fromIntegral (systemSeconds s) * 1000000000 + fromIntegral (systemNanoseconds s)) / 1000000000.0
+    putStrLn "Done"
 
-prettyDuration dT = if 1.0 > dT then printf "%.3f ms" (1000*dT) else printf "%.3f s" dT
+runExperiment :: ([String] -> IO()) -> String -> String -> String -> String -> IO()
+runExperiment rsh sut topic sysinfo app = do
+    uuid <- ( toString . fromJust ) <$> nextUUID
+    time <- (show . systemSeconds ) <$> getSystemTime
+    let
+        logText = "TOPIC=\'" ++ topic ++ "\' " ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
+        base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
+        gsr = [1..10]
+        gsrx = [10,20..50]
+        bsr = [1..10] ++ [10,20..100] ++ [100,200..1000] ++ [1000,2000..10000] ++ [10000,20000..100000]
+        bsr0 = [1..10]
+        bsrx = [100000,200000..1000000]
 
-tee :: Handle -> Handle -> IO()
-tee hIn hOut = do
-    hSetBuffering hIn NoBuffering
-    hSetBuffering hOut NoBuffering
-    hSetBuffering stdout NoBuffering
-    loop
-    where
-    loop = hIsEOF hIn >>= \p -> if p then return () else do
-        b <- hGet hIn ( 1024 * 1024 )
-        hPut hOut b >> hFlush hOut
-        hPut stdout b >> hFlush stdout
-        loop
+        genCommands pre parameterLists post = map (\parameterList -> [pre, expandParameters parameterList, post ]) parameterLists
+        expandParameters = map (\(k,v) -> k ++ "=" ++ v)
+        kakapoDefaultParameters =
+           [
+             ("LOGTEXT" , "\"LOGTEXT not provided\" "),
+             ("LOGPATH" , "10.30.65.209"),
+             ("SLEEP" , "10 "),
+             ("MAXBURSTCOUNT" , "1 "),
+             ("GROUPSIZE" , "10 "),
+             ("BLOCKSIZE" , "1 "),
+             ("CYCLEDELAY" , "0 "),
+             ("CYCLECOUNT" , "10 "),
+             ("NEXTHOP" , "169.254.0.11 ")
+           ]
+
+        kvSet k v = map (\(a,b) -> if a == k then (a,v) else (a,b) )
+
+        kvGen k vx m = map (\v -> kvSet k ( show v) m) vx
+
+        blockGen bsRange gsRange count base = [ expandParameters $ kvSet "CYCLECOUNT" (show count) $ kvSet "GROUPSIZE" ( show gs ) $ kvSet "BLOCKSIZE" ( show bs ) base | bs <- bsRange , gs <- gsRange ]
+
+        --buildCommand parameters = parameters ++ [ ",169.254.0.11,64504" , ",169.254.0.12,64504" ]
+        buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , ",169.254.0.11,64504" , ",169.254.0.12,64504" ]
+
+    let (b,g,c) = getTopic topic
+    mapM_ ( rsh . buildCommand ) ( blockGen b g c base )
+    return ()

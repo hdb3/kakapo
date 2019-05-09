@@ -87,7 +87,8 @@ runner_ executable environment arguments stdin = do
     hPutStr stdinHandle stdin
     hClose stdinHandle
     hPutStrLn stderr $ "process started with: " ++ cl
-    hPutStrLn stderr $ "process input: " ++ stdin
+    unless (null stdin)
+            ( hPutStrLn stderr $ "process input: " ++ stdin )
     hFlush stderr
     code <- waitForProcess ph
     later <- getSystemTime
