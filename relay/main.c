@@ -21,6 +21,7 @@
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 #define BUFSIZE (1024 * 1024 * 64)
 #define MINREAD 4096
+#define MAXPENDING 2 // Max connection requests
 
 struct peer {
   int sock, nread, nwrite;
@@ -217,22 +218,87 @@ void run(struct peer *peer1, struct peer *peer2) {
   };
 };
 
+void setsocketnonblock(int sock) {
+  fcntl(sock, F_SETFL, O_NONBLOCK);
+};
+
+void setsocketnodelay (int sock) {
+  int i = 1;
+  setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+};
+
+
+int getserversocket (struct in_addr listenaddress) {
+  int reuse;
+  int serversock;
+  struct sockaddr_in hostaddr = {AF_INET, htons(179), listenaddress};
+
+  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
+
+  reuse = 1; 0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
+
+  reuse = 1; 0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
+
+  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
+
+  0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
+
+  return serversock;
+};
+
+void serveraccept (struct peer p) {
+  struct sockaddr_in acceptaddr;
+  int peersock;
+  socklen_t socklen;
+  memset(&acceptaddr, 0, SOCKADDRSZ);
+  socklen = SOCKADDRSZ; 0 < (peersock = accept(serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
+  (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
+  
+  socklen = SOCKADDRSZ; 0 = (getpeername(peersock, &p->remote, &socklen)) || die("Failed to get peer address");
+  socklen = SOCKADDRSZ; 0 = (getsockname(peersock, &p->local, &socklen)) || die("Failed to get local address");
+  p->buf = malloc(BUFSIZE);
+  p->sock=peersock;
+};
+
+int serverstart(struct peer *peer1, struct peer *peer2) {
+
+  printf("server start\n");
+  acceptPeer(peer1);
+  acceptPeer(peer2);
+  fcntl(peer1->sock, F_SETFL, O_NONBLOCK);
+  fcntl(peer2->sock, F_SETFL, O_NONBLOCK);
+  setsocketnonblock(peer1->sock);
+  setsocketnonblock(peer2->sock);
+  setsocketnodelay(peer1->sock);
+  setsocketnodelay(peer2->sock);
+  flags(peer1->sock, __FILE__, __LINE__);
+  flags(peer2->sock, __FILE__, __LINE__);
+  int res = waitonconnect(peer1->sock, peer2->sock);
+  flags(peer1->sock, __FILE__, __LINE__);
+  flags(peer2->sock, __FILE__, __LINE__);
+  if (0 == res) {
+    printf("connected\n");
+    run(peer1, peer2);
+  } else {
+    printf("rejected\n");
+  };
+  close(peer1->sock);
+  close(peer2->sock);
+  return res;
+};
+
 int start(struct peer *peer1, struct peer *peer2) {
   int i;
 
-  printf("start\n");
+  printf("client start\n");
   connectPeer(peer1);
   connectPeer(peer2);
-  fcntl(peer1->sock, F_SETFL, O_NONBLOCK);
-  fcntl(peer2->sock, F_SETFL, O_NONBLOCK);
-  i = 1;
-  setsockopt(peer1->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-  i = 1;
-  setsockopt(peer2->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-  EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) ||
-      die("Failed to start connect with peer1");
-  EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) ||
-      die("Failed to start connect with peer2");
+  setsocketnonblock(peer1->sock);
+  setsocketnonblock(peer2->sock);
+  setsocketnodelay(peer1->sock);
+  setsocketnodelay(peer2->sock);
+  EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) || die("Failed to start connect with peer1");
+  EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) || die("Failed to start connect with peer2");
   flags(peer1->sock, __FILE__, __LINE__);
   flags(peer2->sock, __FILE__, __LINE__);
   int res = waitonconnect(peer1->sock, peer2->sock);
