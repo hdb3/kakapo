@@ -1,5 +1,9 @@
+{-
+  Copyright 2019 Nicholas Hart
+-}
+
 {-# LANGUAGE OverloadedStrings , TupleSections , RecordWildCards #-}
-module Analysis where
+module Main where
 import Data.Text(Text)
 import qualified Data.Text as T
 import System.Environment(getArgs)
@@ -10,6 +14,7 @@ import qualified Data.Map.Strict as Map
 import Text.Read(readMaybe)
 import Control.Arrow (second)
 import Data.Char (isSpace)
+import Control.Monad(unless)
 
 import Stages hiding (main)
 import Mean
@@ -44,8 +49,9 @@ main = do
                               ( fst3 . (selection !!))
                               ( readMaybe (args !! 1))
         if argc == 1 then do
-            putStrLn "*** Errors ***"
-            mapM_ putStrLn errors
+            unless (null errors) 
+                   ( do putStrLn "*** Errors ***"
+                        mapM_ putStrLn errors )
             putStrLn "\n*** Headers ***"
             mapM_ putStrLn selectionText
             putStrLn ""

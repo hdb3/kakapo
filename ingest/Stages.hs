@@ -81,6 +81,7 @@ doCycleCheck krecs = do
         ( do hPutStrLn stderr $ "complete/incomplete count: " ++ show (length complete, length incomplete)
              -- this may be useful on occasion, but rarely, so commented in the absence of a verbose flag
              --mapM_ print $ map (\krec -> (cycleComp krec , krec)) incomplete
+             mapM_ print $ map (hrV1SOURCE . krecHeader ) incomplete
         )
    return complete
     where
@@ -91,7 +92,9 @@ doCycleCheck krecs = do
         cycleComp :: KRecV1 -> (Int,Int)
         cycleComp  (KRecV1 GKRecV1{..}) = ( length $ lookupSEQ values , hrV1CYCLECOUNT hrec)
             where 
-                lookupSEQ values = fromMaybe (error $ "lookup SEQ failed " ++ show hrec) ( lookup "SEQ" values)
+                -- 'values' is a list of columns an dheaders - we look for the SEQ columns merely becuase it should always be present
+                --     however, all we want is to know the length of any column, as they are all equal length
+                lookupSEQ values = fromMaybe [] ( lookup "SEQ" values)
 
 stageFive :: ( [(T.Text , T.Text) ] , a ) -> Either String ( GKRecV1 a)
 stageFive (header,values) =
@@ -115,7 +118,8 @@ stageFive (header,values) =
         hrV1CYCLEDELAY  = lookupHeaderInt "CYCLEDELAY"
         hrec = HeaderRecV1 {..}
 
-    in if headerFail then Left $ "headerFail: " ++ show header 
+    --in if headerFail then Left $ "headerFail: " ++ show header 
+    in if headerFail then Left $ "headerFail: " ++ ( if mapCheck ["SOURCE"] header then T.unpack hrV1SOURCE else "missing source in header!!!" ++ show header )
        else Right $ GKRecV1 hrec values
 
 getKRecV1 :: IO ([String], [KRecV1])
