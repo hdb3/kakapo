@@ -32,6 +32,7 @@ struct timespec txts;
 
 int pid;
 int tidx = 0;
+pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
 uint32_t SLEEP = 0; // default value -> don't repeat the send operation
 uint32_t TIMEOUT = 10;
 
@@ -64,6 +65,7 @@ uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 void startsession(int sock, int as) {
 
   struct sessiondata *sd;
+  pthread_mutex_lock( &mutex_tidx );
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, as};
   if (0 == isListener()) {
@@ -78,6 +80,7 @@ void startsession(int sock, int as) {
     sd->role = ROLESENDER;
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
+  pthread_mutex_unlock( &mutex_tidx );
 };
 
 //void client(struct peer *p) {
