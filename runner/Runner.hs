@@ -72,7 +72,7 @@ runExperiment rsh sut topic sysinfo app = do
     uuid <- ( toString . fromJust ) <$> nextUUID
     time <- (show . systemSeconds ) <$> getSystemTime
     let
-        logText = "TOPIC=\'" ++ topic ++ "\' " ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
+        logText = "TOPIC=\'" ++ topic ++ "\' " ++ " PLATFORM=" ++ app ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
         gsr = [1..10]
         gsrx = [10,20..50]
