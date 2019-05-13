@@ -1,9 +1,11 @@
 module Presets where
 
-frr = ( "hdb3/frr", "frr")
-bird = ("hdb3/bird","bird")
-hbgp = ("hdb3/hbgp","hbgp")
-relay = ("hdb3/relay","relay")
+registry = "big:5000/"
+
+frr = ( registry ++ "frr", "frr")
+bird = (registry ++ "bird","bird")
+hbgp = (registry ++ "hbgp","hbgp")
+relay = (registry ++ "relay","relay")
 
 presetPlatforms = [("bird",bird),("frr",frr),("hbgp",hbgp),("relay",relay)]
 

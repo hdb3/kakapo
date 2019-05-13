@@ -39,7 +39,7 @@ start topic (repo , app ) sutHostName kakapoHostName = do
         sut = docker sutHostName
         kakapo = docker kakapoHostName
 
-    let dockerFlags name = [ "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
+    let dockerFlags name = [ "-v", "coredumps:/cores", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
         dockerInteractive name = "-i" : dockerFlags name
         dockerDaemon name = "-d" : dockerFlags name
         dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands 
@@ -55,14 +55,15 @@ start topic (repo , app ) sutHostName kakapoHostName = do
     void $ dockerRun sutHostName (dockerDaemon app) repo []
 
     kakapo ["kill","kakapo"]
-    kakapo ["pull","hdb3/kakapo"]
+    kakapo ["pull",registry ++ "kakapo"]
 
     -- let kakapoDocker = dockerRun kakapoHostName (dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/sbin/kakapo"]) "hdb3/kakapo" 
-    let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , "hdb3/kakapo" ]) (unwords parameters)
+    let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
     kakapoDocker [ "ip" , "address" , "add" , "172.18.0.11/32" , "dev" , "lo"]
     kakapoDocker [ "ip" , "address" , "add" , "172.18.0.12/32" , "dev" , "lo"]
     runExperiment kakapoDocker sutHostName topic sysinfo app
+    sut ["kill",app]
 
     putStrLn "Done"
 
