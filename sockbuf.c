@@ -66,9 +66,9 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
   while (rc > sb->count) {
     int request = sb->top - sb->start - sb->count;
     //sockRead = recv(sb->sock, sb->base + sb->start + sb->count, request, 0);
-    flags(sb->sock,__FILE__,__LINE__);
+    FLAGS(sb->sock,__FILE__,__LINE__);
     sockRead = read(sb->sock, sb->base + sb->start + sb->count, request);
-    flags(sb->sock,__FILE__,__LINE__);
+    FLAGS(sb->sock,__FILE__,__LINE__);
     // if zero or worse, die...
     if (sockRead < 0) {
       if (errno == EAGAIN)
