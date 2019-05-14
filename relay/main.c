@@ -238,6 +238,8 @@ void serveraccept (int serversock, struct peer *p) {
   socklen = SOCKADDRSZ; 0 == (getsockname(peersock, &p->local, &socklen)) || die("Failed to get local address");
   p->buf = malloc(BUFSIZE);
   p->sock=peersock;
+  p->nread = 0;
+  p->nwrite = 0;
 };
 
 void prepsocket (int sock) {
