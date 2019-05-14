@@ -65,7 +65,7 @@ uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 void startsession(int sock, int as) {
 
   struct sessiondata *sd;
-  pthread_mutex_lock( &mutex_tidx );
+  pthread_mutex_lock(&mutex_tidx);
   sd = malloc(sizeof(struct sessiondata));
   *sd = (struct sessiondata){sock, tidx++, as};
   if (0 == isListener()) {
@@ -80,7 +80,7 @@ void startsession(int sock, int as) {
     sd->role = ROLESENDER;
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
-  pthread_mutex_unlock( &mutex_tidx );
+  pthread_mutex_unlock(&mutex_tidx);
 };
 
 //void client(struct peer *p) {
@@ -118,7 +118,7 @@ void *serverthread(void *_p) {
 
   0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
 
-  fprintf(stderr,"binding to %s\n",fromHostAddress(p->local));
+  fprintf(stderr, "binding to %s\n", fromHostAddress(p->local));
 
   0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
@@ -184,13 +184,13 @@ void endlog() {
   fclose(logfile);
   if (0 != LOGPATH) {
     time_t t = time(NULL);
-    int tmp = asprintf(&sp,"curl -X PUT --data-binary @%s http://%s/%ld",LOGFILE,LOGPATH,t);
-    fprintf(stderr,"trying to send datafile with: %s\n",sp);
+    int tmp = asprintf(&sp, "curl -X PUT --data-binary @%s http://%s/%ld", LOGFILE, LOGPATH, t);
+    fprintf(stderr, "trying to send datafile with: %s\n", sp);
     int res = system(sp);
     if (0 == res)
-      fprintf(stderr,"success\n");
+      fprintf(stderr, "success\n");
     else
-      fprintf(stderr,"fail(%d)\n",res);
+      fprintf(stderr, "fail(%d)\n", res);
     free(sp);
   };
   exit(0);

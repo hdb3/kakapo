@@ -7,16 +7,16 @@
 //#include <sys/time.h>
 #include <assert.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "sockbuf.h"
-#include "util.h"
 #include "tcpflags.h"
+#include "util.h"
 
 void setsocktimeout(int sock, int timeout) {
   struct timeval tv;
@@ -27,7 +27,7 @@ void setsocktimeout(int sock, int timeout) {
 };
 
 void bufferInit(struct sockbuf *sb, int sock, int size, int timeout) {
-  int one=1;
+  int one = 1;
   setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
   setsockopt(sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
   setsocktimeout(sock, timeout);
@@ -66,9 +66,9 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
   while (rc > sb->count) {
     int request = sb->top - sb->start - sb->count;
     //sockRead = recv(sb->sock, sb->base + sb->start + sb->count, request, 0);
-    FLAGS(sb->sock,__FILE__,__LINE__);
+    FLAGS(sb->sock, __FILE__, __LINE__);
     sockRead = read(sb->sock, sb->base + sb->start + sb->count, request);
-    FLAGS(sb->sock,__FILE__,__LINE__);
+    FLAGS(sb->sock, __FILE__, __LINE__);
     // if zero or worse, die...
     if (sockRead < 0) {
       if (errno == EAGAIN)
