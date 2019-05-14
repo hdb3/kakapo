@@ -29,6 +29,11 @@ struct peer {
   void *buf;
 };
 
+char* showpeer (char* pn, struct peer *p) {
+  printf("peer: %s local: %s ",pn , inet_ntoa(p->local.sin_addr));
+  printf("remote: %s\n", inet_ntoa(p->remote.sin_addr));
+};
+
 void initPeer(char *s, struct peer *p) {
 
   p->remote = (struct sockaddr_in){AF_INET, htons(179), (struct in_addr){0}};
@@ -195,7 +200,9 @@ int setflags(struct peer *p, int sock2, fd_set *rset, fd_set *wset) {
 
 void run(struct peer *peer1, struct peer *peer2) {
   printf("run\n");
-  printf("fd1=%d fd2=%d\n", peer1->sock, peer2->sock);
+  showpeer("peer1",peer1);
+  showpeer("peer2",peer2);
+  //printf("fd1=%d fd2=%d\n", peer1->sock, peer2->sock);
   fd_set rset, wset;
   FD_ZERO(&rset);
   FD_SET(peer1->sock, &rset);
