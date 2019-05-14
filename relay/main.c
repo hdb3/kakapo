@@ -17,7 +17,7 @@
 #include <sys/uio.h>
 
 #include "util.h"
-#define FLAGS( a , b , c )
+#define FLAGS(a, b, c)
 //#define FLAGS( a , b , c) flags( a , b, c)
 
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
@@ -25,7 +25,7 @@
 #define MINREAD 4096
 #define MAXPENDING 2 // Max connection requests
 
-char VERSION [] = "1.1.0";
+char VERSION[] = "1.1.0";
 
 struct peer {
   int sock, nread, nwrite;
@@ -33,8 +33,8 @@ struct peer {
   void *buf;
 };
 
-char* showpeer (char* pn, struct peer *p) {
-  printf("peer: %s local: %s ",pn , inet_ntoa(p->local.sin_addr));
+char *showpeer(char *pn, struct peer *p) {
+  printf("peer: %s local: %s ", pn, inet_ntoa(p->local.sin_addr));
   printf("remote: %s\n", inet_ntoa(p->remote.sin_addr));
 };
 
@@ -204,8 +204,8 @@ int setflags(struct peer *p, int sock2, fd_set *rset, fd_set *wset) {
 
 void run(struct peer *peer1, struct peer *peer2) {
   printf("run\n");
-  showpeer("peer1",peer1);
-  showpeer("peer2",peer2);
+  showpeer("peer1", peer1);
+  showpeer("peer2", peer2);
   //printf("fd1=%d fd2=%d\n", peer1->sock, peer2->sock);
   fd_set rset, wset;
   FD_ZERO(&rset);
@@ -233,27 +233,30 @@ void setsocketnonblock(int sock) {
   fcntl(sock, F_SETFL, O_NONBLOCK);
 };
 
-void setsocketnodelay (int sock) {
+void setsocketnodelay(int sock) {
   int i = 1;
   setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
 };
 
-void serveraccept (int serversock, struct peer *p) {
+void serveraccept(int serversock, struct peer *p) {
   struct sockaddr_in acceptaddr;
   int peersock;
   socklen_t socklen;
   memset(&acceptaddr, 0, SOCKADDRSZ);
-  socklen = SOCKADDRSZ; 0 < (peersock = accept(serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
+  socklen = SOCKADDRSZ;
+  0 < (peersock = accept(serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
   (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
-  socklen = SOCKADDRSZ; 0 == (getpeername(peersock, &p->remote, &socklen)) || die("Failed to get peer address");
-  socklen = SOCKADDRSZ; 0 == (getsockname(peersock, &p->local, &socklen)) || die("Failed to get local address");
+  socklen = SOCKADDRSZ;
+  0 == (getpeername(peersock, &p->remote, &socklen)) || die("Failed to get peer address");
+  socklen = SOCKADDRSZ;
+  0 == (getsockname(peersock, &p->local, &socklen)) || die("Failed to get local address");
   p->buf = malloc(BUFSIZE);
-  p->sock=peersock;
+  p->sock = peersock;
   p->nread = 0;
   p->nwrite = 0;
 };
 
-void prepsocket (int sock) {
+void prepsocket(int sock) {
   fcntl(sock, F_SETFL, O_NONBLOCK);
   setsocketnonblock(sock);
   setsocketnodelay(sock);
@@ -262,8 +265,8 @@ void prepsocket (int sock) {
 void serverstart(int serversock, struct peer *peer1, struct peer *peer2) {
 
   printf("server start\n");
-  serveraccept(serversock,peer1);
-  serveraccept(serversock,peer2);
+  serveraccept(serversock, peer1);
+  serveraccept(serversock, peer2);
   prepsocket(peer1->sock);
   prepsocket(peer2->sock);
   run(peer1, peer2);
@@ -297,7 +300,7 @@ int start(struct peer *peer1, struct peer *peer2) {
   return res;
 };
 
-void client (char *s1 , char* s2){
+void client(char *s1, char *s2) {
   struct peer peer1, peer2;
   initPeer(s1, &peer1);
   initPeer(s2, &peer2);
@@ -309,9 +312,9 @@ void client (char *s1 , char* s2){
   };
 };
 
-void server (char *s) {
+void server(char *s) {
   int serversock;
-  //struct sockaddr_in serversocketaddress; 
+  //struct sockaddr_in serversocketaddress;
   struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){0}};
   struct peer peer1, peer2;
   int reuse;
@@ -320,9 +323,11 @@ void server (char *s) {
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
 
-  reuse = 1; 0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
+  reuse = 1;
+  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
 
-  reuse = 1; 0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
+  reuse = 1;
+  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
 
   0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
@@ -333,10 +338,10 @@ void server (char *s) {
   };
 };
 
-void version (char* s) {
+void version(char *s) {
   if (s[0] == '-' && ((s[1] == 'v' || s[1] == 'V')) ||
-                      (s[1] == '-' && (s[2] == 'v' || s[2] == 'V'))) {
-    printf("relay version %s\n",VERSION);
+      (s[1] == '-' && (s[2] == 'v' || s[2] == 'V'))) {
+    printf("relay version %s\n", VERSION);
     exit(0);
   };
 };
