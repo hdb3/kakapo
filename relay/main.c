@@ -25,6 +25,8 @@
 #define MINREAD 4096
 #define MAXPENDING 2 // Max connection requests
 
+char VERSION [] = "1.1.0";
+
 struct peer {
   int sock, nread, nwrite;
   struct sockaddr_in remote, local;
@@ -331,11 +333,19 @@ void server (char *s) {
   };
 };
 
+void version (char* s) {
+  if (s[0] == '-' && ((s[1] == 'v' || s[1] == 'V')) ||
+                      (s[1] == '-' && (s[2] == 'v' || s[2] == 'V'))) {
+    printf("relay version %s\n",VERSION);
+    exit(0);
+  };
+};
 
 int main(int argc, char *argv[]) {
-  if (argc == 2)
+  if (argc == 2) {
+    version(argv[1]);
     server(argv[1]);
-  else if (argc == 3)
+  } else if (argc == 3)
     client(argv[1], argv[2]);
   else
     die("expecting just one or two arguments");
