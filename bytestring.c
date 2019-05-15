@@ -1,17 +1,17 @@
 #include "libutil.h"
 #include <assert.h>
+#include <errno.h>
 #include <malloc.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 #include <sys/socket.h>
 
 int sendbs(int sock, struct bytestring msg) {
   int res = send(sock, msg.data, msg.length, 0);
   if (res != msg.length) {
-    fprintf(stderr,"send failure, res=%d, errno=%d\n",res,errno);
+    fprintf(stderr, "send failure, res=%d, errno=%d\n", res, errno);
     return 0;
   } else
     return 1;
