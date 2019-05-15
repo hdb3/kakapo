@@ -285,6 +285,7 @@ void *session(void *x) {
   }
 
   int sndrunning = 0;
+
   void *sendthread(void *_x) {
 
     int sendupdates(int seq) {
@@ -397,9 +398,10 @@ void *session(void *x) {
       goto exit;
 
     pthread_t thrd;
-    if (sd->role == ROLESENDER)
+    if (sd->role == ROLESENDER) {
+      sndrunning = 1;
       pthread_create(&thrd, NULL, sendthread, NULL);
-    else 
+    } else 
       slp = initlogrecord(sd->tidx, tid);
 
     char *errormsg = "unknown error";
