@@ -27,6 +27,14 @@
 
 #define BUFFSIZE 0x10000
 
+#define BGPENDOFSTREAM (-1)
+#define BGPTIMEOUT 0
+#define BGPOPEN 1
+#define BGPUPDATE 2
+#define BGPNOTIFICATION 3
+#define BGPKEEPALIVE 4
+#define BGPUNKNOWN 5
+
 void *session(void *x) {
   // from here on down all variables are function, and thus thread, local.
   struct sessiondata *sd = (struct sessiondata *)x;
@@ -89,16 +97,19 @@ void *session(void *x) {
 
   char *showtype(unsigned char msgtype) {
     switch (msgtype) {
-    case 1:
+    case BGPTIMEOUT:
+      return "TIMEOUT";
+      break;
+    case BGPOPEN:
       return "OPEN";
       break;
-    case 2:
+    case BGPUPDATE:
       return "UPDATE";
       break;
-    case 3:
+    case BGPNOTIFICATION:
       return "NOTIFICATION";
       break;
-    case 4:
+    case BGPKEEPALIVE:
       return "KEEPALIVE";
       break;
     default:
@@ -207,9 +218,7 @@ void *session(void *x) {
   void donotification(char *msg, int length) {
     unsigned char ec = *(unsigned char *)(msg + 0);
     unsigned char esc = *(unsigned char *)(msg + 1);
-    fprintf(stderr,
-            "%s: BGP Notification: error code =  %d, error subcode = %d\n", tid,
-            ec, esc);
+    fprintf(stderr, "%s: BGP Notification: error code =  %d, error subcode = %d\n", tid, ec, esc);
   };
 
   int getBGPMessage(struct sockbuf * sb) {
@@ -222,47 +231,44 @@ void *session(void *x) {
     header = bufferedRead(sb, 19);
     if (header == (char *)-1) {
       fprintf(stderr, "%s: end of stream\n", tid);
-      return -1;
+      return BGPENDOFSTREAM;
     } else if (0 == header) {
-      // zero is simply a timeout: -1 is eof
-      return 0;
+      return BGPTIMEOUT;
     } else if (!isMarker(header)) {
       die("Failed to find BGP marker in msg header from peer");
-      return -1;
+      return BGPENDOFSTREAM;
     } else {
       pl = (ntohs(*(uint16_t *)(header + 16))) - 19;
       msgtype = *(unsigned char *)(header + 18);
       if (0 < pl) {
         payload = bufferedRead(sb, pl);
         if (0 == payload) {
-          fprintf(stderr,
-                  "%s: unexpected end of stream after header received\n", tid);
-          return 0;
+          fprintf(stderr, "%s: unexpected end of stream after header received\n", tid);
+          return BGPENDOFSTREAM;
         }
       } else
         payload = 0;
     }
     if (1 == VERBOSE) {
       unsigned char *hex = toHex(payload, pl);
-      fprintf(stderr, "%s: BGP msg type %s length %d received [%s]\n", tid,
-              showtype(msgtype), pl, hex);
+      fprintf(stderr, "%s: BGP msg type %s length %d received [%s]\n", tid, showtype(msgtype), pl, hex);
       free(hex);
     }
 
     switch (msgtype) {
-    case 1:
+    case BGPOPEN:
       doopen(payload, pl);
       break;
-    case 2:
+    case BGPUPDATE:
       if (pl == 4)
         doeor(payload, pl);
       else
         doupdate(payload, pl);
       break;
-    case 3:
+    case BGPNOTIFICATION:
       donotification(payload, pl);
       break;
-    case 4: // keepalive, no analysis required
+    case BGPKEEPALIVE: // keepalive, no analysis required
       break;
     };
     return msgtype;
@@ -292,8 +298,7 @@ void *session(void *x) {
 
       struct timespec tstart, tend;
 
-    // sd->role test probably redundant now...
-      if ((MAXBURSTCOUNT == 0) || (sd->role == ROLELISTENER))
+      if (MAXBURSTCOUNT == 0)
         return -1;
 
       int cyclenumber = seq / MAXBURSTCOUNT;
@@ -303,14 +308,11 @@ void *session(void *x) {
       };
 
       gettime(&tstart);
-    // sd->role test probably redundant now...
-      if ((0 == seq) && (sd->role == ROLESENDER))
+      if (0 == seq)
         startlog(sd->tidx, tid, &tstart);
 
       uint32_t logseq;
-    // sd->role test probably redundant now...
-      if (sd->role == ROLESENDER)
-        logseq = senderwait();
+      logseq = senderwait();
 
       int bsn = seq % MAXBURSTCOUNT;
 
@@ -319,14 +321,11 @@ void *session(void *x) {
       for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
         if ( 0 == sendbs(sock, update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}))))
           return -1;
-        // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1,
-        // sd->as, 0})));
+        // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
       };
       gettime(&tend);
 
-    // sd->role test probably redundant now...
-      if (sd->role == ROLESENDER)
-        sndlog(sd->tidx, tid, logseq, &tstart, &tend);
+      sndlog(sd->tidx, tid, logseq, &tstart, &tend);
 
       if (bsn == MAXBURSTCOUNT - 1)
         return CYCLEDELAY;
@@ -335,11 +334,10 @@ void *session(void *x) {
     };
     sndrunning = 1;
     timedloopms(SLEEP, sendupdates);
-    // sd->role test probably redundant now...
-    if (sd->role == ROLESENDER) {
-      senderwait();
-      endlog(NULL);
-    };
+    
+    senderwait();
+    endlog(NULL);
+
     // potentially could send NOTIFICATION here.....
     sndrunning = 0;
   };
@@ -366,11 +364,7 @@ void *session(void *x) {
     setsockopt(sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
     bufferInit(&sb, sock, BUFFSIZE, TIMEOUT);
 
-    // char * m =
-    // bgpopen(65001,180,htonl(inet_addr("192.168.122.123")),"020641040000fde8");
-    char *m = bgpopen(
-        sd->as, HOLDTIME, htonl(localip),
-        NULL); // let the code build the optional parameter :: capability
+    char *m = bgpopen( sd->as, HOLDTIME, htonl(localip), NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
     FLAGS(sock, __FILE__, __LINE__);
     (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
@@ -378,10 +372,10 @@ void *session(void *x) {
 
     do
       msgtype = getBGPMessage(&sb); // this is expected to be an Open
-    while (msgtype == 0);
+    while (msgtype == BGPTIMEOUT);
 
-    report(1, msgtype);
-    if (1 != msgtype)
+    report(BGPOPEN, msgtype);
+    if (BGPOPEN != msgtype)
       goto exit;
 
     FLAGS(sock, __FILE__, __LINE__);
@@ -391,10 +385,10 @@ void *session(void *x) {
 
     do
       msgtype = getBGPMessage(&sb); // this is expected to be a Keepalive
-    while (msgtype == 0);
+    while (msgtype == BGPTIMEOUT);
 
-    report(4, msgtype);
-    if (4 != msgtype)
+    report(BGPKEEPALIVE, msgtype);
+    if (BGPKEEPALIVE != msgtype)
       goto exit;
 
     pthread_t thrd;
@@ -405,33 +399,32 @@ void *session(void *x) {
       slp = initlogrecord(sd->tidx, tid);
 
     char *errormsg = "unknown error";
-    //char errormsg[] = "unknown error";
+
     while (1) {
       if ( (0 == sndrunning) && (sd->role == ROLESENDER)) {
         goto exit;
       };
       msgtype = getBGPMessage(&sb); // keepalive or updates from now on
       switch (msgtype) {
-      case 2: // Update
+      case BGPTIMEOUT: // this is an idle recv timeout event
         break;
-      case 4: // Keepalive
+      case BGPUPDATE: // Update
+        break;
+      case BGPKEEPALIVE: // Keepalive
         FLAGS(sock, __FILE__, __LINE__);
-        (0 < send(sock, keepalive, 19, 0)) ||
-            die("Failed to send keepalive to peer");
+        (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
         FLAGS(sock, __FILE__, __LINE__);
         break;
-      case 0: // this is an idle recv timeout event
-        break;
-      case 3: // Notification
+      case BGPNOTIFICATION: // Notification
         fprintf(stderr, "%s: session: got Notification\n", tid);
-         errormsg = "got Notification";
+        errormsg = "got Notification";
         goto exit;
       default:
         if (msgtype < 0) { // all non message events except recv timeout
           fprintf(stderr, "%s: session: end of stream\n", tid);
           errormsg = "got end of stream";
         } else { // unexpected BGP message - unless BGP++ it must be an Open....
-          report(2, msgtype);
+          report(BGPUNKNOWN, msgtype);
           errormsg = "got unexpected BGP message";
         }
         goto exit;
