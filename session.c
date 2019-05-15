@@ -31,7 +31,6 @@
 void *session(void *x) {
   // from here on down all variables are function, and thus thread, local.
   struct sessiondata *sd = (struct sessiondata *)x;
-  slp_t slp = NULL;
 
   uint32_t localip, peerip;
 
@@ -351,6 +350,7 @@ void *session(void *x) {
       break;
     default:
       fprintf(stderr, "%s: session start - role=<unassigned>\n", tid);
+      goto exit;
     };
 
     getsockaddresses();
@@ -392,12 +392,18 @@ void *session(void *x) {
       goto exit;
 
     pthread_t thrd;
-    pthread_create(&thrd, NULL, sendthread, NULL);
-
-    if (sd->role != ROLESENDER)
+    slp_t slp = NULL;
+    if (sd->role == ROLESENDER)
+      pthread_create(&thrd, NULL, sendthread, NULL);
+    else 
       slp = initlogrecord(sd->tidx, tid);
 
+    int exitcode = 1;
     while (1) {
+      if ( (0 == sndrunning) && (sd->role == ROLESENDER)) {
+        exitcode = 0;
+        goto exit;
+      };
       msgtype = getBGPMessage(&sb); // keepalive or updates from now on
       switch (msgtype) {
       case 2: // Update
@@ -429,6 +435,7 @@ void *session(void *x) {
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
+    exit(exitcode);
   } // end of threadmain
 
   // effective start of 'main, i.e. function 'session'
