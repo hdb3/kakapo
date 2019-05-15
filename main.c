@@ -185,12 +185,12 @@ void endlog() {
   if (0 != LOGPATH) {
     time_t t = time(NULL);
     int tmp = asprintf(&sp,"curl -X PUT --data-binary @%s http://%s/%ld",LOGFILE,LOGPATH,t);
-    fprintf(stderr,"trying to send datafile with: %s\n",sp);
+    // fprintf(stderr,"trying to send datafile with: %s\n",sp);
     int res = system(sp);
     if (0 == res)
-      fprintf(stderr,"success\n");
+      fprintf(stderr,"logging complete, results uploaded to http://%s/%ld\n",LOGPATH,t);
     else
-      fprintf(stderr,"fail(%d)\n",res);
+      fprintf(stderr,"logging complete, failed to upload results to http://%s/%ld (%d)\n",LOGPATH,t,res);
     free(sp);
   };
   exit(0);
