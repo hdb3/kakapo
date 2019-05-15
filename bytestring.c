@@ -5,10 +5,16 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/socket.h>
 
-void sendbs(int sock, struct bytestring msg) {
-  assert(0 < send(sock, msg.data, msg.length, 0));
+int sendbs(int sock, struct bytestring msg) {
+  int res = send(sock, msg.data, msg.length, 0);
+  if (res != msg.length) {
+    fprintf(stderr,"send failure, res=%d, errno=%d\n",res,errno);
+    return 0;
+  } else
+    return 1;
 };
 
 struct bytestring empty = {0, 0};

@@ -316,10 +316,8 @@ void *session(void *x) {
       gettime(&tstart);
       int usn;
       for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-        sendbs(sock,
-               update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty,
-                      iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX,
-                                                     cyclenumber + 1, 0})));
+        if ( 0 == sendbs(sock, update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}))))
+          return -1;
         // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1,
         // sd->as, 0})));
       };
