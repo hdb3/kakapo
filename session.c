@@ -56,16 +56,12 @@ void *session(void *x) {
 
     memset(&sockaddr, 0, SOCKADDRSZ);
     socklen = SOCKADDRSZ;
-    ((0 == getsockname(sd->sock, &sockaddr, &socklen) &&
-      (socklen == SOCKADDRSZ)) ||
-     die("Failed to find local address"));
+    ((0 == getsockname(sd->sock, &sockaddr, &socklen) && (socklen == SOCKADDRSZ)) || die("Failed to find local address"));
     localip = sockaddr.sin_addr.s_addr;
 
     memset(&sockaddr, 0, SOCKADDRSZ);
     socklen = SOCKADDRSZ;
-    ((0 == getpeername(sd->sock, &sockaddr, &socklen) &&
-      (socklen == SOCKADDRSZ)) ||
-     die("Failed to find peer address"));
+    ((0 == getpeername(sd->sock, &sockaddr, &socklen) && (socklen == SOCKADDRSZ)) || die("Failed to find peer address"));
     peerip = sockaddr.sin_addr.s_addr;
 
     fprintf(stderr, "%s: connection info: %s/", tid, fromHostAddress(localip));
@@ -127,10 +123,7 @@ void *session(void *x) {
     struct in_addr routerid = (struct in_addr){*(uint32_t *)(msg + 5)};
     unsigned char opl = *(unsigned char *)(msg + 9);
     unsigned char *hex = toHex(msg + 10, opl);
-    fprintf(stderr,
-            "%s: BGP Open: as =  %d, routerid = %s , holdtime = %d, opt params "
-            "= %s\n",
-            tid, as, inet_ntoa(routerid), holdtime, hex);
+    fprintf(stderr, "%s: BGP Open: as =  %d, routerid = %s , holdtime = %d, opt params = %s\n", tid, as, inet_ntoa(routerid), holdtime, hex);
     free(hex);
   };
 
@@ -160,8 +153,7 @@ void *session(void *x) {
         offset += 5;
       else {
         unsigned char *hex = toHex(nlri, length);
-        fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count,
-                length, hex);
+        fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count, length, hex);
         assert(0);
       }
       if ((1 == VERBOSE) && (offset < length))
@@ -171,8 +163,7 @@ void *session(void *x) {
     // debug only
     if (offset != length) {
       unsigned char *hex = toHex(nlri, length);
-      fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count,
-              length, hex);
+      fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count, length, hex);
     }
     assert(offset == length);
     return count;
@@ -206,10 +197,7 @@ void *session(void *x) {
       uc = 0;
 
     if (1 == VERBOSE)
-      fprintf(stderr,
-              "%s: BGP Update: withdrawn count =  %d, path attributes length = "
-              "%d , NLRI count = %d\n",
-              tid, wc, tpal, uc);
+      fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n", tid, wc, tpal, uc);
 
     if (ROLESENDER != sd->role)
       updatelogrecord(slp, uc, wc, &sb.rcvtimestamp);
@@ -280,13 +268,11 @@ void *session(void *x) {
       if (expected == got) {
         fprintf(stderr, "%s: session: OK, got %s\n", tid, showtype(expected));
       } else {
-        fprintf(stderr, "%s: session: expected %s, got %s (%d)\n", tid,
-                showtype(expected), showtype(got), got);
+        fprintf(stderr, "%s: session: expected %s, got %s (%d)\n", tid, showtype(expected), showtype(got), got);
       }
     } else {
       if (expected != got)
-        fprintf(stderr, "%s: session: expected %s, got %s (%d)\n", tid,
-                showtype(expected), showtype(got), got);
+        fprintf(stderr, "%s: session: expected %s, got %s (%d)\n", tid, showtype(expected), showtype(got), got);
     }
   }
 
@@ -319,7 +305,7 @@ void *session(void *x) {
       gettime(&tstart);
       int usn;
       for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-        if ( 0 == sendbs(sock, update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}))))
+        if (0 == sendbs(sock, update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}))))
           return -1;
         // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
       };
@@ -334,7 +320,7 @@ void *session(void *x) {
     };
     sndrunning = 1;
     timedloopms(SLEEP, sendupdates);
-    
+
     senderwait();
     endlog(NULL);
 
@@ -364,7 +350,7 @@ void *session(void *x) {
     setsockopt(sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
     bufferInit(&sb, sock, BUFFSIZE, TIMEOUT);
 
-    char *m = bgpopen( sd->as, HOLDTIME, htonl(localip), NULL); // let the code build the optional parameter :: capability
+    char *m = bgpopen(sd->as, HOLDTIME, htonl(localip), NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
     FLAGS(sock, __FILE__, __LINE__);
     (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
@@ -379,8 +365,7 @@ void *session(void *x) {
       goto exit;
 
     FLAGS(sock, __FILE__, __LINE__);
-    (0 < send(sock, keepalive, 19, 0)) ||
-        die("Failed to send keepalive to peer");
+    (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
     FLAGS(sock, __FILE__, __LINE__);
 
     do
@@ -395,13 +380,14 @@ void *session(void *x) {
     if (sd->role == ROLESENDER) {
       sndrunning = 1;
       pthread_create(&thrd, NULL, sendthread, NULL);
-    } else 
+    } else
       slp = initlogrecord(sd->tidx, tid);
 
     char *errormsg = "unknown error";
 
     while (1) {
-      if ( (0 == sndrunning) && (sd->role == ROLESENDER)) {
+      if ((0 == sndrunning) && (sd->role == ROLESENDER)) {
+        errormsg = "sender exited unexpectedly";
         goto exit;
       };
       msgtype = getBGPMessage(&sb); // keepalive or updates from now on
