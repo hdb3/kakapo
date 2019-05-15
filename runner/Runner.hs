@@ -60,8 +60,8 @@ start topic (repo , app ) sutHostName kakapoHostName = do
     -- let kakapoDocker = dockerRun kakapoHostName (dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/sbin/kakapo"]) "hdb3/kakapo" 
     let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
-    kakapoDocker [ "ip" , "address" , "add" , "172.18.0.11/32" , "dev" , "lo"]
-    kakapoDocker [ "ip" , "address" , "add" , "172.18.0.12/32" , "dev" , "lo"]
+    kakapoDocker [ "ip" , "address" , "add" , "172.18.0.21/32" , "dev" , "lo"]
+    kakapoDocker [ "ip" , "address" , "add" , "172.18.0.22/32" , "dev" , "lo"]
     runExperiment kakapoDocker sutHostName topic sysinfo app
     sut ["kill",app]
 
@@ -92,7 +92,7 @@ runExperiment rsh sut topic sysinfo app = do
              ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
              ("CYCLECOUNT" , "10 "),
-             ("NEXTHOP" , "172.18.0.11 ")
+             ("NEXTHOP" , "172.18.0.21 ")
            ]
 
         kvSet k v = map (\(a,b) -> if a == k then (a,v) else (a,b) )
@@ -101,8 +101,11 @@ runExperiment rsh sut topic sysinfo app = do
 
         blockGen bsRange gsRange count base = [ expandParameters $ kvSet "CYCLECOUNT" (show count) $ kvSet "GROUPSIZE" ( show gs ) $ kvSet "BLOCKSIZE" ( show bs ) base | bs <- bsRange , gs <- gsRange ]
 
-        --buildCommand parameters = parameters ++ [ ",172.18.0.11,64504" , ",172.18.0.12,64504" ]
-        buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , ",172.18.0.11,64504" , ",172.18.0.12,64504" ]
+        -- kakapo in passive mode:
+        --buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , ",172.18.0.11,64504" , ",172.18.0.12,64504" ]
+
+        -- kakapo in active mode:
+        buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , "172.18.0.13,172.18.0.21,64504" , "172.18.0.13,172.18.0.22,64504" ]
 
     let (b,g,c) = getTopic topic
     mapM_ ( rsh . buildCommand ) ( blockGen b g c base )
