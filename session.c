@@ -25,7 +25,6 @@
 #include "session.h"
 #include "stats.h"
 
-#define MAXPENDING 5 // Max connection requests
 #define BUFFSIZE 0x10000
 
 void *session(void *x) {
@@ -33,6 +32,7 @@ void *session(void *x) {
   struct sessiondata *sd = (struct sessiondata *)x;
 
   uint32_t localip, peerip;
+  slp_t slp = NULL;
 
   int i, msgtype;
   struct sockbuf sb;
@@ -291,6 +291,7 @@ void *session(void *x) {
 
       struct timespec tstart, tend;
 
+    // sd->role test probably redundant now...
       if ((MAXBURSTCOUNT == 0) || (sd->role == ROLELISTENER))
         return -1;
 
@@ -301,10 +302,12 @@ void *session(void *x) {
       };
 
       gettime(&tstart);
+    // sd->role test probably redundant now...
       if ((0 == seq) && (sd->role == ROLESENDER))
         startlog(sd->tidx, tid, &tstart);
 
       uint32_t logseq;
+    // sd->role test probably redundant now...
       if (sd->role == ROLESENDER)
         logseq = senderwait();
 
@@ -322,6 +325,7 @@ void *session(void *x) {
       };
       gettime(&tend);
 
+    // sd->role test probably redundant now...
       if (sd->role == ROLESENDER)
         sndlog(sd->tidx, tid, logseq, &tstart, &tend);
 
@@ -332,10 +336,12 @@ void *session(void *x) {
     };
     sndrunning = 1;
     timedloopms(SLEEP, sendupdates);
+    // sd->role test probably redundant now...
     if (sd->role == ROLESENDER) {
       senderwait();
-      endlog();
+      endlog(NULL);
     };
+    // potentially could send NOTIFICATION here.....
     sndrunning = 0;
   };
 
@@ -355,8 +361,9 @@ void *session(void *x) {
 
     getsockaddresses();
 
-    int one = one;
+    int one = 1;
     setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
+    one = 1;
     setsockopt(sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
     bufferInit(&sb, sock, BUFFSIZE, TIMEOUT);
 
@@ -392,16 +399,15 @@ void *session(void *x) {
       goto exit;
 
     pthread_t thrd;
-    slp_t slp = NULL;
     if (sd->role == ROLESENDER)
       pthread_create(&thrd, NULL, sendthread, NULL);
     else 
       slp = initlogrecord(sd->tidx, tid);
 
-    int exitcode = 1;
+    char *errormsg = "unknown error";
+    //char errormsg[] = "unknown error";
     while (1) {
       if ( (0 == sndrunning) && (sd->role == ROLESENDER)) {
-        exitcode = 0;
         goto exit;
       };
       msgtype = getBGPMessage(&sb); // keepalive or updates from now on
@@ -418,24 +424,29 @@ void *session(void *x) {
         break;
       case 3: // Notification
         fprintf(stderr, "%s: session: got Notification\n", tid);
+         errormsg = "got Notification";
         goto exit;
       default:
         if (msgtype < 0) { // all non message events except recv timeout
           fprintf(stderr, "%s: session: end of stream\n", tid);
+          errormsg = "got end of stream";
         } else { // unexpected BGP message - unless BGP++ it must be an Open....
           report(2, msgtype);
+          errormsg = "got unexpected BGP message";
         }
         goto exit;
       }
     };
   exit:
     closelogrecord(slp, sd->tidx); // closelogrecord is safe in case that initlogrecord was not called...
-    if (1 == sndrunning)           // this guards against calling pthread_cancel on a thread which already exited
+    if (1 == sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
       pthread_cancel(thrd);
+    };
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
-    exit(exitcode);
+    // NB - endlog calls exit()!
+    endlog(errormsg);
   } // end of threadmain
 
   // effective start of 'main, i.e. function 'session'

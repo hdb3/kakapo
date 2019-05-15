@@ -78,6 +78,11 @@ void startsession(int sock, int as) {
     sd->role = ROLELISTENER;
   else if (2 == tidx)
     sd->role = ROLESENDER;
+  else {
+    // only ever spawn two threads....
+    pthread_mutex_unlock(&mutex_tidx);
+    return; // don't really care about unlock, this is not a happy path...
+  };
   pthread_t thrd;
   pthread_create(&thrd, NULL, session, sd);
   pthread_mutex_unlock(&mutex_tidx);
@@ -178,9 +183,10 @@ void getllienv(char *name, long long int *tgt) {
 };
 
 FILE *logfile;
-void endlog() {
+void endlog(char *error) {
   char *sp;
-  fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
+  fprintf(logfile, "HDR , STOP, TIME, ERROR\nSTOP,%s,%s\n", shownow(), ((NULL==error) ? "" : error)) ;
+  // fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
   fclose(logfile);
   if (0 != LOGPATH) {
     time_t t = time(NULL);
@@ -193,7 +199,12 @@ void endlog() {
       fprintf(stderr,"logging complete, failed to upload results to http://%s/%ld (%d)\n",LOGPATH,t,res);
     free(sp);
   };
-  exit(0);
+  if (NULL==error)
+    exit(0);
+  else {
+    fprintf(stderr,"abnormal terminatiob, error msg: %s\n",error);
+    exit(1);
+  };
 };
 
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
