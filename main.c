@@ -202,7 +202,7 @@ void endlog(char *error) {
   if (NULL==error)
     exit(0);
   else {
-    fprintf(stderr,"abnormal terminatiob, error msg: %s\n",error);
+    fprintf(stderr,"abnormal termination, error msg: %s\n",error);
     exit(1);
   };
 };
