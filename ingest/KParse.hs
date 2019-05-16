@@ -13,14 +13,15 @@ import System.Environment(getArgs)
 main = do
    args <- getArgs
    if null args then do
-       t <- T.readFile "1557840965"
+       t <- T.getContents
        either (\s -> putStrLn $ "fail " ++ s) print (parseOnly file t)
     else
         mapM_ parseFile args
 
 parseFile f = do
    t <- T.readFile f
-   either (\s -> die $ "failed to parse " ++ f ++ " (" ++ s ++ ")")  (\a -> return () ) (parseOnly file t)
+   either (\s -> putStrLn $ "failed to parse " ++ f ++ " (" ++ s ++ ")")  (\a -> return () ) (parseOnly file t)
+   --either (\s -> die $ "failed to parse " ++ f ++ " (" ++ s ++ ")")  (\a -> return () ) (parseOnly file t)
    
 records ::  Parser [[ Text ]]
 records = anyFields `sepBy` char '\n'
@@ -35,7 +36,7 @@ anyField = do
 quotedField :: Parser Text
 quotedField = do
     char quote
-    takeTill isQuote <* skip isQuote <* takeTill endOfField
+    takeTill isQuote <* char quote <* takeTill endOfField
 
 plainField :: Parser Text
 plainField = T.stripEnd <$> takeTill endOfField
@@ -48,7 +49,7 @@ field :: Text -> Parser Text
 field t = string t <* takeTill endOfField
 
 record :: Text -> Parser [ Text ]
-record s = string s *> takeTill endOfField *> char ',' *> anyFields <* char '\n'
+record s = name ( "record " ++ T.unpack s) $ string s *> skipSpace *> char ',' *> anyFields <* Data.Attoparsec.Text.takeWhile ('\n'==)
 
 {- -- SIMPLE EXAMPLE USAGE 
 section = do
@@ -73,7 +74,7 @@ singleLineSection l = name "singleLineSection parser" $ do
 multiLineSection :: Text -> Parser [(Text,[Text])]
 multiLineSection l = name "multiLineSection parser" $ do
     keys <- record "HDR"
-    values <- many1 (record l)
+    values <- many' (record l)
     return $ zip keys (transpose values)
 
 file :: Parser ( [(Text,Text)] , [(Text,[Text])], [(Text,Text)])
