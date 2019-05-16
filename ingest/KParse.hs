@@ -8,7 +8,6 @@ import qualified Data.Text.IO as T
 import Data.Attoparsec.Text
 import Control.Applicative((<|>))
 import System.Exit(die)
-import Control.Monad(void)
 import System.Environment(getArgs)
 
 main = do
