@@ -16,4 +16,9 @@ executable ingest
   build-depends:       base ^>=4.12.0, text ^>=1.2.3, containers ^>=0.6.0, gnuplot ^>=0.5.6, hashable ^>=1.2.7, directory ^>= 1.3.3, extra ^>= 1.6.15, filepath ^>= 1.4.2, unix ^>= 2.7.2
   default-language:    Haskell2010
 
-
+executable kparse
+  main-is:             KParse.hs
+  other-modules:       KakapoData
+  other-extensions:    OverloadedStrings
+  build-depends:       base ^>=4.12.0, text ^>=1.2.3, attoparsec ^>=0.13.2
+  default-language:    Haskell2010
