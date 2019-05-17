@@ -2,48 +2,23 @@
 module Stages where
 import Data.Text(Text)
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Data.Maybe(fromJust,fromMaybe)
 import Data.Either(partitionEithers)
 import Data.List(partition)
 import Data.List.Extra(nubOn)
 import Control.Monad(when)
-import Control.Monad.Extra(concatMapM)
-import System.Directory(listDirectory)
-import System.Posix.Files(getFileStatus,isRegularFile,isDirectory,fileAccess)
-import System.FilePath(combine)
-import System.IO.Error(catchIOError)
 import System.IO(stderr,hPutStrLn)
 import System.Environment(getArgs)
 import Sections(Section,getSections,addToHeader,addHASH)
+import Paths
 
 stageOne :: [String] -> IO [String]
 -- the output is guaranteed to be names of regular files
-stageOne = concatMapM stageOneA
-    where
-    stageOneA :: String -> IO [String]
-    -- if it is a regular file, return itself
-    -- if it is a directory, use itself recursively
-    stageOneA path = do
-        status <- getFileStatus path
-        if isRegularFile status then
-            return [ path ]
-        else if isDirectory status then
-            map (combine path) <$> listDirectory path >>= concatMapM stageOneA 
-        else return []
-
+stageOne = getFiles
 stageTwo :: String -> IO (String,Text)
 -- read files and deliver contents paired with name
 -- silently pass over inaccessible and invalid Text content
--- TODO make return type Either and warn about read failures (use tryIOError)
-stageTwo path = do
-    isReadable <- fileAccess path True False False
-    if isReadable
-    then do
-        content <- catchIOError ( T.readFile path )
-                                (\_ -> return T.empty) 
-        return (path,content)
-    else return (path,T.empty)
+stageTwo = getContent
 
 stageThree :: (String,Text) -> (String,[Section])
 -- stageThree does the textual parsing for fields based on comma seprators and quote marks
@@ -81,7 +56,7 @@ doCycleCheck krecs = do
         ( do hPutStrLn stderr $ "complete/incomplete count: " ++ show (length complete, length incomplete)
              -- this may be useful on occasion, but rarely, so commented in the absence of a verbose flag
              --mapM_ print $ map (\krec -> (cycleComp krec , krec)) incomplete
-             mapM_ print $ map (hrV1SOURCE . krecHeader ) incomplete
+             mapM_ (print . hrV1SOURCE . krecHeader) incomplete
         )
    return complete
     where
@@ -94,7 +69,7 @@ doCycleCheck krecs = do
             where 
                 -- 'values' is a list of columns an dheaders - we look for the SEQ columns merely becuase it should always be present
                 --     however, all we want is to know the length of any column, as they are all equal length
-                lookupSEQ values = fromMaybe [] ( lookup "SEQ" values)
+                lookupSEQ vals = fromMaybe [] ( lookup "SEQ" vals)
 
 stageFive :: ( [(T.Text , T.Text) ] , a ) -> Either String ( GKRecV1 a)
 stageFive (header,values) =

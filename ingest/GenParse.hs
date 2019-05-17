@@ -11,6 +11,7 @@ import Data.Attoparsec.Text
 import Control.Applicative((<|>))
 import System.Exit(die)
 import System.Environment(getArgs)
+import Paths(getFiles) -- getFiles :: [String] -> IO [String] -- a list of file names taken recursively from a list of paths
 
 -- Compile time options:
 
@@ -34,8 +35,9 @@ main = do
    if null args then do
        t <- T.getContents
        either (\s -> putStrLn $ "fail " ++ s) print (parseOnly parser t)
-    else
-        mapM_ parseFile args
+    else do
+        names <- getFiles args
+        mapM_ parseFile names
     where
         parseFile f = do
            t <- T.readFile f
