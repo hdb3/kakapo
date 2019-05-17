@@ -14,12 +14,6 @@ import System.Environment(getArgs)
 import GenParse(getData,Dict,Metrics)
 import Summary
 
--- Compile time options:
-
--- what to do with well formed files
---action _ = return ()
-action = print
-
 -- continue after failure?
 barf = putStrLn
 --barf = die
