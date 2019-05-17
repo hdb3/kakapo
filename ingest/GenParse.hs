@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings #-}
-module Main where
+module GenParse where
 
 import Data.Either(fromRight)
 import Data.Maybe(fromMaybe,isJust,fromJust)
@@ -13,40 +13,26 @@ import System.Exit(die)
 import System.Environment(getArgs)
 import Paths(getFiles) -- getFiles :: [String] -> IO [String] -- a list of file names taken recursively from a list of paths
 
--- Compile time options:
-
--- what to do with well formed files
---action _ _ = return ()
---action f r = putStrLn f >> print r
-action f (h,m,t) = putStrLn f >> print (expandDESCfield h, m, t)
---action f r = print $ check f r
-
--- whether to use the general parser (produces Text values)
--- or the format specific version (Int and Doubles)
-parser = mfile -- custom, numeric
---parser = file -- Text only
-
--- continue after failure?
-barf = putStrLn
---barf = die
-
-main = do
+getData :: IO [Either String (Dict, Metrics)]
+getData = do
    args <- getArgs
-   if null args then do
-       t <- T.getContents
-       either (\s -> putStrLn $ "fail " ++ s) print (parseOnly parser t)
+   if null args then
+       die "please specify a path or paths to search for kakapo data files"
     else do
         names <- getFiles args
-        mapM_ parseFile names
+        mapM parseFile names
     where
+        expandDESCfields _ ( Right (h,m,t)) = Right (expandDESCfield h, m)
+        expandDESCfields fname ( Left s ) = Left $ "Parse fail in " ++ fname ++ " : " ++ s 
         parseFile f = do
            t <- T.readFile f
-           either (\s -> barf $ "failed to parse " ++ f ++ " (" ++ s ++ ")")  ( action f) (parseOnly parser t)
+           return $ expandDESCfields f $ parseOnly mfile t
 
-check :: String -> (Dict,Metrics,Dict) -> Either String String
-check fname (ks,mx,_) = if cyclecount ks == length mx
-                        then Right $ fname ++ " OK"
-                        else Left $ fname ++ " failed check: " ++ show (cyclecount ks) ++ " /= " ++ show (length mx)
+-- not used but perhaps should be unless we export the filename
+check :: String -> (Dict,Metrics) -> Either String String
+check fname (ks,mx) = if cyclecount ks == length mx
+                      then Right $ fname ++ " OK"
+                      else Left $ fname ++ " failed check: " ++ show (cyclecount ks) ++ " /= " ++ show (length mx)
     where
         cyclecount = read . T.unpack . fromJust . lookup "CYCLECOUNT"
 
