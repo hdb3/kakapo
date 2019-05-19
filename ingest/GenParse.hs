@@ -13,13 +13,18 @@ import System.Exit(die)
 import System.Environment(getArgs)
 import Paths(getFiles) -- getFiles :: [String] -> IO [String] -- a list of file names taken recursively from a list of paths
 
+type Metrics = [(Int,Double,Double,Double,Double)]
+type Dict = [(Text,Text)]
+type Sample = (Dict, Metrics)
+type Samples = [Sample]
+
 getData :: IO [Either String (Dict, Metrics)]
 getData = do
    args <- getArgs
    if null args then
-       die "please specify a path or paths to search for kakapo data files"
+       die "please specify a path to search for kakapo data files"
     else do
-        names <- getFiles args
+        names <- getFiles [ head args ]
         mapM parseFile names
     where
         expandDESCfields _ ( Right (h,m,t)) = Right (expandDESCfield h, m)
@@ -42,9 +47,6 @@ mfile = name "mfile parser" $ do
     datas <- metrics
     stop <- singleLineSection "STOP"
     return (start, datas, stop)
-
-type Metrics = [(Int,Double,Double,Double,Double)]
-type Dict = [(Text,Text)]
 
 metrics :: Parser Metrics
 metrics = name "metrics" $ record "HDR" >> many' metric

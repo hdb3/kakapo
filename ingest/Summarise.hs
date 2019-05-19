@@ -14,6 +14,7 @@ import System.Environment(getArgs)
 import Control.Arrow(second)
 import GenParse(getData,Dict,Metrics)
 import Summary
+import Constraints
 
 -- continue after failure?
 barf = putStrLn
@@ -22,16 +23,28 @@ barf = putStrLn
 main = do
    (l,r) <- partitionEithers <$> getData
    mapM_ barf l
+   selectArgs <- tail <$> getArgs
+   let constraints = map getConstraint selectArgs
    let headers = concatMap fst r
        summary = Summary.summarise headers
-   analyse summary
+   if
+       null constraints
+   then
+       analyse summary
+   else do
+       putStrLn $ unlines $ map show constraints
+       selector <- buildSelector constraints
+       print (head r)
+       putStrLn ""
+       let t = Constraints.inner selector emptySelectResult (head r)
+       print t
 
 analyse :: [(Text, [(Text,Int)])] -> IO ()
 analyse hdrs = do
    --mapM_ print hdrs
-   let shdrs = sortOn fst $ remove ["START","TIME"] $ hdrs
-       sshdrs = map (second (sortOn snd)) shdrs
-   mapM_ print shdrs
+   let shdrs = sortOn fst $ remove ["START","TIME","UUID","VERSION"] $ hdrs
+       sshdrs = map (second (reverse . sortOn snd)) shdrs
+   --mapM_ print shdrs
    mapM_ putStrLn ( map display sshdrs)
 
    where
