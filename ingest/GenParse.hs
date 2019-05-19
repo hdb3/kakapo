@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GenParse where
 
 import Data.Either(fromRight)
@@ -145,8 +145,7 @@ isEquals = (equals ==)
 kvQuote = '\''
 isKVquote = (kvQuote ==)
 
-kvQuotedField = name "kvQuotedField" $ do
-    char kvQuote *> takeTill isKVquote <* char kvQuote
+kvQuotedField = name "kvQuotedField" $ char kvQuote *> takeTill isKVquote <* char kvQuote
 
 kvField = name "kvField" ( Data.Attoparsec.Text.takeWhile notSpace )
 
