@@ -80,9 +80,9 @@ getConstraint s = parseOnly parseConstraint $ T.pack s
 
 parseConstraint :: Parser (Text,Constraint)
 parseConstraint = do
-    key <- takeTill ('='==)
+    key <- takeTill1 ('='==)
     char '='
-    pred <- control <|> wildcard <|> single <|> range <|> index 
+    pred <- control <|> wildcard <|> single <|> range <|> emptyIndex <|> index
     return (key,pred)
 
 control = do
@@ -113,10 +113,11 @@ emptyIndex = do
     return $ Index []
 
 index = do
-    vx <- takeTill (','==) `sepBy1` char ','
+    vx <- takeTill1 (','==) `sepBy1` char ','
     requireEOT
     return $ Index vx
 
+takeTill1 p = takeWhile1 (not . p)
 requireEOT :: Parser ()
 requireEOT = do
     m <- peekChar
