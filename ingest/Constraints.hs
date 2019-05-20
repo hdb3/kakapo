@@ -30,6 +30,7 @@ isIndex ( Index _ ) = True
 isIndex _ = False
 
 isVariable c = isIndex c || isControl c
+isFixedPoint = not . isVariable
 
 type Selector =  Map.Map Text Constraint
 -- should be oblivious to the type of Metrics
@@ -44,8 +45,11 @@ showConstraint (t,Range l h) = T.unpack t ++ "in [" ++ show l ++ "-" ++ show h +
 showConstraint (t,Index []) = "multiplot over " ++ T.unpack t
 showConstraint (t,Index gx) = "multiplot over " ++ T.unpack t ++ " [" ++ intercalate "," ( map T.unpack gx) ++ "]"
 
-selectorVariables :: Selector -> [String]
-selectorVariables = map ( T.unpack . fst ) . filter ( isVariable . snd ) . Map.toList
+selectorVariables :: Selector -> [Text]
+selectorVariables = map fst . filter ( isVariable . snd ) . Map.toList
+
+selectorFixedPoints :: Selector -> [Text]
+selectorFixedPoints = map fst . filter ( isFixedPoint . snd ) . Map.toList
 
 type SelectResult = Map.Map Text [(Text,Sample)]
 

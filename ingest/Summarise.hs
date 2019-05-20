@@ -8,8 +8,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Map.Strict as Map
 import System.Environment(getArgs)
-import Control.Arrow(second)
-import GenParse(Samples,getData)
+import Control.Arrow(first,second)
+import GenParse(Dict,Samples,getData)
 import Summary
 import Constraints
 import Graph
@@ -17,7 +17,7 @@ import Graph
 -- continue after failure?
 barf = putStrLn
 --barf = die
-
+(+++) = T.append
 main = do
    (l,r) <- partitionEithers <$> getData
    mapM_ barf l
@@ -29,19 +29,27 @@ main = do
        analyse2 r
    else do
        let constraints = map getConstraint selectArgs
-       --putStrLn $ unlines $ map show constraints
        selector <- buildSelector constraints
-       let graphs = Map.toList $ Constraints.select selector r -- `asTypeOf` _
+       let graphs = Map.toList $ Constraints.select selector r
            graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") graphs
-           combinedHeaders = map snd $ concatMap snd graphs
+           variables = selectorVariables selector
+           fixedPoints = selectorFixedPoints selector
+           combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd graphs
  
        analyse combinedHeaders
        analyse2 combinedHeaders
        putStrLn $ "graphSummary\n" ++ unlines graphSummary 
        putStrLn $ "Selector is " ++ showSelector selector
-       putStrLn $ "Selector variables " ++ unwords ( selectorVariables selector)
+       putStrLn $ T.unpack $ "Selector variables " +++ T.unwords variables
+       putStrLn $ T.unpack $ "Selector fixed points " +++ T.unwords fixedPoints
 
        T.writeFile "plot.csv" $ allMeans graphs
+
+pruneHeaders :: [Text] -> Samples -> Samples
+pruneHeaders labels = map (first (pruneHeader labels) )
+    where
+    pruneHeader :: [Text] -> Dict -> Dict
+    pruneHeader labels = filter (not . flip elem labels . fst)
 
 analyse2 :: Samples -> IO ()
 analyse2 samples = do
@@ -63,12 +71,11 @@ analyse2 samples = do
 analyse :: Samples -> IO () 
 analyse samples = do
    let hdrs = Summary.summarise $ concatMap fst samples
-       sshdrs = map (second (reverse . sortOn snd)) $ sortOn fst hdrs
-       -- sshdrs = map (second (reverse . sortOn snd)) $ sortOn fst $ remove ["START","TIME","UUID","VERSION"] hdrs
-   mapM_ (putStrLn . display) sshdrs
+       sortedHeaders = map (second (reverse . sortOn snd)) $ sortOn fst hdrs
+   mapM_ (putStrLn . display) sortedHeaders
 
    where
-       remove ks = filter ( not . contains ks . fst )
-       contains set elt = elt `elem` set
+       --remove ks = filter ( not . contains ks . fst )
+       --contains set elt = elt `elem` set
        display (k,vs) = T.unpack k ++ " : " ++ show (length vs) ++ " { " ++ unwords ( map show' vs) ++ " }"
        show' (t,i) = T.unpack t ++ "[" ++ show i ++ "]"

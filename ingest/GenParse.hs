@@ -30,7 +30,8 @@ getData = do
         names <- getFiles [ head args ]
         mapM parseFile names
     where
-        expandDESCfields _ ( Right (h,m,t)) = Right (expandDESCfield h, m)
+        expandDESCfields fname ( Right (h,m,t)) = let size = length m in if size == 0 then Left $ "Parse failed size check in " ++ fname else Right (("SIZE",T.pack $ show size) : ("SOURCE",T.pack fname) : expandDESCfield h, m)
+        --expandDESCfields _ ( Right (h,m,t)) = Right (expandDESCfield h, m)
         expandDESCfields fname ( Left s ) = Left $ "Parse fail in " ++ fname ++ " : " ++ s 
         parseFile f = do
            t <- T.readFile f
