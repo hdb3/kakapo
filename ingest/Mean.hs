@@ -15,6 +15,16 @@ meanRSD sample =
            rsd   = sd / mean' 
         in (length sample, mean', sd, rsd)
 
+meanSD :: [Double] -> (Double,Double)
+meanSD = (\(_,m,sd,_) -> (m,sd)) . meanRSD
+
 sndLeast :: [Double] -> Double
 sndLeast sample | 1 < length sample = sort sample !! 1
                 | otherwise =  minimum sample
+
+
+maxMinMean  :: [Double] -> (Double,Double,Double)
+maxMinMean sample = ( mean sample , minimum sample , maximum sample )
+
+maxSDMinMean  :: [Double] -> (Double,Double,Double,Double)
+maxSDMinMean sample = let (_,mn,sd,_) = meanRSD sample in ( mn, sd, minimum sample , maximum sample )

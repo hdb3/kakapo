@@ -49,9 +49,24 @@ graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1
 
 standardGraph :: SelectResultList -> Text
 standardGraph = graph rtt mean
+   where
+   mean :: [Double] -> Text
+   mean = T.pack . show . Mean.mean
 
-mean :: [Double] -> Text
-mean = T.pack . show . Mean.mean
+sdGraph :: SelectResultList -> Text
+sdGraph = graph rtt sdMean
+   where
+   sdMean :: [Double] -> Text
+   sdMean = T.pack . (\(a,b) -> show a ++ " , " ++ show b ) . Mean.meanSD
+
+maxminGraph :: SelectResultList -> Text
+maxminGraph = graph rtt sdMean
+   where
+   sdMean :: [Double] -> Text
+   sdMean = T.pack . (\(a,b) -> show a ++ " , " ++ show b ) . Mean.meanSD
+
+allMeans  :: SelectResultList -> Text
+allMeans =  graph rtt  ( (\(a,b,c,d) -> T.pack $ intercalate " , " $ map show [a,b,c,d]) . Mean.maxSDMinMean)
 
 gnuplot :: Text -> IO()
 gnuplot _ = return ()

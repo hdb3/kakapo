@@ -41,7 +41,7 @@ main = do
        putStrLn $ "Selector is " ++ showSelector selector
        putStrLn $ "Selector variables " ++ unwords ( selectorVariables selector)
 
-       T.writeFile "plot.csv" $ standardGraph graphs
+       T.writeFile "plot.csv" $ allMeans graphs
 
 analyse2 :: Samples -> IO ()
 analyse2 samples = do
