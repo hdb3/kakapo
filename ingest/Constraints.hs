@@ -43,6 +43,9 @@ type SelectResult = Map.Map Text [(Text,Metrics)]
 emptySelectResult :: SelectResult
 emptySelectResult = Map.empty
 
+select :: Selector -> [Sample] -> SelectResult
+select selector = foldl (inner selector) emptySelectResult
+
 inner :: Selector -> SelectResult -> Sample -> SelectResult
 inner selector base (header,content) = let
     indexes = filter isIndex $ Map.elems selector
@@ -70,7 +73,6 @@ inner selector base (header,content) = let
         Just (Just control, Just index) -> if openIndexRequested || elem index enumeratedIndexes then Map.alter (g (control,content)) index base else base
 
 
--- --------------------------------------------------------------------
 type RawConstraint = Either String (Text, Constraint)
 
 getConstraint :: String -> RawConstraint
