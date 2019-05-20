@@ -5,12 +5,14 @@ import Data.Either(partitionEithers)
 import Data.List (sortOn,elem)
 import Data.Text(Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Data.Map.Strict as Map
 import System.Environment(getArgs)
 import Control.Arrow(second)
 import GenParse(Samples,getData)
 import Summary
 import Constraints
+import Graph
 
 -- continue after failure?
 barf = putStrLn
@@ -38,6 +40,8 @@ main = do
        putStrLn $ "graphSummary\n" ++ unlines graphSummary 
        putStrLn $ "Selector is " ++ showSelector selector
        putStrLn $ "Selector variables " ++ unwords ( selectorVariables selector)
+
+       T.writeFile "plot.csv" $ standardGraph graphs
 
 analyse2 :: Samples -> IO ()
 analyse2 samples = do

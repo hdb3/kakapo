@@ -18,6 +18,9 @@ type Dict = [(Text,Text)]
 type Sample = (Dict, Metrics)
 type Samples = [Sample]
 
+rtt :: Metrics -> [ Double ]
+rtt = map (\(_,x,_,_,_) -> x)
+
 getData :: IO [Either String (Dict, Metrics)]
 getData = do
    args <- getArgs
