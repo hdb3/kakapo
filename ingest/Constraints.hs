@@ -1,4 +1,4 @@
-{-# LAnGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Constraints where
 import Control.Monad(when)
 import Data.Attoparsec.Text
@@ -31,7 +31,7 @@ isIndex _ = False
 
 type Selector =  Map.Map Text Constraint
 -- should be oblivious to the type of Metrics
-type SelectResult = Map.Map Text [(Text,Metrics)]
+type SelectResult = Map.Map Text [(Text,Sample)]
 
 -- conttsraint application: transform an accumulator depending on the found constraint and given value
 -- logic: get the constraint (or Nothing)
@@ -47,7 +47,7 @@ select :: Selector -> [Sample] -> SelectResult
 select selector = foldl (inner selector) emptySelectResult
 
 inner :: Selector -> SelectResult -> Sample -> SelectResult
-inner selector base (header,content) = let
+inner selector base sample@(header,content) = let
     indexes = filter isIndex $ Map.elems selector
     indexNotRequested = null indexes
     openIndexRequested = not indexNotRequested && head indexes == Index []
@@ -69,8 +69,8 @@ inner selector base (header,content) = let
     in case accFinal of
         Nothing                         -> base
         Just (Nothing,_)                -> base
-        Just (Just control, Nothing)    -> if indexNotRequested then Map.alter (g (control,content)) "" base else base
-        Just (Just control, Just index) -> if openIndexRequested || elem index enumeratedIndexes then Map.alter (g (control,content)) index base else base
+        Just (Just control, Nothing)    -> if indexNotRequested then Map.alter (g (control,sample)) "" base else base
+        Just (Just control, Just index) -> if openIndexRequested || elem index enumeratedIndexes then Map.alter (g (control,sample)) index base else base
 
 
 type RawConstraint = Either String (Text, Constraint)

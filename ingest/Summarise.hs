@@ -5,6 +5,7 @@ import Data.Either(partitionEithers)
 import Data.List (sortOn,elem)
 import Data.Text(Text)
 import qualified Data.Text as T
+import qualified Data.Map.Strict as Map
 import System.Environment(getArgs)
 import Control.Arrow(second)
 import GenParse(Samples,getData)
@@ -30,12 +31,15 @@ main = do
        let constraints = map getConstraint selectArgs
        putStrLn $ unlines $ map show constraints
        selector <- buildSelector constraints
-       print (head r)
-       putStrLn ""
-       let --t = Constraints.inner selector emptySelectResult (head r)
-           tx = Constraints.select selector r
-       --print tx
-       analyse tx
+       --print (head r)
+       --putStrLn ""
+       let graphs = Map.toList $ Constraints.select selector r -- `asTypeOf` _
+           graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") graphs
+           combinedHeaders = map snd $ concatMap snd graphs
+ 
+       putStrLn $ "graphSummary\n" ++ unlines graphSummary 
+       analyse combinedHeaders
+       analyse2 combinedHeaders
 
 analyse2 :: Samples -> IO ()
 analyse2 samples = do
