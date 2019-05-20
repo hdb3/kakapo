@@ -4,7 +4,7 @@ import Control.Monad(when)
 import Data.Attoparsec.Text
 import Data.Text(Text)
 import qualified Data.Text as T
-import Data.List(elem)
+import Data.List(elem,intercalate)
 import Data.Maybe(isNothing)
 import Control.Applicative((<|>))
 import Data.Either(fromRight, partitionEithers)
@@ -29,8 +29,24 @@ isControl _ = False
 isIndex ( Index _ ) = True
 isIndex _ = False
 
+isVariable c = isIndex c || isControl c
+
 type Selector =  Map.Map Text Constraint
 -- should be oblivious to the type of Metrics
+showSelector :: Selector -> String
+showSelector = intercalate " , " . map showConstraint . Map.toList 
+
+showConstraint :: (Text, Constraint) -> String
+showConstraint (t,Control) = "Controlled Parameter:" ++ T.unpack t
+showConstraint (t,Any) = T.unpack t ++ "=*"
+showConstraint (t,Equality v) = T.unpack t ++ "==" ++ T.unpack v
+showConstraint (t,Range l h) = T.unpack t ++ "in [" ++ show l ++ "-" ++ show h ++ "]"
+showConstraint (t,Index []) = "multiplot over " ++ T.unpack t
+showConstraint (t,Index gx) = "multiplot over " ++ T.unpack t ++ " [" ++ intercalate "," ( map T.unpack gx) ++ "]"
+
+selectorVariables :: Selector -> [String]
+selectorVariables = map ( T.unpack . fst ) . filter ( isVariable . snd ) . Map.toList
+
 type SelectResult = Map.Map Text [(Text,Sample)]
 
 -- conttsraint application: transform an accumulator depending on the found constraint and given value

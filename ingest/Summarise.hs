@@ -23,23 +23,22 @@ main = do
    if
        null selectArgs
    then do
-       let summary = Summary.summarise $ concatMap fst r
-       --analyse summary
-       --putStrLn ""
+       analyse r
+       putStrLn ""
        analyse2 r
    else do
        let constraints = map getConstraint selectArgs
-       putStrLn $ unlines $ map show constraints
+       --putStrLn $ unlines $ map show constraints
        selector <- buildSelector constraints
-       --print (head r)
-       --putStrLn ""
        let graphs = Map.toList $ Constraints.select selector r -- `asTypeOf` _
            graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") graphs
            combinedHeaders = map snd $ concatMap snd graphs
  
-       putStrLn $ "graphSummary\n" ++ unlines graphSummary 
        analyse combinedHeaders
        analyse2 combinedHeaders
+       putStrLn $ "graphSummary\n" ++ unlines graphSummary 
+       putStrLn $ "Selector is " ++ showSelector selector
+       putStrLn $ "Selector variables " ++ unwords ( selectorVariables selector)
 
 analyse2 :: Samples -> IO ()
 analyse2 samples = do
@@ -47,7 +46,7 @@ analyse2 samples = do
         count = length samples
     putStrLn $ show count ++ " samples found"
     let nlabels = length hdrs
-    putStrLn $ show nlabels ++ " labels found"
+    putStrLn $ show nlabels ++ " metadata labels found"
     let pInvariant = (1 ==) . length . snd
         pUnassociated = ((count `div` 2) < ) . length . snd
         pVariable x = not ( pInvariant x) && not ( pUnassociated x)
