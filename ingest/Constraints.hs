@@ -49,12 +49,13 @@ selectorVariables = map ( T.unpack . fst ) . filter ( isVariable . snd ) . Map.t
 
 type SelectResult = Map.Map Text [(Text,Sample)]
 
--- conttsraint application: transform an accumulator depending on the found constraint and given value
+-- constraint application: transform an accumulator depending on the found constraint and given value
 -- logic: get the constraint (or Nothing)
 -- by case apply the constraint to the acc
 -- the acc is simply a Maybe tuple of Maybe Text, set initially to Just (Nothing,Nothing)
 -- match failure returns Nothing
 -- Control and Index matches update fst or snd respectively with Just.
+-- unmatched constraints are not detected, except for Control and Index
 
 emptySelectResult :: SelectResult
 emptySelectResult = Map.empty
@@ -138,9 +139,6 @@ requireEOT :: Parser ()
 requireEOT = do
     m <- peekChar
     if isNothing m then return() else fail "eot"
-
---newtype TSample a = TSample Text a
---type Sample = TSample Metrics
 
 buildSelector :: [ RawConstraint ] -> IO Selector
 buildSelector rawConstraints = do

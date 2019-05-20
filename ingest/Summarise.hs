@@ -20,8 +20,7 @@ main = do
    (l,r) <- partitionEithers <$> getData
    mapM_ barf l
    selectArgs <- tail <$> getArgs
-   if
-       null selectArgs
+   if null selectArgs
    then do
        analyse r
        putStrLn ""
