@@ -1,3 +1,4 @@
+{-#LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Data.Either(partitionEithers)
@@ -13,4 +14,4 @@ main = do
    mapM_ barf l
    let headers = concatMap fst r
        summary = Summary.summarise headers
-   mapM_ print summary
+   mapM_ print ( filter ( not . flip elem ["SOURCE","START","TIME"] . fst ) summary )

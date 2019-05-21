@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Constraints where
+import Control.Arrow(first,second)
 import Control.Monad(when)
 import Data.Attoparsec.Text
 import Data.Text(Text)
@@ -23,7 +24,7 @@ prove = do
     print $ getConstraint "AGGREGATE=+"
     putStrLn "Done"
 
-data Constraint = Control | Any | Equality Text | Range Int Int | Index [ Text ] | Aggregate | Select deriving ( Eq, Show )
+data Constraint = Control | Any | Equality Text | Range Int Int | Index [ Text ] | Select deriving ( Eq, Show )
 
 isControl Control = True
 isControl _ = False
@@ -90,8 +91,10 @@ inner selector base sample@(header,content) = let
     f ( Just (Equality t) )     x                  v = if t == v then x else Nothing
     f ( Just (Range low high) ) x                  v = if read ( T.unpack v) < low || read ( T.unpack v) > high then Nothing else x
 
-    g (control,sample) (Just m) = Just $ Map.insert control sample m
     g (control,sample) Nothing = Just $ Map.singleton control sample
+    g (control,sample) (Just m) = Just $ Map.insertWith h control sample m
+    h (newH,newM) (oldH,oldM) =  (newH,newM++oldM)
+
     in case accFinal of
         Nothing                         -> base
         Just (Nothing,_)                -> base
@@ -108,15 +111,10 @@ parseConstraint :: Parser (Text,Constraint)
 parseConstraint = do
     key <- takeTill1 ('='==)
     char '='
-    pred <- aggregate <|> select <|> control <|> wildcard <|> single <|> range <|> emptyIndex <|> index
+    pred <- select <|> control <|> wildcard <|> single <|> range <|> emptyIndex <|> index
     return (key,pred)
 
     where
-
-        aggregate = do
-            char '+'
-            requireEOT
-            return Aggregate
 
         select = do
             char '>'

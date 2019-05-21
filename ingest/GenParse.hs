@@ -19,7 +19,18 @@ type Sample = (Dict, Metrics)
 type Samples = [Sample]
 
 rtt :: Metrics -> [ Double ]
-rtt = map (\(_,x,_,_,_) -> x)
+rtt = map (\(_,x,_,_,_) -> x) . notSeq0
+
+rtt1 :: Metrics -> [ Double ]
+rtt1 = map (\(_,x,_,_,_) -> x) . isSeq0
+
+seq0 (x,_,_,_,_) = x == 0
+
+isSeq0 :: Metrics -> Metrics
+isSeq0 = filter seq0
+
+notSeq0 :: Metrics -> Metrics
+notSeq0 =  filter (not . seq0)
 
 getData :: IO [Either String (Dict, Metrics)]
 getData = do
