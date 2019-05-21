@@ -19,9 +19,11 @@ prove = do
     print $ getConstraint "EMPTYINDEX=,"
     print $ getConstraint "WILDCARD=*"
     print $ getConstraint "CONTROL=?"
+    print $ getConstraint "SELECT=>"
+    print $ getConstraint "AGGREGATE=+"
     putStrLn "Done"
 
-data Constraint = Control | Any | Equality Text | Range Int Int | Index [ Text ] deriving ( Eq, Show )
+data Constraint = Control | Any | Equality Text | Range Int Int | Index [ Text ] | Aggregate | Select deriving ( Eq, Show )
 
 isControl Control = True
 isControl _ = False
@@ -35,7 +37,7 @@ isFixedPoint = not . isVariable
 type Selector =  Map.Map Text Constraint
 -- should be oblivious to the type of Metrics
 showSelector :: Selector -> String
-showSelector = intercalate " , " . map showConstraint . Map.toList 
+showSelector = intercalate " , " . map showConstraint . Map.toList
 
 showConstraint :: (Text, Constraint) -> String
 showConstraint (t,Control) = "Controlled Parameter:" ++ T.unpack t
@@ -103,46 +105,58 @@ parseConstraint :: Parser (Text,Constraint)
 parseConstraint = do
     key <- takeTill1 ('='==)
     char '='
-    pred <- control <|> wildcard <|> single <|> range <|> emptyIndex <|> index
+    pred <- aggregate <|> select <|> control <|> wildcard <|> single <|> range <|> emptyIndex <|> index
     return (key,pred)
 
-control = do
-    char '?'
-    requireEOT
-    return Control
+    where
 
-wildcard = do
-    char '*'
-    requireEOT
-    return Any
+        aggregate = do
+            char '+'
+            requireEOT
+            return Aggregate
 
-single = do
-    match <- Data.Attoparsec.Text.takeWhile (notInClass "-,")
-    requireEOT
-    return $ Equality match
+        select = do
+            char '>'
+            requireEOT
+            return Select
 
-range = do
-    low <- decimal
-    char '-'
-    high <- decimal
-    requireEOT
-    return $ Range low high
+        control = do
+            char '?'
+            requireEOT
+            return Control
 
-emptyIndex = do
-    char ','
-    requireEOT
-    return $ Index []
+        wildcard = do
+            char '*'
+            requireEOT
+            return Any
 
-index = do
-    vx <- takeTill1 (','==) `sepBy1` char ','
-    requireEOT
-    return $ Index vx
+        single = do
+            match <- Data.Attoparsec.Text.takeWhile (notInClass "-,")
+            requireEOT
+            return $ Equality match
 
-takeTill1 p = takeWhile1 (not . p)
-requireEOT :: Parser ()
-requireEOT = do
-    m <- peekChar
-    if isNothing m then return() else fail "eot"
+        range = do
+            low <- decimal
+            char '-'
+            high <- decimal
+            requireEOT
+            return $ Range low high
+
+        emptyIndex = do
+            char ','
+            requireEOT
+            return $ Index []
+
+        index = do
+            vx <- takeTill1 (','==) `sepBy1` char ','
+            requireEOT
+            return $ Index vx
+
+        takeTill1 p = takeWhile1 (not . p)
+        requireEOT :: Parser ()
+        requireEOT = do
+            m <- peekChar
+            if isNothing m then return() else fail "eot"
 
 buildSelector :: [ RawConstraint ] -> IO Selector
 buildSelector rawConstraints = do
