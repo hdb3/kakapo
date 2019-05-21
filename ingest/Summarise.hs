@@ -30,7 +30,7 @@ main = do
    else do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
-       let graphs = Map.toList $ Constraints.select selector r
+       let graphs = map (second Map.toAscList) $ Map.toAscList $ Constraints.select selector r
            graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") graphs
            variables = selectorVariables selector
            fixedPoints = selectorFixedPoints selector
@@ -44,6 +44,7 @@ main = do
        putStrLn $ T.unpack $ "Selector fixed points " +++ T.unwords fixedPoints
 
        T.writeFile "plot.csv" $ allMeans graphs
+       --T.writeFile "plot.csv" $ standardGraph graphs
 
 pruneHeaders :: [Text] -> Samples -> Samples
 pruneHeaders labels = map (first (pruneHeader labels) )

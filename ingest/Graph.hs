@@ -42,7 +42,7 @@ graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1
         l3 = mapmap (second metric)
         l4 = mapmap (second reduction)
         l5 = map ( sortOn (readInt . fst))
-        l6 = T.intercalate "\n\n" . map T.unlines . mapmap (\(x,yx) -> x `T.append` " , " `T.append` yx)
+        l6 = T.intercalate "\n\n" . map T.unlines . mapmap (\(x,yx) -> x `T.append` " " `T.append` yx)
         mapmap = map . map
         readInt :: Text -> Int
         readInt = read . T.unpack
@@ -57,16 +57,16 @@ sdGraph :: SelectResultList -> Text
 sdGraph = graph rtt sdMean
    where
    sdMean :: [Double] -> Text
-   sdMean = T.pack . (\(a,b) -> show a ++ " , " ++ show b ) . Mean.meanSD
+   sdMean = T.pack . (\(a,b) -> show a ++ " " ++ show b ) . Mean.meanSD
 
 maxminGraph :: SelectResultList -> Text
 maxminGraph = graph rtt sdMean
    where
    sdMean :: [Double] -> Text
-   sdMean = T.pack . (\(a,b) -> show a ++ " , " ++ show b ) . Mean.meanSD
+   sdMean = T.pack . (\(a,b) -> show a ++ " " ++ show b ) . Mean.meanSD
 
 allMeans  :: SelectResultList -> Text
-allMeans =  graph rtt  ( (\(a,b,c,d) -> T.pack $ intercalate " , " $ map show [a,b,c,d]) . Mean.maxSDMinMean)
+allMeans =  graph rtt  ( (\(a,b,c,d) -> T.pack $ unwords $ map show [a,b,c,d]) . Mean.maxSDMinMean)
 
 gnuplot :: Text -> IO()
 gnuplot _ = return ()

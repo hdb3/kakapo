@@ -4,7 +4,7 @@ import Control.Monad(when)
 import Data.Attoparsec.Text
 import Data.Text(Text)
 import qualified Data.Text as T
-import Data.List(elem,intercalate)
+import Data.List(elem)
 import Data.Maybe(isNothing)
 import Control.Applicative((<|>))
 import Data.Either(fromRight, partitionEithers)
@@ -37,7 +37,8 @@ isFixedPoint = not . isVariable
 type Selector =  Map.Map Text Constraint
 -- should be oblivious to the type of Metrics
 showSelector :: Selector -> String
-showSelector = intercalate " , " . map showConstraint . Map.toList
+--showSelector = intercalate " , " . map showConstraint . Map.toList
+showSelector = unwords . map showConstraint . Map.toList
 
 showConstraint :: (Text, Constraint) -> String
 showConstraint (t,Control) = "Controlled Parameter:" ++ T.unpack t
@@ -45,7 +46,7 @@ showConstraint (t,Any) = T.unpack t ++ "=*"
 showConstraint (t,Equality v) = T.unpack t ++ "==" ++ T.unpack v
 showConstraint (t,Range l h) = T.unpack t ++ "in [" ++ show l ++ "-" ++ show h ++ "]"
 showConstraint (t,Index []) = "multiplot over " ++ T.unpack t
-showConstraint (t,Index gx) = "multiplot over " ++ T.unpack t ++ " [" ++ intercalate "," ( map T.unpack gx) ++ "]"
+showConstraint (t,Index gx) = "multiplot over " ++ T.unpack t ++ " [" ++ unwords ( map T.unpack gx) ++ "]"
 
 selectorVariables :: Selector -> [Text]
 selectorVariables = map fst . filter ( isVariable . snd ) . Map.toList
@@ -53,7 +54,9 @@ selectorVariables = map fst . filter ( isVariable . snd ) . Map.toList
 selectorFixedPoints :: Selector -> [Text]
 selectorFixedPoints = map fst . filter ( isFixedPoint . snd ) . Map.toList
 
-type SelectResult = Map.Map Text [(Text,Sample)]
+type SelectResult = Map.Map Text ( Map.Map Text Sample )
+--type SelectResult = Map.Map Text ( Map.Map Text [ Sample ] )
+--type SelectResult = Map.Map Text [(Text,Sample)]
 
 -- constraint application: transform an accumulator depending on the found constraint and given value
 -- logic: get the constraint (or Nothing)
@@ -87,8 +90,8 @@ inner selector base sample@(header,content) = let
     f ( Just (Equality t) )     x                  v = if t == v then x else Nothing
     f ( Just (Range low high) ) x                  v = if read ( T.unpack v) < low || read ( T.unpack v) > high then Nothing else x
 
-    g a (Just ax) = Just ( a:ax )
-    g a Nothing = Just [a]
+    g (control,sample) (Just m) = Just $ Map.insert control sample m
+    g (control,sample) Nothing = Just $ Map.singleton control sample
     in case accFinal of
         Nothing                         -> base
         Just (Nothing,_)                -> base
