@@ -37,7 +37,14 @@ renderCurve :: (Atom.C x, Atom.C y) => String -> String -> String -> Plot2D.T x 
 renderCurve title xLabel yLabel curve = void $ plotter $ Frame.cons ( frameSpec title xLabel yLabel ) curve 
 
 renderCurves :: (Atom.C x, Atom.C y) => String -> String -> String -> [ Plot2D.T x y ] -> IO ()
-renderCurves t x y = renderCurve t x y . mconcat 
+--renderCurves t x y = renderCurve t x y . mconcat 
+renderCurves t x y px = do
+    putStrLn $ show (length px) ++ " plots"
+    renderCurves' t x y px
+    putStrLn "done"
+
+renderCurves' :: (Atom.C x, Atom.C y) => String -> String -> String -> [ Plot2D.T x y ] -> IO ()
+renderCurves' t x y = renderCurve t x y . mconcat 
 
 makeCurve :: (Atom.C x, Atom.C y, Tuple.C x, Tuple.C y) => String -> [(x, y)] -> Plot2D.T x y
 makeCurve lineTitle points = lineSpec lineTitle <$> Plot2D.list Graph2D.points points

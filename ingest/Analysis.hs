@@ -18,7 +18,7 @@ import Control.Monad(unless)
 
 import Stages hiding (main)
 import Mean
-import GPlot hiding (main)
+import qualified GPlot hiding (main)
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: Text
                                          , blocksize , groupsize :: Int
@@ -67,6 +67,10 @@ main = do
             showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
             mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
 
+        else if "RAW" == args !! 4 then do
+                res = [ getRawGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
+                                                      b <- getArgFields' 2 , -- the control parameter to fix
+                                                      c <- getArgFields 3 ["RTT"] ]
         else do
             let getArgFields n dflt = if n < argc then  qFields (args !! n) else dflt
                 getArgFields' n = getArgFields n []
@@ -80,7 +84,6 @@ main = do
             putStrLn $ show (length res) ++ " graphs returned"
             plotLinear linearGraphs
             plotLog logGraphs
-
             return ()
     putStrLn "Done"
 
@@ -97,42 +100,10 @@ main = do
                    ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
                    s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
 
+    getGraph :: [KRecV1] -> String -> String -> String -> String -> String -> ([(Int, Double)], String, String, String, String, String)
 
     getGraph krecs headerDesc selector2 metric reduce linlog =
-    -- scope for validation: selector1 is either an index (Int) or full descriptor
-    --                                 in future should allow to specify a field selection like UUID
-    --                       selector is for now only the blocksize, but shortly alternatively groupsize, Int in either case
-        let 
-            fst3 (x,_,_) = x
-            selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
-            selector1 = maybe ( T.pack headerDesc )
-                              ( fst3 . (selection !!) )
-                              ( readMaybe headerDesc )
-
-            crit1 = ( selector1 == ) . hrV1DESC . krecHeader
-            crit2 = ( read selector2 == ) . hrV1GROUPSIZE . krecHeader
-
-            -- 'selected' is unrefined list of krecs
-            selected = filter crit1 $ filter crit2 krecs
-
-            -- for simple plots we need - just one parameter (say, BLOCKSIZE) from the header -- we assume all others are fixed!
-            --                          - and, some data points, for a single metric/observable, e.g. RTT, etc.
-            -- this constitutes a single graph, albeit plottable in different way and with different summations (means, etc)
-            -- Regradless, the data structure is [(Int,[Double])]
-
-
-            readFloat :: T.Text -> Double
-            readFloat s = read (T.unpack s) :: Double
-
-            getObservable' :: String -> KRecV1 -> [Double]
-            getObservable' s kx = map readFloat ( getObservable s kx )
-
-            getObservable :: String -> KRecV1 -> [Text]
-            getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
-
-
-            -- graph is the fully extracted raw sample set:  [(Int,[Double])]
-            graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' metric krec )) selected
+        let ( graph,_,_,_) = getRawGraph krecs headerDesc selector2 metric
             title = metric ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
 
             graphMean = map (second ( mean. tail) )
@@ -146,6 +117,34 @@ main = do
        in (path, T.unpack selector1, selector2, metric, reduce, linlog)
 
 
+    getRawGraph :: [KRecV1] -> String -> String -> String -> ([(Int,[Double])], String, String, String)
+
+    getRawGraph krecs headerDesc selector2 metric =
+        let 
+            fst3 (x,_,_) = x
+            selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
+            selector1 = maybe ( T.pack headerDesc )
+                              ( fst3 . (selection !!) )
+                              ( readMaybe headerDesc )
+
+            crit1 = ( selector1 == ) . hrV1DESC . krecHeader
+            crit2 = ( read selector2 == ) . hrV1GROUPSIZE . krecHeader
+
+            selected = filter crit1 $ filter crit2 krecs
+
+            readFloat :: T.Text -> Double
+            readFloat s = read (T.unpack s) :: Double
+
+            getObservable' :: String -> KRecV1 -> [Double]
+            getObservable' s kx = map readFloat ( getObservable s kx )
+
+            getObservable :: String -> KRecV1 -> [Text]
+            getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
+
+            graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' metric krec )) selected
+
+       in (graph, T.unpack selector1, selector2, metric )
+
 loglog :: [(Int,Double)] -> [(Double,Double)]
 loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
 
@@ -153,9 +152,9 @@ plotLog :: [([(Int,Double)], String, String, String, String, String)] -> IO ()
 plotLog gx | null gx = return()
            | otherwise = do
     putStrLn $ "plotLog: " ++ show (length gx ) ++ " paths"
-    renderCurves " (log plot)" "block size" "seconds" $ map getCurve gx
+    GPlot.renderCurves " (log plot)" "block size" "seconds" $ map getCurve gx
     where
-    getCurve (g, s1, s2 ,s3, s4, s5 ) = makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) ( loglog g)
+    getCurve (g, s1, s2 ,s3, s4, s5 ) = GPlot.makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) ( loglog g)
 
 plotLinear :: [([(Int,Double)], String, String, String, String, String)] -> IO ()
 plotLinear gx | null gx = return()
@@ -163,10 +162,10 @@ plotLinear gx | null gx = return()
     putStrLn $ "plotLinear: " ++ show (length gx ) ++ " paths"
     mapM_ plotLinear1 gx
     putStrLn ""
-    renderCurves " (linear plot)" "block size" "seconds" $ map getCurve gx
+    GPlot.renderCurves " (linear plot)" "block size" "seconds" $ map getCurve gx
     where
     plotLinear1 (g, s1, s2 ,s3, s4, s5 ) = putStrLn $ "          : " ++ show (length g) ++ " points " ++ s1 ++ "/" ++ s2 ++ "/" ++ s3 ++ "/" ++ s4 ++ "/" ++ s5
-    getCurve (g, s1, s2 ,s3, s4, s5 ) = makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) g
+    getCurve (g, s1, s2 ,s3, s4, s5 ) = GPlot.makeCurve ( s2 ++ "/" ++ s3 ++ "/" ++ s4 ) g
 
 
 collate :: [KRecV1] -> [(Text, Int, [KRecV1])]

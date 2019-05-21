@@ -32,6 +32,12 @@ isSeq0 = filter seq0
 notSeq0 :: Metrics -> Metrics
 notSeq0 =  filter (not . seq0)
 
+readData :: String -> IO Sample
+readData f = do
+    t <- T.readFile f
+    let Right (dict,metrics,_) = parseOnly mfile t
+    return  (expandDESCfield dict,metrics)
+
 getData :: IO [Either String (Dict, Metrics)]
 getData = do
    args <- getArgs
@@ -41,12 +47,16 @@ getData = do
         names <- getFiles [ head args ]
         mapM parseFile names
     where
-        expandDESCfields fname ( Right (h,m,t)) = let size = length m in if size == 0 then Left $ "Parse failed size check in " ++ fname else Right (("SIZE",T.pack $ show size) : ("SOURCE",T.pack fname) : expandDESCfield h, m)
-        --expandDESCfields _ ( Right (h,m,t)) = Right (expandDESCfield h, m)
-        expandDESCfields fname ( Left s ) = Left $ "Parse fail in " ++ fname ++ " : " ++ s 
         parseFile f = do
            t <- T.readFile f
            return $ expandDESCfields f $ parseOnly mfile t
+
+        expandDESCfields fname ( Left s ) = Left $ "Parse fail in " ++ fname ++ " : " ++ s 
+        expandDESCfields fname ( Right (h,m,t)) =
+            let size = length m
+            in if size == 0
+               then Left $ "Parse failed size check in " ++ fname
+               else Right (("SIZE",T.pack $ show size) : ("SOURCE",T.pack fname) : expandDESCfield h, m)
 
 -- not used but perhaps should be unless we export the filename
 check :: String -> (Dict,Metrics) -> Either String String
