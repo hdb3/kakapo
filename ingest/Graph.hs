@@ -1,12 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Graph where
-import Data.List(intercalate,sortOn)
+import Data.List(sortOn)
 import Data.Text(Text)
 import qualified Data.Text as T
-import qualified Data.Map.Strict as Map
 import Control.Arrow(second)
 
-import GenParse(Sample,Dict,Metrics,rtt)
+import GenParse(Sample,Metrics,rtt)
 import qualified Mean
 
 --type Dict = [(Text,Text)]

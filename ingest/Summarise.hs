@@ -2,7 +2,7 @@
 module Main where
 
 import Data.Either(partitionEithers)
-import Data.List (sortOn,elem)
+import Data.List (elem)
 import Data.Text(Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -24,9 +24,9 @@ main = do
    selectArgs <- tail <$> getArgs
    if null selectArgs
    then do
-       analyse r
+       fullReport ["SOURCE","START","TIME"] r
        putStrLn ""
-       analyse2 r
+       shortReport r
    else do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
@@ -36,8 +36,8 @@ main = do
            fixedPoints = selectorFixedPoints selector
            combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd graphs
  
-       analyse combinedHeaders
-       analyse2 combinedHeaders
+       fullReport ["SOURCE","START","TIME"] combinedHeaders
+       shortReport combinedHeaders
        putStrLn $ "graphSummary\n" ++ unlines graphSummary 
        putStrLn $ "Selector is " ++ showSelector selector
        putStrLn $ T.unpack $ "Selector variables " +++ T.unwords variables

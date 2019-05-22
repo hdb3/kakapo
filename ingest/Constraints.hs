@@ -1,17 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Constraints where
-import Control.Arrow(first,second)
-import Control.Monad(when)
 import Data.Attoparsec.Text
 import Data.Text(Text)
 import qualified Data.Text as T
 import Data.List(elem)
 import Data.Maybe(isNothing)
 import Control.Applicative((<|>))
-import Data.Either(fromRight, partitionEithers)
+import Data.Either(partitionEithers)
 import qualified Data.Map.Strict as Map
 import System.Exit(die)
-import GenParse(Metrics,Dict,Sample)
+import GenParse(Sample)
 
 prove = do
     print $ getConstraint "MATCH=B"

@@ -2,7 +2,7 @@
 module GenParse where
 
 import Data.Either(fromRight)
-import Data.Maybe(fromMaybe,isJust,fromJust)
+import Data.Maybe(isJust,fromJust)
 import Data.List (transpose)
 import Data.Text(Text)
 import qualified Data.Text as T
