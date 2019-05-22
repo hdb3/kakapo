@@ -24,9 +24,9 @@ main = do
    selectArgs <- tail <$> getArgs
    if null selectArgs
    then do
-       fullReport ["SOURCE","START","TIME"] r
+       fullReport "base" ["SOURCE","START","TIME"] r
        putStrLn ""
-       shortReport r
+       shortReport "base" r
    else do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
@@ -36,8 +36,8 @@ main = do
            fixedPoints = selectorFixedPoints selector
            combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd graphs
  
-       fullReport ["SOURCE","START","TIME"] combinedHeaders
-       shortReport combinedHeaders
+       fullReport "selected" ["SOURCE","START","TIME"] combinedHeaders
+       shortReport "selected" combinedHeaders
        putStrLn $ "graphSummary\n" ++ unlines graphSummary 
        putStrLn $ "Selector is " ++ showSelector selector
        putStrLn $ T.unpack $ "Selector variables " +++ T.unwords variables
