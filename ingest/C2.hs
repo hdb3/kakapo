@@ -59,13 +59,21 @@ insert_ m (k,a) = Map.alter (Just . maybe [a] (a :)) k m
 fromList_:: Ord k => [(k,a)] -> Map.Map k [a]
 fromList_ = foldl insert_ Map.empty
 
--- this version of select is permissive -- only explicit exclusions are executed -- wildcards merely remove correspoding header fields
-select :: Selector-> [Sample] -> Map.Map Text [Sample]
---select :: [(Text,Constraint)] -> [Sample] -> Map.Map Text [Sample]
-select selector = fromList_ . mapMaybe (f . kernel selector)
+-- this version of partition/select is permissive -- only explicit exclusions are executed -- wildcards merely remove corresponding header fields
+partition :: Selector-> [Sample] -> Map.Map Text [Sample]
+partition selector = fromList_ . mapMaybe (f . kernel selector)
     where
     f (Just (Just i,s,_)) = Just (i,s)
     f _ = Nothing
+
+-- this version of select is also permissive, but it does not  partition for subgraphs.
+-- it does this by remving and Index constraint, and discarding all but the actual returned sample from the analysis
+-- this has the desired result of not removing any potential Indexed header
+
+select :: Selector-> [Sample] -> [Sample]
+select selector = map third . mapMaybe (kernel (Map.filter (not . isIndex) selector))
+    where
+    third (_,s,_) = s
 
 kernel :: Selector -> Sample -> Maybe (Maybe Text,Sample,[(Text,Constraint)])
 kernel selector (headers,metrics) = let

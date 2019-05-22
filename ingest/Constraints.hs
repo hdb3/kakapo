@@ -40,9 +40,8 @@ isVariable c = isIndex c || isControl c
 isFixedPoint = not . isVariable
 
 type Selector =  Map.Map Text Constraint
--- should be oblivious to the type of Metrics
+
 showSelector :: Selector -> String
---showSelector = intercalate " , " . map showConstraint . Map.toList
 showSelector = unwords . map showConstraint . Map.toList
 
 showConstraint :: (Text, Constraint) -> String
@@ -60,8 +59,10 @@ selectorFixedPoints :: Selector -> [Text]
 selectorFixedPoints = map fst . filter ( isFixedPoint . snd ) . Map.toList
 
 type SelectResult = Map.Map Text ( Map.Map Text Sample )
---type SelectResult = Map.Map Text ( Map.Map Text [ Sample ] )
---type SelectResult = Map.Map Text [(Text,Sample)]
+
+querySelector :: (Constraint -> Bool) -> Selector -> [Text]
+-- get the constrained headers of a given sort, e.g. all of the Control constraints
+querySelector p = Map.keys . Map.filter p
 
 -- constraint application: transform an accumulator depending on the found constraint and given value
 -- logic: get the constraint (or Nothing)
