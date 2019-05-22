@@ -25,8 +25,9 @@ summarise = map (second toList) . toList . summariseMap
               f v (Just m) = Just $ inner v m
 
 
-analyse2 :: Samples -> IO ()
-analyse2 samples = do
+shortReport :: Samples -> IO ()
+shortReport samples = do
+    putStrLn "\nshortReport\n"
     let hdrs = Summary.summarise $ concatMap fst samples
         count = length samples
     putStrLn $ show count ++ " samples found"
@@ -38,16 +39,21 @@ analyse2 samples = do
         invariants = filter pInvariant hdrs
         unassociated = filter pUnassociated hdrs
         variable = filter pVariable hdrs
-    putStrLn $ show (length invariants) ++ " invariants found: " ++ unwords ( map ( T.unpack . fst )  invariants)
-    putStrLn $ show (length unassociated) ++ " unassociated found: " ++ unwords ( map ( T.unpack . fst) unassociated)
-    putStrLn $ show (length variable) ++ " variable found: " ++ unwords ( map ( T.unpack . fst) variable)
+        showCount (t,ax) = T.unpack t ++ "(" ++ show ( length ax ) ++ ")"
+    --putStrLn $ show (length invariants) ++ " invariants found: " ++ unwords ( map ( T.unpack . fst )  invariants)
+    --putStrLn $ show (length unassociated) ++ " unassociated found: " ++ unwords ( map ( T.unpack . fst) unassociated)
+    --putStrLn $ show (length variable) ++ " variable found: " ++ unwords ( map ( T.unpack . fst) variable)
+    putStrLn $ show (length invariants) ++ " invariants found: " ++ unwords ( map showCount invariants)
+    putStrLn $ show (length unassociated) ++ " unassociated found: " ++ unwords ( map showCount unassociated)
+    putStrLn $ show (length variable) ++ " variable found: " ++ unwords ( map showCount variable)
 
-analyse :: Samples -> IO () 
-analyse samples = do
-   let hdrs = Summary.summarise $ concatMap fst samples
-       sortedHeaders = map (second (reverse . sortOn snd)) $ sortOn fst hdrs
-   mapM_ (putStrLn . display) sortedHeaders
+fullReport :: [Text] -> Samples -> IO () 
+fullReport excludes samples = do
+    putStrLn "\nfullReport\n"
+    let hdrs = Summary.summarise $ concatMap fst samples
+        sortedHeaders = map (second (reverse . sortOn snd)) $ sortOn fst $ filter (not . flip elem excludes. fst) hdrs 
+    mapM_ (putStrLn . display) sortedHeaders
 
-   where
-       display (k,vs) = T.unpack k ++ " : " ++ show (length vs) ++ " { " ++ unwords ( map show' vs) ++ " }"
-       show' (t,i) = T.unpack t ++ "[" ++ show i ++ "]"
+    where
+        display (k,vs) = T.unpack k ++ " : " ++ show (length vs) ++ " { " ++ unwords ( map show' vs) ++ " }"
+        show' (t,i) = T.unpack t ++ "[" ++ show i ++ "]"

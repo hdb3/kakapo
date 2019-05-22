@@ -26,11 +26,17 @@ prove = do
 
 data Constraint = Control | Any | Equality Text | Range Int Int | Index [ Text ] | Select deriving ( Eq, Show )
 
+isAny Any = True
+isAny _ = False
+
 isControl Control = True
 isControl _ = False
 
 isIndex ( Index _ ) = True
 isIndex _ = False
+
+isEquality ( Equality _ ) = True
+isEquality _ = False
 
 isVariable c = isIndex c || isControl c
 isFixedPoint = not . isVariable
@@ -42,12 +48,12 @@ showSelector :: Selector -> String
 showSelector = unwords . map showConstraint . Map.toList
 
 showConstraint :: (Text, Constraint) -> String
-showConstraint (t,Control) = "Controlled Parameter:" ++ T.unpack t
+showConstraint (t,Control) = "dependent variable:" ++ T.unpack t
 showConstraint (t,Any) = T.unpack t ++ "=*"
 showConstraint (t,Equality v) = T.unpack t ++ "==" ++ T.unpack v
 showConstraint (t,Range l h) = T.unpack t ++ "in [" ++ show l ++ "-" ++ show h ++ "]"
-showConstraint (t,Index []) = "multiplot over " ++ T.unpack t
-showConstraint (t,Index gx) = "multiplot over " ++ T.unpack t ++ " [" ++ unwords ( map T.unpack gx) ++ "]"
+showConstraint (t,Index []) = "multiplot over:" ++ T.unpack t
+showConstraint (t,Index gx) = "multiplot over:" ++ T.unpack t ++ " [" ++ unwords ( map T.unpack gx) ++ "]"
 
 selectorVariables :: Selector -> [Text]
 selectorVariables = map fst . filter ( isVariable . snd ) . Map.toList
@@ -159,6 +165,7 @@ parseConstraint = do
             m <- peekChar
             if isNothing m then return() else fail "eot"
 
+-- TODO  add some constraint checkers for different contexts
 buildSelector :: [ RawConstraint ] -> IO Selector
 buildSelector rawConstraints = do
     let (fails,constraints) = partitionEithers rawConstraints
@@ -169,8 +176,8 @@ buildSelector rawConstraints = do
         mapM_ putStrLn fails
         die ""
     else do
-        when ( 1 /= length ( filter ( isControl . snd ) constraints))
-             (die "exactly one control parameter required")
-        when ( 1 < length ( filter ( isIndex . snd ) constraints))
-             (die "at most one index parameter required")
+        --when ( 1 /= length ( filter ( isControl . snd ) constraints))
+             --(die "exactly one control parameter required")
+        --when ( 1 < length ( filter ( isIndex . snd ) constraints))
+             --(die "at most one index parameter required")
         return $ Map.fromList constraints

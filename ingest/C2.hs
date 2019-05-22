@@ -69,7 +69,8 @@ select selector = fromList_ . mapMaybe (f . kernel selector)
 
 kernel :: Selector -> Sample -> Maybe (Maybe Text,Sample,[(Text,Constraint)])
 kernel selector (headers,metrics) = let
-    in fmap (\(newHeaders,index,remMap,[]) -> (index,(newHeaders,metrics),Map.toList remMap)) ( go ([],Nothing,selector,headers))
+    selector' = Map.filter (\a -> isAny a || isIndex a || isEquality a ) selector
+    in fmap (\(newHeaders,index,remMap,[]) -> (index,(newHeaders,metrics),Map.toList remMap)) ( go ([],Nothing,selector',headers))
 
     where
 
