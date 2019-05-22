@@ -39,7 +39,7 @@ executable summarise
 
 executable z
   main-is:             Z.hs
-  other-modules:       Constraints, C2, GenParse, Paths, Summary
+  other-modules:       Graph, Mean, Constraints, C2, GenParse, Paths, Summary
   other-extensions:    OverloadedStrings
   build-depends:       base ^>=4.12.0, text ^>=1.2.3, attoparsec ^>=0.13.2, extra ^>=1.6.15 , directory ^>=1.3.3, unix ^>=2.7.2, filepath ^>=1.4.2, containers ^>=0.6.0
   default-language:    Haskell2010

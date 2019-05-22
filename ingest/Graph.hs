@@ -4,13 +4,13 @@ import Data.List(sortOn)
 import Data.Text(Text)
 import qualified Data.Text as T
 import Control.Arrow(second)
+import qualified Data.Map.Strict as Map
+import Constraints(SelectResult,unmapmap)
 
 import GenParse(Sample,Metrics,rtt)
 import qualified Mean
 
---type Dict = [(Text,Text)]
---type Sample = (Dict, Metrics)
-type SelectResultList = [(Text, [(Text,Sample)])]
+
 
 {-
   graph - produce a gnuplot format multifile dataset from the generic 'SelectResult' container
@@ -33,8 +33,8 @@ type SelectResultList = [(Text, [(Text,Sample)])]
               - the logic is similar, the distinction being that a list of metric extractors should be provided rather than one, and the input should only be singular
 -}
 
-graph :: (Metrics -> [Double]) -> ([Double] -> Text) -> SelectResultList -> Text
-graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1
+graph :: (Metrics -> [Double]) -> ([Double] -> Text) -> SelectResult -> Text
+graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1 . unmapmap
     where
         l1 = map snd
         l2 = mapmap (\(xPoint,(_,metrics)) -> (xPoint,metrics))
@@ -46,25 +46,25 @@ graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1
         readInt :: Text -> Int
         readInt = read . T.unpack
 
-standardGraph :: SelectResultList -> Text
+standardGraph :: SelectResult -> Text
 standardGraph = graph rtt mean
    where
    mean :: [Double] -> Text
    mean = T.pack . show . Mean.mean
 
-sdGraph :: SelectResultList -> Text
+sdGraph :: SelectResult -> Text
 sdGraph = graph rtt sdMean
    where
    sdMean :: [Double] -> Text
    sdMean = T.pack . (\(a,b) -> show a ++ " " ++ show b ) . Mean.meanSD
 
-maxminGraph :: SelectResultList -> Text
+maxminGraph :: SelectResult -> Text
 maxminGraph = graph rtt sdMean
    where
    sdMean :: [Double] -> Text
    sdMean = T.pack . (\(a,b) -> show a ++ " " ++ show b ) . Mean.meanSD
 
-allMeans  :: SelectResultList -> Text
+allMeans  :: SelectResult -> Text
 allMeans =  graph rtt  ( (\(a,b,c,d) -> T.pack $ unwords $ map show [a,b,c,d]) . Mean.maxSDMinMean)
 
 gnuplot :: Text -> IO()

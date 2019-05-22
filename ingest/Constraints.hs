@@ -59,6 +59,8 @@ selectorFixedPoints :: Selector -> [Text]
 selectorFixedPoints = map fst . filter ( isFixedPoint . snd ) . Map.toList
 
 type SelectResult = Map.Map Text ( Map.Map Text Sample )
+unmapmap :: SelectResult -> [(Text, [(Text, Sample)])]
+unmapmap = Map.toAscList . Map.map Map.toAscList
 
 querySelector :: (Constraint -> Bool) -> Selector -> [Text]
 -- get the constrained headers of a given sort, e.g. all of the Control constraints
@@ -95,6 +97,7 @@ inner selector base sample@(header,content) = let
     f ( Just (Index _) )        (Just (x,Nothing)) v = Just (x,Just v)
     f ( Just (Equality t) )     x                  v = if t == v then x else Nothing
     f ( Just (Range low high) ) x                  v = if read ( T.unpack v) < low || read ( T.unpack v) > high then Nothing else x
+    f c                         x                  v = error $ show (c,x,v)
 
     g (control,sample) Nothing = Just $ Map.singleton control sample
     g (control,sample) (Just m) = Just $ Map.insertWith h control sample m

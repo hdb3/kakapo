@@ -30,11 +30,11 @@ main = do
    else do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
-       let graphs = map (second Map.toAscList) $ Map.toAscList $ Constraints.select selector r
-           graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") graphs
+       let graphs = Constraints.select selector r
+           graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") $ unmapmap graphs
            variables = selectorVariables selector
            fixedPoints = selectorFixedPoints selector
-           combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd graphs
+           combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd $ unmapmap graphs
  
        fullReport "selected" ["SOURCE","START","TIME"] combinedHeaders
        shortReport "selected" combinedHeaders
