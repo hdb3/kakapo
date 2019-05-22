@@ -4,6 +4,7 @@ import Constraints
 import GenParse
 import qualified Data.Map.Strict as Map
 import Data.Text(Text)
+import Data.Maybe(mapMaybe)
 
 -- this is the first pass
 -- its primary role is to partition the results based on the index constraint
@@ -32,29 +33,52 @@ prove = do
     sample <- readData "var/webdav/frr/1557764247"
     print sample
     putStrLn "\nTOPIC BASIC"
-    putStrLn $ showResult $ kernel [("TOPIC", Equality "BASIC")] sample
+    putStrLn $ showResult $ kernel ( Map.fromList [("TOPIC", Equality "BASIC")] ) sample
     putStrLn "\nTOPIC BASSIC"
-    putStrLn $ showResult $ kernel [("TOPIC", Equality "BASSIC")] sample
+    putStrLn $ showResult $ kernel ( Map.fromList [("TOPIC", Equality "BASSIC")] ) sample
     putStrLn "\nTOPIC BASIC, PLATFORM*,"
-    putStrLn $ showResult $ kernel [("TOPIC", Equality "BASIC"),("PLATFORM", Index [])] sample
+    putStrLn $ showResult $ kernel ( Map.fromList [("TOPIC", Equality "BASIC"),("PLATFORM", Index [])] ) sample
     putStrLn "\nTOPIC BASIC, PLATFORM*,PID ANY, START ANY"
-    putStrLn $ showResult $ kernel [("TOPIC", Equality "BASIC"),("PLATFORM", Index []),("PID",Any),("START",Any)] sample
+    putStrLn $ showResult $ kernel ( Map.fromList [("TOPIC", Equality "BASIC"),("PLATFORM", Index []),("PID",Any),("START",Any)] ) sample
     putStrLn "\nTOPIC BASIC, PLATFORM*,PAD ANY, STIRT ANY"
-    putStrLn $ showResult $ kernel [("TOPIC", Equality "BASIC"),("PLATFORM", Index []),("PAD",Any),("STIRT",Any)] sample
+    putStrLn $ showResult $ kernel ( Map.fromList [("TOPIC", Equality "BASIC"),("PLATFORM", Index []),("PAD",Any),("STIRT",Any)] ) sample
     where
         showResult Nothing = "Nothing"
         showResult ( Just (mt,(dict,_),tcx)) = "Maybe index=" ++ show mt ++ "\nnew dict\n" ++ unlines (map show dict) ++ "unused constraints\n" ++ unlines (map show tcx)
 
-kernel :: [(Text,Constraint)] -> Sample -> Maybe (Maybe Text,Sample,[(Text,Constraint)])
-kernel selector (headers,metrics) = let
-    map = Map.fromList selector
-    in fmap (\(newHeaders,index,remMap,[]) -> (index,(newHeaders,metrics),Map.toList remMap)) ( go ([],Nothing,map,headers))
+-- Constraints: type Selector =  Map.Map Text Constraint
+-- this outer loop accumulates valid samples and assigns them to the correct bucket based on the result of index extraction
+-- the result is empty in cases where: no index constraint was given; no sample has index parameter in header; no sample has index parameter in given non empty index list
+-- for a non-indexed 'select' use 'select_'
 
-go :: ( [(Text,Text)] , Maybe Text , Map.Map Text Constraint , [(Text,Text)] ) -> Maybe ( [(Text,Text)] , Maybe Text , Map.Map Text Constraint , [(Text,Text)] ) 
-go (a,b,c,[]) = Just (a,b,c,[])
-go (nh,mi,m, kv@(k,v):kvs) = maybe ( go (kv:nh,mi,m, kvs) ) f (Map.lookup k m)
-    where f ( Equality t) = if t==v then go (nh,mi,Map.delete k m,kvs) else Nothing
-          f ( Any ) = go (nh,mi,Map.delete k m,kvs)
-          f ( (Index []) ) = go (nh,Just v,Map.delete k m,kvs)
-          f ( (Index indices) ) = if elem v indices then go (nh, Just v, Map.delete k m,kvs) else Nothing
-          f _ = error "contsraints were not filtered"
+-- the pattern in which a tuple value is added to a list contained in a Map is so common+useful that it needs its own name....
+-- insert_
+insert_ :: Ord k => Map.Map k [a] -> (k,a) -> Map.Map k [a]
+insert_ m (k,a) = Map.alter (Just . maybe [a] (a :)) k m
+-- and the pattern in which insert_ is applied to a list of tuples is also so common that...
+fromList_:: Ord k => [(k,a)] -> Map.Map k [a]
+fromList_ = foldl insert_ Map.empty
+
+-- this version of select is permissive -- only explicit exclusions are executed -- wildcards merely remove correspoding header fields
+select :: Selector-> [Sample] -> Map.Map Text [Sample]
+--select :: [(Text,Constraint)] -> [Sample] -> Map.Map Text [Sample]
+select selector = fromList_ . mapMaybe (f . kernel selector)
+    where
+    f (Just (Just i,s,_)) = Just (i,s)
+    f _ = Nothing
+
+kernel :: Selector -> Sample -> Maybe (Maybe Text,Sample,[(Text,Constraint)])
+kernel selector (headers,metrics) = let
+    in fmap (\(newHeaders,index,remMap,[]) -> (index,(newHeaders,metrics),Map.toList remMap)) ( go ([],Nothing,selector,headers))
+
+    where
+
+        go :: ( [(Text,Text)] , Maybe Text , Map.Map Text Constraint , [(Text,Text)] ) -> Maybe ( [(Text,Text)] , Maybe Text , Map.Map Text Constraint , [(Text,Text)] ) 
+        go (a,b,c,[]) = Just (a,b,c,[])
+        go (nh,mi,m, kv@(k,v):kvs) = maybe ( go (kv:nh,mi,m, kvs) ) f (Map.lookup k m)
+            where
+                  f Any  = go (nh,mi,Map.delete k m,kvs)
+                  f ( Equality t) = if t==v then go (nh,mi,Map.delete k m,kvs) else Nothing
+                  f (Index [])  = go (nh,Just v,Map.delete k m,kvs)
+                  f (Index indices)  = if v `elem` indices then go (nh, Just v, Map.delete k m,kvs) else Nothing
+                  f _ = error "contsraints were not filtered"
