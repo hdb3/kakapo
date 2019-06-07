@@ -290,7 +290,7 @@ void *session(void *x) {
 
       int bsn = seq % MAXBURSTCOUNT;
       int cyclenumber = seq / MAXBURSTCOUNT;
-      if ((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) {
+      if (((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) || (FASTCYCLELIMIT > 0 && logseq > CYCLECOUNT)) {
         fprintf(stderr, "%s: sendupdates: sending complete\n", tid);
         return -1;
       };
@@ -301,6 +301,8 @@ void *session(void *x) {
       };
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == 0) {
+        if (0==cyclenumber && FASTCYCLELIMIT > 0)
+          fprintf(stderr, "%s: FASTMODE START\n", tid);
         logseq = senderwait();
         gettime(&tstart);
       };
@@ -315,6 +317,8 @@ void *session(void *x) {
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
         sndlog(sd->tidx, tid, logseq, &tstart, &tend);
+        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0)
+          fprintf(stderr, "%s: FASTMODE END\n", tid);
       };
 
       if (bsn == MAXBURSTCOUNT - 1)
