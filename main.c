@@ -35,6 +35,7 @@ int tidx = 0;
 pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
+uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
 
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
@@ -298,6 +299,7 @@ int main(int argc, char *argv[]) {
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
+  getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
