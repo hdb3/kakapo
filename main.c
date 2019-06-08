@@ -33,23 +33,23 @@ struct timespec txts;
 int pid;
 int tidx = 0;
 pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
-uint32_t SLEEP = 0; // default value -> don't repeat the send operation
+uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
+uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
 
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
-uint32_t GROUPSIZE = 3;
+uint32_t GROUPSIZE = 3;          // prefix table size is GROUPSIZE * path table size
 uint32_t BLOCKSIZE = 3;
-uint32_t MAXBURSTCOUNT = 3;
+uint32_t MAXBURSTCOUNT = 3;      // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t NEXTHOP;
 char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
                                  // initilase like this ;-(
 uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
-uint32_t CYCLECOUNT =
-    1;                    // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
-uint32_t CYCLEDELAY = 30; // seconds
+uint32_t CYCLECOUNT = 1;         // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
+uint32_t CYCLEDELAY = 5; // seconds
 uint32_t HOLDTIME = 180;
 
 char LOGFILE[128] = "stats.csv";
@@ -299,6 +299,7 @@ int main(int argc, char *argv[]) {
   SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
+  getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);

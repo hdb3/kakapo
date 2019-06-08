@@ -24,9 +24,9 @@ main = do
    selectArgs <- tail <$> getArgs
    if null selectArgs
    then do
-       fullReport "base" ["SOURCE","START","TIME"] r
+       fullReport "/" ["SOURCE","START","TIME"] r
        putStrLn ""
-       shortReport "base" r
+       shortReport "/" r
    else do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
@@ -43,7 +43,9 @@ main = do
        putStrLn $ T.unpack $ "Selector variables " +++ T.unwords variables
        putStrLn $ T.unpack $ "Selector fixed points " +++ T.unwords fixedPoints
 
-       T.writeFile "plot.csv" $ allMeans graphs
+       T.writeFile "plot.csv" $ maxminGraph graphs
+       --T.writeFile "plot.csv" $ sdGraph graphs
+       --T.writeFile "plot.csv" $ allMeans graphs
        --T.writeFile "plot.csv" $ standardGraph graphs
 
 pruneHeaders :: [Text] -> Samples -> Samples

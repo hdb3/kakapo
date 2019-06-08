@@ -123,7 +123,7 @@ void *session(void *x) {
     struct in_addr routerid = (struct in_addr){*(uint32_t *)(msg + 5)};
     unsigned char opl = *(unsigned char *)(msg + 9);
     unsigned char *hex = toHex(msg + 10, opl);
-    fprintf(stderr, "%s: BGP Open: as =  %d, routerid = %s , holdtime = %d, opt params = %s\n", tid, as, inet_ntoa(routerid), holdtime, hex);
+    fprintf(stderr, "%s: BGP Open: as = %d, routerid = %s , holdtime = %d, opt params = %s\n", tid, as, inet_ntoa(routerid), holdtime, hex);
     free(hex);
   };
 
@@ -197,7 +197,7 @@ void *session(void *x) {
       uc = 0;
 
     if (1 == VERBOSE)
-      fprintf(stderr, "%s: BGP Update: withdrawn count =  %d, path attributes length = %d , NLRI count = %d\n", tid, wc, tpal, uc);
+      fprintf(stderr, "%s: BGP Update: withdrawn count = %d, path attributes length = %d , NLRI count = %d\n", tid, wc, tpal, uc);
 
     if (ROLESENDER != sd->role)
       updatelogrecord(slp, uc, wc, &sb.rcvtimestamp);
@@ -206,7 +206,7 @@ void *session(void *x) {
   void donotification(char *msg, int length) {
     unsigned char ec = *(unsigned char *)(msg + 0);
     unsigned char esc = *(unsigned char *)(msg + 1);
-    fprintf(stderr, "%s: BGP Notification: error code =  %d, error subcode = %d\n", tid, ec, esc);
+    fprintf(stderr, "%s: BGP Notification: error code = %d, error subcode = %d\n", tid, ec, esc);
   };
 
   int getBGPMessage(struct sockbuf * sb) {
@@ -280,38 +280,46 @@ void *session(void *x) {
 
   void *sendthread(void *_x) {
 
-    int sendupdates(int seq) {
+    uint32_t logseq;
+    struct timespec tstart, tend;
 
-      struct timespec tstart, tend;
+    int sendupdates(int seq) {
 
       if (MAXBURSTCOUNT == 0)
         return -1;
 
+      int bsn = seq % MAXBURSTCOUNT;
       int cyclenumber = seq / MAXBURSTCOUNT;
-      if ((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) {
+      if (((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) || (FASTCYCLELIMIT > 0 && logseq > CYCLECOUNT)) {
         fprintf(stderr, "%s: sendupdates: sending complete\n", tid);
         return -1;
       };
 
-      gettime(&tstart);
-      if (0 == seq)
+      if (0 == seq) {
+        gettime(&tstart);
         startlog(sd->tidx, tid, &tstart);
+      };
 
-      uint32_t logseq;
-      logseq = senderwait();
+      if (cyclenumber >= FASTCYCLELIMIT || bsn == 0) {
+        if (0==cyclenumber && FASTCYCLELIMIT > 0)
+          fprintf(stderr, "%s: FASTMODE START\n", tid);
+        logseq = senderwait();
+        gettime(&tstart);
+      };
 
-      int bsn = seq % MAXBURSTCOUNT;
-
-      gettime(&tstart);
       int usn;
       for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
         if (0 == sendbs(sock, update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}))))
           return -1;
         // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
       };
-      gettime(&tend);
 
-      sndlog(sd->tidx, tid, logseq, &tstart, &tend);
+      if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
+        gettime(&tend);
+        sndlog(sd->tidx, tid, logseq, &tstart, &tend);
+        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0)
+          fprintf(stderr, "%s: FASTMODE END\n", tid);
+      };
 
       if (bsn == MAXBURSTCOUNT - 1)
         return CYCLEDELAY;
