@@ -74,27 +74,28 @@ runExperiment rsh sut topic sysinfo app = do
         logText = "TOPIC=\'" ++ topic ++ "\' " ++ " PLATFORM=" ++ app ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
 
-        genCommands pre parameterLists post = map (\parameterList -> [pre, expandParameters parameterList, post ]) parameterLists
         expandParameters = map (\(k,v) -> k ++ "=" ++ v)
         kakapoDefaultParameters =
            [
              ("LOGTEXT" , "\"LOGTEXT not provided\" "),
              ("LOGPATH" , "10.30.65.209"),
              ("SLEEP" , "0 "),
-             ("MAXBURSTCOUNT" , "1 "),
-             ("GROUPSIZE" , "10 "),
-             ("BLOCKSIZE" , "1 "),
+             --("MAXBURSTCOUNT" , "1 "),
+             --("GROUPSIZE" , "10 "),
+             --("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
-             ("FASTCYCLELIMIT" , "0 "),
-             ("CYCLECOUNT" , "10 "),
+             ("FASTCYCLELIMIT" , "1 "),
+             --("CYCLECOUNT" , "10 "),
              ("NEXTHOP" , "172.18.0.21 ")
            ]
 
         kvSet k v = map (\(a,b) -> if a == k then (a,v) else (a,b) )
 
-        kvGen k vx m = map (\v -> kvSet k ( show v) m) vx
-
-        blockGen bsRange gsRange count base = [ expandParameters $ kvSet "CYCLECOUNT" (show count) $ kvSet "GROUPSIZE" ( show gs ) $ kvSet "BLOCKSIZE" ( show bs ) base | bs <- bsRange , gs <- gsRange ]
+        blockGen bsRange gsRange count burstRange = [ expandParameters $ kvSet "CYCLECOUNT" (show count)
+                                                                       $ kvSet "GROUPSIZE" ( show gs )
+                                                                       $ kvSet "BLOCKSIZE" ( show bs )
+                                                                       $ kvSet "MAXBURSTCOUNT" (show count)
+                                                                       base | bs <- bsRange , gs <- gsRange, burst <- burstRange ]
 
         -- kakapo in passive mode:
         --buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , ",172.18.0.11,64504" , ",172.18.0.12,64504" ]
@@ -103,5 +104,5 @@ runExperiment rsh sut topic sysinfo app = do
         buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , "172.18.0.13,172.18.0.21,64504" , "172.18.0.13,172.18.0.22,64504" ]
 
     let (b,g,c,burstRange) = getTopic topic
-    mapM_ ( rsh . buildCommand ) ( blockGen b g c base )
+    mapM_ ( rsh . buildCommand ) ( blockGen b g c burstRange )
     return ()
