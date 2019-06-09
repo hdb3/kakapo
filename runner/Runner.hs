@@ -47,8 +47,8 @@ start topic (repo , app ) sutHostName kakapoHostName = do
     sut ["kill",app]
     
     sut ["pull",repo]
-    sysinfo' <- dockerCMD sutHostName ( ["run"] ++ dockerInteractive app ++ [ repo , "sysinfo"] ) ""
-    let sysinfo = maybe "VERSION=\"UNKNOWN\" MEMSIZE=-1 CORES=-1 THREADS=-1" (map (\c -> if isControl c then ' ' else c)) sysinfo'
+    sysinfo <- maybe "VERSION=\"UNKNOWN\" MEMSIZE=-1 CORES=-1 THREADS=-1" (map (\c -> if isControl c then ' ' else c)) <$>
+                   dockerCMD sutHostName ( ["run"] ++ dockerInteractive app ++ [ repo , "sysinfo"] ) ""
     putStrLn $ "Sysinfo: " ++ sysinfo
 
     
@@ -57,7 +57,6 @@ start topic (repo , app ) sutHostName kakapoHostName = do
     kakapo ["kill","kakapo"]
     kakapo ["pull",registry ++ "kakapo"]
 
-    -- let kakapoDocker = dockerRun kakapoHostName (dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/sbin/kakapo"]) "hdb3/kakapo" 
     let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
     kakapoDocker [ "ip" , "address" , "add" , "172.18.0.21/32" , "dev" , "lo"]
@@ -74,11 +73,6 @@ runExperiment rsh sut topic sysinfo app = do
     let
         logText = "TOPIC=\'" ++ topic ++ "\' " ++ " PLATFORM=" ++ app ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
-        gsr = [1..10]
-        gsrx = [10,20..50]
-        bsr = [1..10] ++ [10,20..100] ++ [100,200..1000] ++ [1000,2000..10000] ++ [10000,20000..100000]
-        bsr0 = [1..10]
-        bsrx = [100000,200000..1000000]
 
         genCommands pre parameterLists post = map (\parameterList -> [pre, expandParameters parameterList, post ]) parameterLists
         expandParameters = map (\(k,v) -> k ++ "=" ++ v)
@@ -86,11 +80,12 @@ runExperiment rsh sut topic sysinfo app = do
            [
              ("LOGTEXT" , "\"LOGTEXT not provided\" "),
              ("LOGPATH" , "10.30.65.209"),
-             ("SLEEP" , "10 "),
+             ("SLEEP" , "0 "),
              ("MAXBURSTCOUNT" , "1 "),
              ("GROUPSIZE" , "10 "),
              ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
+             ("FASTCYCLELIMIT" , "0 "),
              ("CYCLECOUNT" , "10 "),
              ("NEXTHOP" , "172.18.0.21 ")
            ]
