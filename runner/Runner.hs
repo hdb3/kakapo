@@ -102,6 +102,6 @@ runExperiment rsh sut topic sysinfo app = do
         -- kakapo in active mode:
         buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , "172.18.0.13,172.18.0.21,64504" , "172.18.0.13,172.18.0.22,64504" ]
 
-    let (b,g,c) = getTopic topic
+    let (b,g,c,burstRange) = getTopic topic
     mapM_ ( rsh . buildCommand ) ( blockGen b g c base )
     return ()
