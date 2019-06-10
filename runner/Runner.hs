@@ -75,20 +75,22 @@ runExperiment rsh sut topic sysinfo app = do
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
 
         expandParameters = map (\(k,v) -> k ++ "=" ++ v)
-        kakapoDefaultParameters =
+        kakapoDefaultParameters = -- NOTE!!! must include all parameters required even if otherwise set
+                                  -- kvSet cannot insert (obvs this is not elegant....)
            [
              ("LOGTEXT" , "\"LOGTEXT not provided\" "),
              ("LOGPATH" , "10.30.65.209"),
              ("SLEEP" , "0 "),
-             --("MAXBURSTCOUNT" , "1 "),
-             --("GROUPSIZE" , "10 "),
-             --("BLOCKSIZE" , "1 "),
+             ("MAXBURSTCOUNT" , "1 "),
+             ("GROUPSIZE" , "10 "),
+             ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
              ("FASTCYCLELIMIT" , "1 "),
-             --("CYCLECOUNT" , "10 "),
+             ("CYCLECOUNT" , "10 "),
              ("NEXTHOP" , "172.18.0.21 ")
            ]
 
+        -- TODO - eliminate this function by using 'nubBy' over a list built by 'cons'ing the elemnts (nub will discard repeats)
         kvSet k v = map (\(a,b) -> if a == k then (a,v) else (a,b) )
 
         blockGen bsRange gsRange count burstRange = [ expandParameters $ kvSet "CYCLECOUNT" (show count)
