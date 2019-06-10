@@ -14,11 +14,11 @@ import qualified Data.Map.Strict as Map
 import Text.Read(readMaybe)
 import Control.Arrow (second)
 import Data.Char (isSpace)
-import Control.Monad(unless)
+import Control.Monad(unless,when)
 
 import Stages hiding (main)
 import Mean
-import qualified GPlot hiding (main)
+import qualified GPlot
 
 data KRecV1GraphPoint = KRecV1GraphPoint { desc :: Text
                                          , blocksize , groupsize :: Int
@@ -35,115 +35,110 @@ main :: IO ()
 main = do 
     putStrLn "Analysis"
     args <- getArgs
+    when (null args)
+         ( die "enter at least a search path" )
     let argc = length args
         fst3 (x,_,_) = x
-    if null args then
-        die "enter at least a search path"
-    else do
-        (errors,krecs) <- getKRecV1_  [ args !! 0 ]
-        let pots = collate krecs
-            selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
-            selectionText = map (\(t,x,y) -> "(" ++ show y ++ " , " ++ T.unpack t ++ " , " ++ show x ++ " )") selection
-            -- only works for single parameters here...., but we may not care....
-            selector1 = maybe ( T.pack $ args !! 1)
-                              ( fst3 . (selection !!))
-                              ( readMaybe (args !! 1))
-        if argc == 1 then do
-            unless (null errors) 
-                   ( do putStrLn "*** Errors ***"
-                        mapM_ putStrLn errors )
-            putStrLn "\n*** Headers ***"
-            mapM_ putStrLn selectionText
-            putStrLn ""
-            showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
-            showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
-        else if argc == 2 then do
-            let
-                pot = filter ( ( selector1 == ) . fst3 ) pots
-                selected = filter ( ( selector1 == ) . hrV1DESC . krecHeader ) krecs
-            putStrLn $ "found " ++ show (length pot) ++ " matches"
-            putStrLn $ "found(2) " ++ show (length selected) ++ " matches"
-            showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
-            showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
-            mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
-
-        else if "RAW" == args !! 4 then do
-                res = [ getRawGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
-                                                      b <- getArgFields' 2 , -- the control parameter to fix
-                                                      c <- getArgFields 3 ["RTT"] ]
-        else do
-            let getArgFields n dflt = if n < argc then  qFields (args !! n) else dflt
-                getArgFields' n = getArgFields n []
-                res = [ getGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
-                                                   b <- getArgFields' 2 , -- the control parameter to fix
-                                                   c <- getArgFields 3 ["RTT"] ,
-                                                   d <- getArgFields 4 ["MEAN"] ,
-                                                   e <- getArgFields 5 ["LINEAR"] ]
-                (linearGraphs,logGraphs) = partition isLinear res
-                isLinear (_,_,_,_,_,s) = s == "LINEAR"
-            putStrLn $ show (length res) ++ " graphs returned"
-            plotLinear linearGraphs
-            plotLog logGraphs
-            return ()
-    putStrLn "Done"
-
-    where
+    (errors,krecs) <- getKRecV1_  [ head args ]
+    let pots = collate krecs
+        selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
+        selectionText = map (\(t,x,y) -> "(" ++ show y ++ " , " ++ T.unpack t ++ " , " ++ show x ++ " )") selection
+        -- only works for single parameters here...., but we may not care....
+        selector1 = maybe ( T.pack $ args !! 1)
+                          ( fst3 . (selection !!))
+                          ( readMaybe (args !! 1))
 
     -- copied for simplicity and independence from tools/Sections.hs
-    qFields :: String -> [String]
-    qFields s = let
-        trim = dropWhile isSpace
-        backTrim = takeWhile (not . isSpace) . trim
-        isComma c = ',' == c
-        in case (trim . dropWhile isComma . trim) s of
-                   "" -> []
-                   ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
-                   s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
+        qFields :: String -> [String]
+        qFields s = let
+            trim = dropWhile isSpace
+            backTrim = takeWhile (not . isSpace) . trim
+            isComma c = ',' == c
+            in case (trim . dropWhile isComma . trim) s of
+                       "" -> []
+                       ('"' : s') -> w : qFields (tail s'') where (w, s'') = break ('"' ==) s'
+                       s' -> backTrim w : qFields s'' where (w, s'') = break isComma s'
 
-    getGraph :: [KRecV1] -> String -> String -> String -> String -> String -> ([(Int, Double)], String, String, String, String, String)
+        getGraph :: [KRecV1] -> String -> String -> String -> String -> String -> ([(Int, Double)], String, String, String, String, String)
 
-    getGraph krecs headerDesc selector2 metric reduce linlog =
-        let ( graph,_,_,_) = getRawGraph krecs headerDesc selector2 metric
-            title = metric ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
+        getGraph krecs headerDesc selector2 metric reduce linlog =
+            let ( graph,_,_,_) = getRawGraph krecs headerDesc selector2 metric
+                title = metric ++ " for dataset [" ++ T.unpack selector1 ++ "]/[" ++ show selector2 ++ "]"
 
-            graphMean = map (second ( mean. tail) )
-            graphMin = map (second minimum)
-            graphMax = map (second maximum)
+                graphMean = map (second ( mean. tail) )
+                graphMin = map (second minimum)
+                graphMax = map (second maximum)
 
-            path = case reduce of
-                "MEAN" -> graphMean graph 
-                "MIN" -> graphMin graph 
-                "MAX" -> graphMax graph 
-       in (path, T.unpack selector1, selector2, metric, reduce, linlog)
+                path = case reduce of
+                    "MEAN" -> graphMean graph 
+                    "MIN" -> graphMin graph 
+                    "MAX" -> graphMax graph 
+           in (path, T.unpack selector1, selector2, metric, reduce, linlog)
 
 
-    getRawGraph :: [KRecV1] -> String -> String -> String -> ([(Int,[Double])], String, String, String)
+        getRawGraph :: [KRecV1] -> String -> String -> String -> ([(Int,[Double])], String, String, String)
+    
+        getRawGraph krecs headerDesc selector2 metric =
+            let 
+                crit1 = ( selector1 == ) . hrV1DESC . krecHeader
+                crit2 = ( read selector2 == ) . hrV1GROUPSIZE . krecHeader
 
-    getRawGraph krecs headerDesc selector2 metric =
-        let 
-            fst3 (x,_,_) = x
-            selection = countPotsWithIndex $ map ( hrV1DESC . krecHeader ) krecs
-            selector1 = maybe ( T.pack headerDesc )
-                              ( fst3 . (selection !!) )
-                              ( readMaybe headerDesc )
+                selected = filter crit1 $ filter crit2 krecs
 
-            crit1 = ( selector1 == ) . hrV1DESC . krecHeader
-            crit2 = ( read selector2 == ) . hrV1GROUPSIZE . krecHeader
+                readFloat :: T.Text -> Double
+                readFloat s = read (T.unpack s) :: Double
 
-            selected = filter crit1 $ filter crit2 krecs
+                getObservable' :: String -> KRecV1 -> [Double]
+                getObservable' s kx = map readFloat ( getObservable s kx )
 
-            readFloat :: T.Text -> Double
-            readFloat s = read (T.unpack s) :: Double
+                getObservable :: String -> KRecV1 -> [Text]
+                getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
 
-            getObservable' :: String -> KRecV1 -> [Double]
-            getObservable' s kx = map readFloat ( getObservable s kx )
+                graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' metric krec )) selected
 
-            getObservable :: String -> KRecV1 -> [Text]
-            getObservable selector = fromJust . lookup (T.pack selector ) . krecValues
+           in (graph, T.unpack selector1, selector2, metric )
 
-            graph = sortOn fst $ map (\krec -> ( hrV1BLOCKSIZE $ krecHeader krec , getObservable' metric krec )) selected
+    if argc == 1 then do
+        unless (null errors) 
+               ( do putStrLn "*** Errors ***"
+                    mapM_ putStrLn errors )
+        putStrLn "\n*** Headers ***"
+        mapM_ putStrLn selectionText
+        putStrLn ""
+        showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) krecs
+        showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) krecs
+    else if argc == 2 then do
+        let
+            pot = filter ( ( selector1 == ) . fst3 ) pots
+            selected = filter ( ( selector1 == ) . hrV1DESC . krecHeader ) krecs
+        putStrLn $ "found " ++ show (length pot) ++ " matches"
+        putStrLn $ "found(2) " ++ show (length selected) ++ " matches"
+        showRange "hrV1BLOCKSIZE" $ map ( hrV1BLOCKSIZE . krecHeader ) selected
+        showRange "hrV1GROUPSIZE" $ map ( hrV1GROUPSIZE . krecHeader ) selected
+        mapM_ putStrLn $ countPotsInt $ map ( hrV1GROUPSIZE . krecHeader ) selected
 
-       in (graph, T.unpack selector1, selector2, metric )
+    else if "RAW" == args !! 4 then
+        die "broken updates her, please check git history and revert"
+    -- else if "RAW" == args !! 4 then do
+    --         res = [ getRawGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
+    --                                               b <- getArgFields' 2 , -- the control parameter to fix
+    --                                               c <- getArgFields 3 ["RTT"] ]
+    else do
+        let getArgFields n dflt = if n < argc then  qFields (args !! n) else dflt
+            getArgFields' n = getArgFields n []
+            res = [ getGraph krecs a b c d e | a <- getArgFields' 1 , -- the header selector
+                                               b <- getArgFields' 2 , -- the control parameter to fix
+                                               c <- getArgFields 3 ["RTT"] ,
+                                               d <- getArgFields 4 ["MEAN"] ,
+                                               e <- getArgFields 5 ["LINEAR"] ]
+            (linearGraphs,logGraphs) = partition isLinear res
+            isLinear (_,_,_,_,_,s) = s == "LINEAR"
+        putStrLn $ show (length res) ++ " graphs returned"
+        plotLinear linearGraphs
+        plotLog logGraphs
+        return ()
+
+    putStrLn "Done"
 
 loglog :: [(Int,Double)] -> [(Double,Double)]
 loglog = map (\(a,x) -> (logBase 10 (fromIntegral a) , logBase 10 x))
