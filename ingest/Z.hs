@@ -18,7 +18,7 @@ main = do
    mapM_ putStrLn l
    putStrLn "\n++++++++++++++++++\n"
 
-   fullReport "base" ["SOURCE","START","TIME"] samples
+   fullReport "base" ["SOURCE","START","TIME","UUID"] samples
    shortReport "base" samples
 
    putStrLn "\n++++++++++++++++++\n"
