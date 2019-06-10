@@ -70,6 +70,8 @@ partition selector = fromList_ . mapMaybe (f . kernel selector)
 -- it does this by remving and Index constraint, and discarding all but the actual returned sample from the analysis
 -- this has the desired result of not removing any potential Indexed header
 
+-- TODO - integrate with Constraints.hs, rename select preselect
+-- TODO - rename third second
 select :: Selector-> [Sample] -> [Sample]
 select selector = map third . mapMaybe (kernel (Map.filter (not . isIndex) selector))
     where
