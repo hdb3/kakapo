@@ -96,7 +96,7 @@ runExperiment rsh sut topic sysinfo app = do
         blockGen bsRange gsRange count burstRange = [ expandParameters $ kvSet "CYCLECOUNT" (show count)
                                                                        $ kvSet "GROUPSIZE" ( show gs )
                                                                        $ kvSet "BLOCKSIZE" ( show bs )
-                                                                       $ kvSet "MAXBURSTCOUNT" (show count)
+                                                                       $ kvSet "MAXBURSTCOUNT" (show burst)
                                                                        base | bs <- bsRange , gs <- gsRange, burst <- burstRange ]
 
         -- kakapo in passive mode:
