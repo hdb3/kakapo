@@ -338,6 +338,8 @@ void *session(void *x) {
 
   long int threadmain() {
 
+    char *errormsg = "unknown error";
+
     switch (sd->role) {
     case ROLELISTENER:
       fprintf(stderr, "%s: session start - role=LISTENER\n", tid);
@@ -391,7 +393,6 @@ void *session(void *x) {
     } else
       slp = initlogrecord(sd->tidx, tid);
 
-    char *errormsg = "unknown error";
 
     while (1) {
       if ((0 == sndrunning) && (sd->role == ROLESENDER)) {
