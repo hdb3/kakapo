@@ -91,8 +91,11 @@ void *session(void *x) {
     return (0 == memcmp(buf, marker, 16));
   }
 
-  char *showtype(unsigned char msgtype) {
+  char *showtype(char msgtype) {
     switch (msgtype) {
+    case BGPENDOFSTREAM:
+      return "ENDOFSTREAM";
+      break;
     case BGPTIMEOUT:
       return "TIMEOUT";
       break;
@@ -227,7 +230,7 @@ void *session(void *x) {
       return BGPENDOFSTREAM;
     } else {
       pl = (ntohs(*(uint16_t *)(header + 16))) - 19;
-      msgtype = *(unsigned char *)(header + 18);
+      msgtype = *(char *)(header + 18);
       if (0 < pl) {
         payload = bufferedRead(sb, pl);
         if (0 == payload) {
@@ -338,7 +341,7 @@ void *session(void *x) {
 
   long int threadmain() {
 
-    char *errormsg = "unknown error";
+    char *errormsg = "unspecified error";
 
     switch (sd->role) {
     case ROLELISTENER:
