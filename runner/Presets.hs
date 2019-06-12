@@ -1,6 +1,6 @@
 module Presets where
 
-registry = "big:5000/"
+registry = "localrepo:5000/"
 
 frr = ( registry ++ "frr", "frr")
 bird = (registry ++ "bird","bird")
