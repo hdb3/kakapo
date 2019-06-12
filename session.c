@@ -35,6 +35,9 @@
 #define BGPKEEPALIVE 4
 #define BGPUNKNOWN 5
 
+#define NOTIFICATION_CEASE 6
+#define NOTIFICATION_ADMIN_RESET 4
+
 void *session(void *x) {
   // from here on down all variables are function, and thus thread, local.
   struct sessiondata *sd = (struct sessiondata *)x;
@@ -68,6 +71,12 @@ void *session(void *x) {
     fprintf(stderr, "%s\n", fromHostAddress(peerip));
   };
 
+  unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0 ,0 };
+  void send_notification(int sock, unsigned char major, unsigned char minor) {
+    notification[20]=major;
+    notification[21]=minor;
+    (0 < send(sock, notification, 21, 0)) || die("Failed to send notification to peer");
+  };
   unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
   unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
   const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
@@ -336,6 +345,7 @@ void *session(void *x) {
     endlog(NULL);
 
     // potentially could send NOTIFICATION here.....
+    send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
     sndrunning = 0;
   };
 
