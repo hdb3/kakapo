@@ -182,22 +182,24 @@ void getllienv(char *name, long long int *tgt) {
   };
 };
 
-FILE *logfile;
+FILE *logfile=NULL;
 void endlog(char *error) {
-  char *sp;
-  fprintf(logfile, "HDR , STOP, TIME, ERROR\nSTOP,%s,%s\n", shownow(), ((NULL == error) ? "" : error));
-  // fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
-  fclose(logfile);
-  if (0 != LOGPATH) {
-    time_t t = time(NULL);
-    int tmp = asprintf(&sp, "curl -X PUT --data-binary @%s http://%s/%ld", LOGFILE, LOGPATH, t);
-    // fprintf(stderr,"trying to send datafile with: %s\n",sp);
-    int res = system(sp);
-    if (0 == res)
-      fprintf(stderr, "logging complete, results uploaded to http://%s/%ld\n", LOGPATH, t);
-    else
-      fprintf(stderr, "logging complete, failed to upload results to http://%s/%ld (%d)\n", LOGPATH, t, res);
-    free(sp);
+  if (NULL != logfile) {
+    fprintf(logfile, "HDR , STOP, TIME, ERROR\nSTOP,%s,%s\n", shownow(), ((NULL == error) ? "" : error));
+    // fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
+    fclose(logfile);
+    if (0 != LOGPATH) {
+      char *sp;
+      time_t t = time(NULL);
+      int tmp = asprintf(&sp, "curl -X PUT --data-binary @%s http://%s/%ld", LOGFILE, LOGPATH, t);
+      // fprintf(stderr,"trying to send datafile with: %s\n",sp);
+      int res = system(sp);
+      if (0 == res)
+          fprintf(stderr, "logging complete, results uploaded to http://%s/%ld\n", LOGPATH, t);
+      else
+        fprintf(stderr, "logging complete, failed to upload results to http://%s/%ld (%d)\n", LOGPATH, t, res);
+      free(sp);
+    };
   };
   if (NULL == error)
     exit(0);
