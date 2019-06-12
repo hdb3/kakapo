@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Graph where
+import Text.Read(readMaybe)
+import Data.Maybe(fromMaybe)
 import Data.List(sortOn)
 import Data.Text(Text)
 import qualified Data.Text as T
@@ -44,7 +46,9 @@ graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1 . unmapmap
         l6 = T.intercalate "\n\n" . map T.unlines . mapmap (\(x,yx) -> x `T.append` " " `T.append` yx)
         mapmap = map . map
         readInt :: Text -> Int
-        readInt = read . T.unpack
+        readInt t = fromMaybe (error $ "readInt failed reading " ++ T.unpack t ++ ", perhaps you specified a non-numeric type as a control variable?")
+                              ( readMaybe $ T.unpack t)
+        --readInt = read . T.unpack
 
 standardGraph :: SelectResult -> Text
 standardGraph = graph rtt mean
