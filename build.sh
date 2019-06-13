@@ -6,6 +6,8 @@ GCC timedloop-unittest.c libutil.c -o timedloop-unittest
 GCC -o bytestring-unittest bytestring-unittest.c libutil.c
 GCC libutil.c update-unittest.c -o update-unittest
 GCC -I. test/hostaddress.c util.c -o test/hostaddress
+set +v
+echo "built version $(git describe)"
 
 ##
 ## the following macro expansions also works....
