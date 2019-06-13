@@ -290,6 +290,7 @@ void *session(void *x) {
 
   int sndrunning = 0;
 
+// see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y/edit?usp=sharing
   void *sendthread(void *_x) {
 
     uint32_t logseq;
@@ -329,7 +330,7 @@ void *session(void *x) {
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
         sndlog(sd->tidx, tid, logseq, &tstart, &tend);
-        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0)
+        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0 && bsn ==0 )
           fprintf(stderr, "%s: FASTMODE END\n", tid);
       };
 
