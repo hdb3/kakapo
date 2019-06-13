@@ -188,6 +188,7 @@ void endlog(char *error) {
     fprintf(logfile, "HDR , STOP, TIME, ERROR\nSTOP,%s,%s\n", shownow(), ((NULL == error) ? "" : error));
     // fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
     fclose(logfile);
+    *logfile=NULL;
     if (0 != LOGPATH) {
       char *sp;
       time_t t = time(NULL);
