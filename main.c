@@ -290,6 +290,7 @@ int main(int argc, char *argv[]) {
   setvbuf(stderr, NULL, _IOLBF, 0);
   pid = getpid();
   fprintf(stderr, "%d: kakapo\n", pid);
+  fprintf(stderr, "%d: kakapo  Version %s (%s) \n", pid, VERSION ,BUILDDATE);
   if (1 > argc) {
     fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
     fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");

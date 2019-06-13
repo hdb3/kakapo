@@ -342,11 +342,11 @@ void *session(void *x) {
     timedloopms(SLEEP, sendupdates);
 
     senderwait();
-    endlog(NULL);
 
     // potentially could send NOTIFICATION here.....
     send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
     sndrunning = 0;
+    endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
   };
 
   long int threadmain() {
