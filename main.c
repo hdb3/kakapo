@@ -260,11 +260,15 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
       timespec_to_double(timespec_sub(*start, sndlog_end)),
       timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
       timespec_to_double(timespec_sub(*end, *start)));
-  fprintf(logfile, "DATA, %d , %f , %f , %f , %f\n", seq,
+  if (NULL == logfile)
+    fprintf(stderr, "rcvlog: logfile not opened\n");
+  else {
+    fprintf(logfile, "DATA, %d , %f , %f , %f , %f\n", seq,
           timespec_to_double(timespec_sub(*end, sndlog_start)),
           timespec_to_double(timespec_sub(*start, sndlog_end)),
           timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
           timespec_to_double(timespec_sub(*end, *start)));
+  };
 #else
   fprintf(
       stderr,
