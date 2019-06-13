@@ -444,8 +444,11 @@ void *session(void *x) {
     if (1 == sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
       pthread_cancel(thrd);
     };
-    if (tflag)
+    if (tflag) {
       send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
+      errormsg = "got unexpected BGP message";
+      fprintf(stderr, "%s: shutdown requested\n", tid);
+    };
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
