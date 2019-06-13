@@ -331,6 +331,8 @@ int main(int argc, char *argv[]) {
     peer(argv[argn]);
   while (0==tflag)
     sleep(1);
+  fprintf(stderr, "%d: kakapo will exit\n", pid);
   sleep(5);
+  fprintf(stderr, "%d: kakapo exit\n", pid);
   exit(0);
 }
