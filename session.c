@@ -446,7 +446,7 @@ void *session(void *x) {
     };
     if (tflag) {
       send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
-      errormsg = "got unexpected BGP message";
+      errormsg = "shutdown requested";
       fprintf(stderr, "%s: shutdown requested\n", tid);
     };
     close(sock);
