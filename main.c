@@ -31,6 +31,7 @@ sem_t semrxtx;
 struct timespec txts;
 
 int pid;
+int tflag=0;  // the global termination flag - when != 0, exit gracefully
 int tidx = 0;
 pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
@@ -202,12 +203,16 @@ void endlog(char *error) {
       free(sp);
     };
   };
+  if (NULL != error)
+    fprintf(stderr, "abnormal termination, error msg: %s\n", error);
+/*
   if (NULL == error)
     exit(0);
   else {
     fprintf(stderr, "abnormal termination, error msg: %s\n", error);
     exit(1);
   };
+*/
 };
 
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
@@ -324,6 +329,8 @@ int main(int argc, char *argv[]) {
   int argn;
   for (argn = 1; argn <= argc - 1; argn++)
     peer(argv[argn]);
-  while (1)
-    sleep(100);
+  while (0==tflag)
+    sleep(1);
+  sleep(5);
+  exit(0);
 }

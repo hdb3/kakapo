@@ -346,6 +346,7 @@ void *session(void *x) {
     // potentially could send NOTIFICATION here.....
     send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
     sndrunning = 0;
+    tflag=1;
     endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
   };
 
@@ -407,7 +408,7 @@ void *session(void *x) {
       slp = initlogrecord(sd->tidx, tid);
 
 
-    while (1) {
+    while (0==tflag) {
       if ((0 == sndrunning) && (sd->role == ROLESENDER)) {
         errormsg = "sender exited unexpectedly";
         goto exit;
@@ -443,6 +444,8 @@ void *session(void *x) {
     if (1 == sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
       pthread_cancel(thrd);
     };
+    if (tflag)
+      send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
