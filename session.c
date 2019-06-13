@@ -449,7 +449,8 @@ void *session(void *x) {
       send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
       errormsg = "shutdown requested";
       fprintf(stderr, "%s: shutdown requested\n", tid);
-    };
+    } else
+      tflag=1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
