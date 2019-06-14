@@ -39,7 +39,7 @@ start topic (repo , app ) sutHostName kakapoHostName = do
         sut = docker sutHostName
         kakapo = docker kakapoHostName
 
-    let dockerFlags name = [ "-v", "coredumps:/cores", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
+    let dockerFlags name = [ "-v", "/coredumps:/coredumps", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
         dockerInteractive name = "-i" : dockerFlags name
         dockerDaemon name = "-d" : dockerFlags name
         dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands 
