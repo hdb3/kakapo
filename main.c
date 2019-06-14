@@ -31,6 +31,7 @@ sem_t semrxtx;
 struct timespec txts;
 
 int pid;
+int tflag=0;  // the global termination flag - when != 0, exit gracefully
 int tidx = 0;
 pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
@@ -184,15 +185,16 @@ void getllienv(char *name, long long int *tgt) {
 
 FILE *logfile=NULL;
 void endlog(char *error) {
-  if (NULL != logfile) {
+  if (NULL == logfile)
+    fprintf(stderr, "endlog: logfile not opened\n");
+  else {
     fprintf(logfile, "HDR , STOP, TIME, ERROR\nSTOP,%s,%s\n", shownow(), ((NULL == error) ? "" : error));
-    // fprintf(logfile, "HDR , STOP\nSTOP,%s\n", shownow());
     fclose(logfile);
+    logfile=NULL;
     if (0 != LOGPATH) {
       char *sp;
       time_t t = time(NULL);
       int tmp = asprintf(&sp, "curl -X PUT --data-binary @%s http://%s/%ld", LOGFILE, LOGPATH, t);
-      // fprintf(stderr,"trying to send datafile with: %s\n",sp);
       int res = system(sp);
       if (0 == res)
           fprintf(stderr, "logging complete, results uploaded to http://%s/%ld\n", LOGPATH, t);
@@ -201,12 +203,16 @@ void endlog(char *error) {
       free(sp);
     };
   };
+  if (NULL != error)
+    fprintf(stderr, "abnormal termination, error msg: %s\n", error);
+/*
   if (NULL == error)
     exit(0);
   else {
     fprintf(stderr, "abnormal termination, error msg: %s\n", error);
     exit(1);
   };
+*/
 };
 
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
@@ -254,11 +260,15 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
       timespec_to_double(timespec_sub(*start, sndlog_end)),
       timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
       timespec_to_double(timespec_sub(*end, *start)));
-  fprintf(logfile, "DATA, %d , %f , %f , %f , %f\n", seq,
+  if (NULL == logfile)
+    fprintf(stderr, "rcvlog: logfile not opened\n");
+  else {
+    fprintf(logfile, "DATA, %d , %f , %f , %f , %f\n", seq,
           timespec_to_double(timespec_sub(*end, sndlog_start)),
           timespec_to_double(timespec_sub(*start, sndlog_end)),
           timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
           timespec_to_double(timespec_sub(*end, *start)));
+  };
 #else
   fprintf(
       stderr,
@@ -290,6 +300,7 @@ int main(int argc, char *argv[]) {
   setvbuf(stderr, NULL, _IOLBF, 0);
   pid = getpid();
   fprintf(stderr, "%d: kakapo\n", pid);
+  fprintf(stderr, "%d: kakapo  Version %s (%s) \n", pid, VERSION ,BUILDDATE);
   if (1 > argc) {
     fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
     fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
@@ -322,6 +333,9 @@ int main(int argc, char *argv[]) {
   int argn;
   for (argn = 1; argn <= argc - 1; argn++)
     peer(argv[argn]);
-  while (1)
-    sleep(100);
+  while (0==tflag)
+    sleep(1);
+  sleep(5);
+  fprintf(stderr, "%d: kakapo exit\n", pid);
+  exit(0);
 }

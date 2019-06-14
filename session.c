@@ -73,8 +73,8 @@ void *session(void *x) {
 
   unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0 ,0 };
   void send_notification(int sock, unsigned char major, unsigned char minor) {
-    notification[20]=major;
-    notification[21]=minor;
+    notification[19]=major;
+    notification[20]=minor;
     (0 < send(sock, notification, 21, 0)) || die("Failed to send notification to peer");
   };
   unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
@@ -290,6 +290,7 @@ void *session(void *x) {
 
   int sndrunning = 0;
 
+// see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y/edit?usp=sharing
   void *sendthread(void *_x) {
 
     uint32_t logseq;
@@ -329,7 +330,7 @@ void *session(void *x) {
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
         sndlog(sd->tidx, tid, logseq, &tstart, &tend);
-        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0)
+        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0 && bsn ==0 )
           fprintf(stderr, "%s: FASTMODE END\n", tid);
       };
 
@@ -342,11 +343,12 @@ void *session(void *x) {
     timedloopms(SLEEP, sendupdates);
 
     senderwait();
-    endlog(NULL);
 
     // potentially could send NOTIFICATION here.....
     send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
     sndrunning = 0;
+    tflag=1;
+    endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
   };
 
   long int threadmain() {
@@ -407,7 +409,7 @@ void *session(void *x) {
       slp = initlogrecord(sd->tidx, tid);
 
 
-    while (1) {
+    while (0==tflag) {
       if ((0 == sndrunning) && (sd->role == ROLESENDER)) {
         errormsg = "sender exited unexpectedly";
         goto exit;
@@ -443,6 +445,12 @@ void *session(void *x) {
     if (1 == sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
       pthread_cancel(thrd);
     };
+    if (tflag) {
+      send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
+      errormsg = "shutdown requested";
+      fprintf(stderr, "%s: shutdown requested\n", tid);
+    } else
+      tflag=1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);
