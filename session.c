@@ -20,6 +20,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <sys/uio.h>
+#include <limits.h>
 
 #include "kakapo.h"
 #include "libutil.h"
@@ -322,7 +323,6 @@ void *session(void *x) {
       };
 
       int i, usn;
-      int iovecbuflen = 0;
       struct iovec *vec = malloc(sizeof(struct iovec) * BLOCKSIZE);
 
       // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
@@ -333,22 +333,22 @@ void *session(void *x) {
         struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
         vec[i].iov_base = b.data; 
         vec[i].iov_len = b.length; 
-        iovecbuflen += b.length;
         //if (0 == sendbs(sock, b))
           //return -1;
         // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
       };
-      ssize_t wcount = writev(sock, vec , BLOCKSIZE);
-      int shortwrite = (wcount < iovecbuflen);
-      while (wcount < iovecbuflen) {
-         ssize_t deltawcount = pwritev(sock, vec , BLOCKSIZE, wcount);
-         wcount += deltawcount;
+      // there is a limit of IOV_MAX iovecs which can be sent at a single time,
+      // so we must send in chunks (or memcpy the entire block into a contiguos buffer).
+      int offset = 0;
+      int sendcount;
+      while (offset<BLOCKSIZE) {
+        sendcount = (BLOCKSIZE-offset) > IOV_MAX ? IOV_MAX : (BLOCKSIZE-offset);
+        if (-1 == writev(sock, vec+offset , sendcount))
+          return -1;
+        else
+          offset += sendcount;
       };
       free(vec);
-
-      if (shortwrite)
-        fprintf(stderr, "%s: sendupdates: multiple writes required\n", tid);
-
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
