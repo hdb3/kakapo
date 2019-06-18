@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <sys/uio.h>
 
 #include "kakapo.h"
 #include "libutil.h"
@@ -320,12 +321,34 @@ void *session(void *x) {
         gettime(&tstart);
       };
 
-      int usn;
-      for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-        if (0 == sendbs(sock, update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}))))
-          return -1;
+      int i, usn;
+      int iovecbuflen = 0;
+      struct iovec *vec = malloc(sizeof(struct iovec) * BLOCKSIZE);
+
+      // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
+      // an array to hold the entire output is exactly BLOCKSIZE in size
+      // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
+      for (i = 0; i < BLOCKSIZE; i++) {
+        usn = i + bsn * BLOCKSIZE;
+        struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+        vec[i].iov_base = b.data; 
+        vec[i].iov_len = b.length; 
+        iovecbuflen += b.length;
+        //if (0 == sendbs(sock, b))
+          //return -1;
         // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
       };
+      ssize_t wcount = writev(sock, vec , BLOCKSIZE);
+      int shortwrite = (wcount < iovecbuflen);
+      while (wcount < iovecbuflen) {
+         ssize_t deltawcount = pwritev(sock, vec , BLOCKSIZE, wcount);
+         wcount += deltawcount;
+      };
+      free(vec);
+
+      if (shortwrite)
+        fprintf(stderr, "%s: sendupdates: multiple writes required\n", tid);
+
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
