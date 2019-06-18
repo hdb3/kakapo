@@ -349,6 +349,7 @@ void *session(void *x) {
           offset += sendcount;
       };
       free(vec);
+      txwait(sock);
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
