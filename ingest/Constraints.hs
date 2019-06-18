@@ -9,7 +9,10 @@ import Control.Applicative((<|>))
 import Data.Either(partitionEithers)
 import qualified Data.Map.Strict as Map
 import System.Exit(die)
+--import Control.Arrow(first)
+import Data.List(sortBy)
 import GenParse(Sample)
+import CompareText(compareText)
 
 prove = do
     print $ getConstraint "MATCH=B"
@@ -59,8 +62,16 @@ selectorFixedPoints :: Selector -> [Text]
 selectorFixedPoints = map fst . filter ( isFixedPoint . snd ) . Map.toList
 
 type SelectResult = Map.Map Text ( Map.Map Text Sample )
-unmapmap :: SelectResult -> [(Text, [(Text, Sample)])]
-unmapmap = Map.toAscList . Map.map Map.toAscList
+map2list :: SelectResult -> [(Text, [(Text, Sample)])]
+map2list = textSort . Map.toAscList . Map.map ( textSort . Map.toAscList )
+    where textSort = sortBy (\(a,_) (b,_) -> compareText a b)
+--map2list = Map.toAscList . . Map.map Map.toAscList
+
+flatten :: [(a, [(b, c)])] -> [(a, b, c)]
+flatten = concat . map (\(a,ax) -> map (\(b,c) -> (a,b,c)) ax)
+
+map2FlatList :: SelectResult -> [(Text, Text, Sample)]
+map2FlatList = flatten . map2list
 
 querySelector :: (Constraint -> Bool) -> Selector -> [Text]
 -- get the constrained headers of a given sort, e.g. all of the Control constraints
@@ -101,6 +112,10 @@ inner selector base sample@(header,content) = let
 
     g (control,sample) Nothing = Just $ Map.singleton control sample
     g (control,sample) (Just m) = Just $ Map.insertWith h control sample m
+-- CRUCIAL functional explanation:
+-- when adding a new sample to the result map in a slot which is NOT empty......
+--      .... the _metrics_ are concatenated, but the older headers (dictionary) is discarded (replaced entirely by the new header)
+-- !!!!!!
     h (newH,newM) (oldH,oldM) =  (newH,newM++oldM)
 
     in case accFinal of

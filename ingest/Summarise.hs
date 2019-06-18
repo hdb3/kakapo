@@ -31,10 +31,10 @@ main = do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
        let graphs = Constraints.select selector r
-           graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") $ unmapmap graphs
+           graphSummary = map (\(l,sx) -> "(" ++ T.unpack l ++ " , " ++ show (length sx) ++ ")") $ map2list graphs
            variables = selectorVariables selector
            fixedPoints = selectorFixedPoints selector
-           combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd $ unmapmap graphs
+           combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd $ map2list graphs
  
        fullReport "selected" ["SOURCE","START","TIME"] combinedHeaders
        shortReport "selected" combinedHeaders

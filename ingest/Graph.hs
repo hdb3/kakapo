@@ -7,7 +7,7 @@ import Data.Text(Text)
 import qualified Data.Text as T
 import Control.Arrow(second)
 import qualified Data.Map.Strict as Map
-import Constraints(SelectResult,unmapmap)
+import Constraints(SelectResult,map2list)
 
 import GenParse(Sample,Metrics,rtt)
 import qualified Mean
@@ -36,7 +36,7 @@ import qualified Mean
 -}
 
 graph :: (Metrics -> [Double]) -> ([Double] -> Text) -> SelectResult -> Text
-graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1 . unmapmap
+graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1 . map2list
     where
         l1 = map snd
         l2 = mapmap (\(xPoint,(_,metrics)) -> (xPoint,metrics))
