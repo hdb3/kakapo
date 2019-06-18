@@ -7,3 +7,4 @@
 #include "update.h"
 #include "util.h"
 #include "tcpflags.h"
+#include "txwait.h"
