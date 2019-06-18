@@ -18,6 +18,7 @@ presetPlatforms = [("bird",bird),("frr",frr),("hbgp",hbgp),("relay",relay)]
 presetTopics :: [(String, ([Integer], [Integer], Integer,[Integer]))]
 presetTopics = [
                  ("ONESHOT", ( [10] , [1] , 11,[1]))
+               , ("TENSHOT", ( [10] , [10] , 11,[10]))
                , ("SOAK", ( [100,200..] , [1] , 21,[10]))
                , ("SIMPLE", ( [10] , [1] , 11,[10,20]))
                , ("SKIMSHORT", ( [100] , [1] , 11,[10,20..100]))
