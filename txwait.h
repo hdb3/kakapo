@@ -1,0 +1,1 @@
+void txwait (int sock);
