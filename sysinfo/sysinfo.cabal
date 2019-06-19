@@ -9,5 +9,5 @@ category:            System
 
 executable sysinfo
   main-is:             Sysinfo.hs
-  build-depends:       base ^>=4.12.0.0, process ^>=1.6.5.0, unix ^>=2.7.2.2
+  build-depends:       base , process , unix
   default-language:    Haskell2010
