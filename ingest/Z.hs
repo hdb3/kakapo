@@ -6,6 +6,7 @@ import Data.Either(partitionEithers)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Map.Strict as Map
+import qualified Data.List
 import System.Environment(getArgs)
 import GenParse(getData)
 import Summary
@@ -23,7 +24,7 @@ main = do
 
    putStrLn "\n++++++++++++++++++\n"
 
-   selectArgs <- tail <$> getArgs
+   (optArgs , selectArgs) <- Data.List.partition (Data.List.isPrefixOf "--") <$> tail <$> getArgs
    if null selectArgs
    then
        putStrLn "please provide a selector to continue analysis"
@@ -54,3 +55,8 @@ main = do
               ( putStrLn "Controlled Parameters" >> putStrLn (displayMap controlSummary) )
 
        T.writeFile "plot.csv" $ renderer (Constraints.select selector graph)
+
+       when ("--source" `elem` optArgs)
+            ( do let getSource sample = maybe "source not found" T.unpack ( lookup (T.pack "SOURCE") ( fst sample ) )
+                     selection = map2FlatList (Constraints.select selector graph) -- `asTypeOf` _
+                 putStrLn $ unlines $ map (\(ta,tb,sample) -> (T.unpack ta ++ " , " ++ T.unpack tb ++ " , " ++ getSource sample))  selection )
