@@ -445,9 +445,13 @@ void *session(void *x) {
       case BGPUPDATE: // Update
         break;
       case BGPKEEPALIVE: // Keepalive
-        FLAGS(sock, __FILE__, __LINE__);
-        (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
-        FLAGS(sock, __FILE__, __LINE__);
+      // trying to send while the send thread is also running is a BAD idea - because (using writev) the
+      // send here can interleave in the message flow!!!!!
+        if (sndrunning==0) {
+          FLAGS(sock, __FILE__, __LINE__);
+          (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
+          FLAGS(sock, __FILE__, __LINE__);
+        };
         break;
       case BGPNOTIFICATION: // Notification
         fprintf(stderr, "%s: session: got Notification\n", tid);
