@@ -8,7 +8,6 @@ author:              nic hart
 maintainer:          nic@hdb3.net
 copyright:           Nicholas Hart
 category:            Testing
-extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     RunnerBase, Docker, LogFileNames, Presets
