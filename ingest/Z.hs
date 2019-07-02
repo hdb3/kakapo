@@ -33,7 +33,7 @@ main = do
        selector <- buildSelector constraints
        putStrLn $ "Selector is " ++ showSelector selector
 
-       let graph = C2.select selector samples
+       let graph = C2.preSelect selector samples
            subgraphs = Map.toAscList $ C2.partition selector graph
            validSampleCount = length graph
            --validSampleCount = sum $ map ( length . snd ) graphs
@@ -59,4 +59,5 @@ main = do
        when ("--source" `elem` optArgs)
             ( do let getSource sample = maybe "source not found" T.unpack ( lookup (T.pack "SOURCE") ( fst sample ) )
                      selection = map2FlatList (Constraints.select selector graph) -- `asTypeOf` _
+                 putStrLn $ "source report (" ++ show (length selection) ++ ")" 
                  putStrLn $ unlines $ map (\(ta,tb,sample) -> (T.unpack ta ++ " , " ++ T.unpack tb ++ " , " ++ getSource sample))  selection )

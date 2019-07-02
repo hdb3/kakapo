@@ -71,11 +71,10 @@ partition selector = fromList_ . mapMaybe (f . kernel selector)
 -- this has the desired result of not removing any potential Indexed header
 
 -- TODO - integrate with Constraints.hs, rename select preselect
--- TODO - rename third second
-select :: Selector-> [Sample] -> [Sample]
-select selector = map third . mapMaybe (kernel (Map.filter (not . isIndex) selector))
+preSelect :: Selector-> [Sample] -> [Sample]
+preSelect selector = map second . mapMaybe (kernel (Map.filter (not . isIndex) selector))
     where
-    third (_,s,_) = s
+    second (_,s,_) = s
 
 kernel :: Selector -> Sample -> Maybe (Maybe Text,Sample,[(Text,Constraint)])
 kernel selector (headers,metrics) = let

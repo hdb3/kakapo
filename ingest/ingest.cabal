@@ -1,4 +1,6 @@
 cabal-version:       2.4
+-- TODO - stackize (remove versions), and
+-- introduce common deps
 
 name:                ingest
 version:             0.1.0.0
