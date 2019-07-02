@@ -12,7 +12,7 @@ import GenParse(getData)
 import Summary
 import Constraints
 import Graph
-import C2
+--import C2
 renderer = sdGraph -- allMeans / standardGraph / sdGraph / maxminGraph
 main = do
    (l,samples) <- partitionEithers <$> getData
@@ -33,8 +33,8 @@ main = do
        selector <- buildSelector constraints
        putStrLn $ "Selector is " ++ showSelector selector
 
-       let graph = C2.preSelect selector samples
-           subgraphs = Map.toAscList $ C2.partition selector graph
+       let graph = preSelect selector samples
+           subgraphs = Map.toAscList $ partition selector graph
            validSampleCount = length graph
            --validSampleCount = sum $ map ( length . snd ) graphs
            originalSampleCount = length samples
