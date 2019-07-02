@@ -82,6 +82,7 @@ runExperiment rsh sut topic sysinfo app = do
              ("LOGPATH" , "10.30.65.209"),
              ("SLEEP" , "0 "),
              ("MAXBURSTCOUNT" , "1 "),
+             ("IDLETHR" , "3 "),
              ("GROUPSIZE" , "10 "),
              ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),

@@ -29,6 +29,7 @@ presetTopics = [
                , ("FULLSHORT", ( [100] , [1] , 51,[1..100]))
                , ("SKIM", ( [1000] , [1] , 11,[100,200..1000]))
                , ("FULL", ( [1000] , [1] , 51,[10,20..1000]))
+               , ("BASE1M", ( [20000] , [5] , 21,[1..10]))
                ]
 
 oldPresetTopics :: [(String, ([Integer], [Integer], Integer,[Integer]))]
