@@ -3,16 +3,13 @@ module Constraints where
 import Data.Attoparsec.Text
 import Data.Text(Text)
 import qualified Data.Text as T
-import Data.List(elem)
 import Data.Maybe(isNothing,mapMaybe)
 import Control.Applicative((<|>))
 import Data.Either(partitionEithers)
 import qualified Data.Map.Strict as Map
 import System.Exit(die)
---import Control.Arrow(first)
-import Data.List(sortBy)
+import Data.List(sortBy,elem)
 import GenParse
---import GenParse(Sample)
 import CompareText(compareText)
 
 prove = do
@@ -111,8 +108,9 @@ inner selector base sample@(header,content) = let
     f ( Just (Range low high) ) x                  v = if read ( T.unpack v) < low || read ( T.unpack v) > high then Nothing else x
     f c                         x                  v = error $ show (c,x,v)
 
-    g (control,sample) Nothing = Just $ Map.singleton control sample
-    g (control,sample) (Just m) = Just $ Map.insertWith h control sample m
+    --g (control,sample) Nothing = Just $ Map.singleton control sample
+    --g (control,sample) (Just m) = Just $ Map.insertWith h control sample m
+    g (control,sample) = Just . maybe (Map.singleton control sample) (Map.insertWith h control sample)
 -- CRUCIAL functional explanation:
 -- when adding a new sample to the result map in a slot which is NOT empty......
 --      .... the _metrics_ are concatenated, but the older headers (dictionary) is discarded (replaced entirely by the new header)

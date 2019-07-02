@@ -12,7 +12,6 @@ import GenParse(getData)
 import Summary
 import Constraints
 import Graph
---import C2
 renderer = sdGraph -- allMeans / standardGraph / sdGraph / maxminGraph
 main = do
    (l,samples) <- partitionEithers <$> getData
