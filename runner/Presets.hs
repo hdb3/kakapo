@@ -19,6 +19,8 @@ presetTopics :: [(String, ([Integer], [Integer], Integer,[Integer]))]
 presetTopics = [
                  ("ONESHOT", ( [10] , [1] , 11,[1]))
                , ("TENSHOT", ( [10] , [10] , 11,[10]))
+               , ("BIGSHOT", ( [1000] , [10] , 11,[100]))
+               , ("LONGSHOT", ( [1000] , [10] , 1001,[100]))
                , ("SOAK", ( [100,200..] , [1] , 21,[10]))
                , ("SIMPLE", ( [10] , [1] , 11,[10,20]))
                , ("SKIMSHORT", ( [100] , [1] , 11,[10,20..100]))
