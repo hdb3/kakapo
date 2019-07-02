@@ -86,7 +86,11 @@ void *session(void *x) {
   char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
     if (NULL == hexoptions) { // then we should build our own AS4 capability
                               // using the provided AS number
-      hexoptions = concat("02064104", hex32(as), NULL);
+      // 020c = Optional Parameter = Capability, length 0x0c
+      // 010400010001 = multiprotocol, AFI/SAFI 1/1
+      // 4104xxxxxxxx AS4 capability, with ASn
+      hexoptions = concat("020c","010400010001","4104", hex32(as), NULL);
+      // hexoptions = concat("02064104", hex32(as), NULL);
     };
 
     char *hexmessage =
