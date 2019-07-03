@@ -12,6 +12,16 @@ import Data.List(sortBy,elem)
 import GenParse
 import CompareText(compareText)
 
+constraintsHelp = unlines [ "MATCH=B"
+                          , "RANGE=1-9"
+                          , "INDEX=you,me,both"
+                          , "EMPTYINDEX=,"
+                          , "WILDCARD=*"
+                          , "CONTROL=?"
+                          , "SELECT=>"
+                          , "AGGREGATE=+"
+                          ]
+
 prove = do
     print $ getConstraint "MATCH=B"
     print $ getConstraint "RANGE=1-9"

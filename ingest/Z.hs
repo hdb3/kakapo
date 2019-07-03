@@ -27,6 +27,9 @@ main = do
    if null selectArgs
    then
        putStrLn "please provide a selector to continue analysis"
+   else if ("--help" `elem` optArgs)
+   then do putStrLn constraintsHelp
+           putStrLn "for example: 'z samples TOPIC=BASE1M MAXBURSTCOUNT=? PLATFORM=,'"
    else do
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints

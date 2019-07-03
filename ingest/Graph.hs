@@ -36,19 +36,27 @@ import qualified Mean
 -}
 
 graph :: (Metrics -> [Double]) -> ([Double] -> Text) -> SelectResult -> Text
-graph metric reduction = l6 . l5 . l4 .l3 .l2 . l1 . map2list
-    where
-        l1 = map snd
-        l2 = mapmap (\(xPoint,(_,metrics)) -> (xPoint,metrics))
-        l3 = mapmap (second metric)
-        l4 = mapmap (second reduction)
-        l5 = map ( sortOn (readInt . fst))
-        l6 = T.intercalate "\n\n" . map T.unlines . mapmap (\(x,yx) -> x `T.append` " " `T.append` yx)
-        mapmap = map . map
-        readInt :: Text -> Int
-        readInt t = fromMaybe (error $ "readInt failed reading " ++ T.unpack t ++ ", perhaps you specified a non-numeric type as a control variable?")
-                              ( readMaybe $ T.unpack t)
-        --readInt = read . T.unpack
+graph metric reduction = T.intercalate "\n\n" . map plotSubgraph . map2list where
+
+        -- this is the form without the additional label line in the output file
+        -- plotSubgraph (label,samples) = T.unlines $ subgraphPipeline samples
+
+        plotSubgraph (label,samples) = T.unlines $ quote label : subgraphPipeline samples where
+
+            quote t = "\"" `T.append` t `T.append` "\""
+
+            subgraphPipeline = map displayPoint . sortOnXvalue . map samplePipeline where
+
+                displayPoint (x,yx) = x `T.append` " " `T.append` yx
+                sortOnXvalue = sortOn (readInt . fst)
+                samplePipeline = second (reduction . metric) . discardHeaders
+
+                discardHeaders (xPoint,(_,metrics)) = (xPoint,metrics)
+
+                readInt :: Text -> Int
+                readInt t = fromMaybe (error $ "readInt failed reading " ++ T.unpack t ++ ", perhaps you specified a non-numeric type as a control variable?")
+                                  ( readMaybe $ T.unpack t)
+
 
 standardGraph :: SelectResult -> Text
 standardGraph = graph rtt mean
