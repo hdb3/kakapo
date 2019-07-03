@@ -296,6 +296,38 @@ void *session(void *x) {
 
   int sndrunning = 0;
 
+void send_update_block (int bsn, int cyclenumber, int sock) {
+
+      int i, usn;
+      struct iovec *vec = malloc(sizeof(struct iovec) * BLOCKSIZE);
+
+      // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
+      // an array to hold the entire output is exactly BLOCKSIZE in size
+      // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
+      for (i = 0; i < BLOCKSIZE; i++) {
+        usn = i + bsn * BLOCKSIZE;
+        struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+        vec[i].iov_base = b.data; 
+        vec[i].iov_len = b.length; 
+        //if (0 == sendbs(sock, b))
+          //return -1;
+        // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
+      };
+      // there is a limit of IOV_MAX iovecs which can be sent at a single time,
+      // so we must send in chunks (or memcpy the entire block into a contiguos buffer).
+      int offset = 0;
+      int sendcount;
+      while (offset<BLOCKSIZE) {
+        sendcount = (BLOCKSIZE-offset) > IOV_MAX ? IOV_MAX : (BLOCKSIZE-offset);
+        if (-1 == writev(sock, vec+offset , sendcount))
+          die("writev failed");
+          // return -1;
+        else
+          offset += sendcount;
+      };
+      free(vec);
+      txwait(sock);
+};
 // see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y/edit?usp=sharing
   void *sendthread(void *_x) {
 
@@ -326,34 +358,7 @@ void *session(void *x) {
         gettime(&tstart);
       };
 
-      int i, usn;
-      struct iovec *vec = malloc(sizeof(struct iovec) * BLOCKSIZE);
-
-      // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
-      // an array to hold the entire output is exactly BLOCKSIZE in size
-      // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-      for (i = 0; i < BLOCKSIZE; i++) {
-        usn = i + bsn * BLOCKSIZE;
-        struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
-        vec[i].iov_base = b.data; 
-        vec[i].iov_len = b.length; 
-        //if (0 == sendbs(sock, b))
-          //return -1;
-        // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
-      };
-      // there is a limit of IOV_MAX iovecs which can be sent at a single time,
-      // so we must send in chunks (or memcpy the entire block into a contiguos buffer).
-      int offset = 0;
-      int sendcount;
-      while (offset<BLOCKSIZE) {
-        sendcount = (BLOCKSIZE-offset) > IOV_MAX ? IOV_MAX : (BLOCKSIZE-offset);
-        if (-1 == writev(sock, vec+offset , sendcount))
-          return -1;
-        else
-          offset += sendcount;
-      };
-      free(vec);
-      txwait(sock);
+      send_update_block (bsn, cyclenumber, sock);
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
