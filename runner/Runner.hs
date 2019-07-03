@@ -2,7 +2,7 @@ module Main where
 import System.Exit(die)
 import Data.Maybe(fromJust,isJust)
 import System.Environment(getArgs)
-import Data.List(lookup)
+import Data.List(lookup,partition,isPrefixOf,elem)
 import Data.Char(isControl)
 import Control.Monad(when,unless,void)
 import Data.UUID(toString)
@@ -14,8 +14,11 @@ import Presets
 
 getTopic s = fromJust $ lookup s presetTopics 
 
+optSet s = ( elem ("--" ++ s) ) <$> getArgs
+--oldSchool = ( elem "--old") <$> getArgs
+
 main = do
-    args <- getArgs
+    args <- filter (not . isPrefixOf "--") <$> tail <$> getArgs
 
     when (null args)
          (die $ "please specify topic, platform, SUT target and kakapo target\n" ++ show presetTopics ++ show presetPlatforms)
@@ -70,6 +73,7 @@ runExperiment :: ([String] -> IO()) -> String -> String -> String -> String -> I
 runExperiment rsh sut topic sysinfo app = do
     uuid <- ( toString . fromJust ) <$> nextUUID
     time <- (show . systemSeconds ) <$> getSystemTime
+    oldSchool <- optSet "old"
     let
         logText = "TOPIC=\'" ++ topic ++ "\' " ++ " PLATFORM=" ++ app ++ " SUT=" ++ sut ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
         base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
@@ -86,7 +90,10 @@ runExperiment rsh sut topic sysinfo app = do
              ("GROUPSIZE" , "10 "),
              ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
-             ("FASTCYCLELIMIT" , "1 "),
+             if oldSchool then 
+                 ("FASTCYCLELIMIT" , "0 ")
+             else
+                 ("FASTCYCLELIMIT" , "1 "),
              ("CYCLECOUNT" , "10 "),
              ("NEXTHOP" , "172.18.0.21 ")
            ]
