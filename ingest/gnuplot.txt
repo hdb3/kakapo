@@ -1,0 +1,13 @@
+to plot the output of 'z'
+
+output file name is 'plot.csv'
+
+in gnuplot:
+    simple line graph:
+        plot for [i=0:*] 'plot.csv' index i using 1:2 with lines title columnheader(1)
+
+    same graph, with overlaid error bars:
+        plot for [i=0:*] 'plot.csv' index i using 1:2 with lines title columnheader(1), "" using 1:2:3 with errorbars
+
+A sample commnad line for 'z':
+    $ z samples TOPIC=BASE1M MAXBURSTCOUNT=? PLATFORM=,
