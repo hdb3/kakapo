@@ -54,6 +54,16 @@ void *session(void *x) {
   int sock = sd->sock;
   char *tid;
   int tmp = asprintf(&tid, "%d-%d: ", pid, sd->tidx);
+  int sendFlag = 0;
+  void _send(int sock, const void *buf, size_t count) {
+    if (sendFlag != 0)
+      die("send flag reentry fail");
+    else
+      sendFlag = 1;
+    (0 < send(sock, buf, count, 0)) || die("send fail");
+    txwait(sock);
+    sendFlag = 0;
+  };
 
   void getsockaddresses() {
     struct sockaddr_in sockaddr;
@@ -77,7 +87,7 @@ void *session(void *x) {
   void send_notification(int sock, unsigned char major, unsigned char minor) {
     notification[19]=major;
     notification[20]=minor;
-    (0 < send(sock, notification, 21, 0)) || die("Failed to send notification to peer");
+    _send(sock, notification, 21);
   };
   unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
   unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -296,6 +306,42 @@ void *session(void *x) {
 
   int sndrunning = 0;
 
+
+
+struct bytestring build_update_block (int bsn, int cyclenumber ) {
+
+      int i, usn;
+      struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
+      int buflen = 0;
+
+      // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
+      // an array to hold the entire output is exactly BLOCKSIZE in size
+      // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
+      for (i = 0; i < BLOCKSIZE; i++) {
+        usn = i + bsn * BLOCKSIZE;
+        struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+        vec[i] = b;
+        buflen += b.length; 
+      };
+      char *data = malloc(buflen);
+      char * offset = data;
+
+      for (i = 0; i < BLOCKSIZE; i++) {
+        offset = mempcpy(offset,vec[i].data, vec[i].length);
+        free(vec[i].data);
+      };
+      return (struct bytestring){buflen, data};
+};
+
+
+void send_update_block2 (int bsn, int cyclenumber, int sock) {
+
+      struct bytestring updates = build_update_block(bsn,cyclenumber);
+      _send(sock, updates.data, updates.length);
+      txwait(sock);
+      free(updates.data);
+};
+/*
 void send_update_block (int bsn, int cyclenumber, int sock) {
 
       int i, usn;
@@ -328,6 +374,7 @@ void send_update_block (int bsn, int cyclenumber, int sock) {
       free(vec);
       txwait(sock);
 };
+*/
 // see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y/edit?usp=sharing
   void *sendthread(void *_x) {
 
@@ -358,7 +405,7 @@ void send_update_block (int bsn, int cyclenumber, int sock) {
         gettime(&tstart);
       };
 
-      send_update_block (bsn, cyclenumber, sock);
+      send_update_block2 (bsn, cyclenumber, sock);
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
         gettime(&tend);
@@ -411,7 +458,7 @@ void send_update_block (int bsn, int cyclenumber, int sock) {
     char *m = bgpopen(sd->as, HOLDTIME, htonl(localip), NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
     FLAGS(sock, __FILE__, __LINE__);
-    (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
+    _send(sock, m, ml);
     FLAGS(sock, __FILE__, __LINE__);
 
     do
@@ -423,7 +470,7 @@ void send_update_block (int bsn, int cyclenumber, int sock) {
       goto exit;
 
     FLAGS(sock, __FILE__, __LINE__);
-    (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
+    _send(sock, keepalive, 19);
     FLAGS(sock, __FILE__, __LINE__);
 
     do
@@ -458,7 +505,7 @@ void send_update_block (int bsn, int cyclenumber, int sock) {
       // send here can interleave in the message flow!!!!!
         if (sndrunning==0) {
           FLAGS(sock, __FILE__, __LINE__);
-          (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
+          _send(sock, keepalive, 19);
           FLAGS(sock, __FILE__, __LINE__);
         };
         break;
