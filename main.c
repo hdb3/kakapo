@@ -31,7 +31,7 @@ sem_t semrxtx;
 struct timespec txts;
 
 int pid;
-int tflag=0;  // the global termination flag - when != 0, exit gracefully
+int tflag = 0; // the global termination flag - when != 0, exit gracefully
 int tidx = 0;
 pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
@@ -40,9 +40,9 @@ uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
 
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
-uint32_t GROUPSIZE = 3;          // prefix table size is GROUPSIZE * path table size
+uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
 uint32_t BLOCKSIZE = 3;
-uint32_t MAXBURSTCOUNT = 3;      // path table size is MAXBURSTCOUNT * BLOCKSIZE
+uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t NEXTHOP;
 char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
                                  // initilase like this ;-(
@@ -50,7 +50,7 @@ uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
 uint32_t CYCLECOUNT = 1;         // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
-uint32_t CYCLEDELAY = 5; // seconds
+uint32_t CYCLEDELAY = 5;         // seconds
 uint32_t HOLDTIME = 180;
 
 char LOGFILE[128] = "stats.csv";
@@ -183,21 +183,21 @@ void getllienv(char *name, long long int *tgt) {
   };
 };
 
-FILE *logfile=NULL;
+FILE *logfile = NULL;
 void endlog(char *error) {
   if (NULL == logfile)
     fprintf(stderr, "endlog: logfile not opened\n");
   else {
     fprintf(logfile, "HDR , STOP, TIME, ERROR\nSTOP,%s,%s\n", shownow(), ((NULL == error) ? "" : error));
     fclose(logfile);
-    logfile=NULL;
+    logfile = NULL;
     if (0 != LOGPATH) {
       char *sp;
       time_t t = time(NULL);
       int tmp = asprintf(&sp, "curl -X PUT --data-binary @%s http://%s/%ld", LOGFILE, LOGPATH, t);
       int res = system(sp);
       if (0 == res)
-          fprintf(stderr, "logging complete, results uploaded to http://%s/%ld\n", LOGPATH, t);
+        fprintf(stderr, "logging complete, results uploaded to http://%s/%ld\n", LOGPATH, t);
       else
         fprintf(stderr, "logging complete, failed to upload results to http://%s/%ld (%d)\n", LOGPATH, t, res);
       free(sp);
@@ -205,7 +205,7 @@ void endlog(char *error) {
   };
   if (NULL != error)
     fprintf(stderr, "abnormal termination, error msg: %s\n", error);
-/*
+  /*
   if (NULL == error)
     exit(0);
   else {
@@ -264,10 +264,10 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
     fprintf(stderr, "rcvlog: logfile not opened\n");
   else {
     fprintf(logfile, "DATA, %d , %f , %f , %f , %f\n", seq,
-          timespec_to_double(timespec_sub(*end, sndlog_start)),
-          timespec_to_double(timespec_sub(*start, sndlog_end)),
-          timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
-          timespec_to_double(timespec_sub(*end, *start)));
+            timespec_to_double(timespec_sub(*end, sndlog_start)),
+            timespec_to_double(timespec_sub(*start, sndlog_end)),
+            timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
+            timespec_to_double(timespec_sub(*end, *start)));
   };
 #else
   fprintf(
@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
   setvbuf(stderr, NULL, _IOLBF, 0);
   pid = getpid();
   fprintf(stderr, "%d: kakapo\n", pid);
-  fprintf(stderr, "%d: kakapo  Version %s (%s) \n", pid, VERSION ,BUILDDATE);
+  fprintf(stderr, "%d: kakapo  Version %s (%s) \n", pid, VERSION, BUILDDATE);
   if (1 > argc) {
     fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
     fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
   int argn;
   for (argn = 1; argn <= argc - 1; argn++)
     peer(argv[argn]);
-  while (0==tflag)
+  while (0 == tflag)
     sleep(1);
   sleep(5);
   fprintf(stderr, "%d: kakapo exit\n", pid);
