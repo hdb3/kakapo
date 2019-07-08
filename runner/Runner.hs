@@ -18,7 +18,7 @@ optSet s = ( elem ("--" ++ s) ) <$> getArgs
 --oldSchool = ( elem "--old") <$> getArgs
 
 main = do
-    args <- filter (not . isPrefixOf "--") <$> tail <$> getArgs
+    args <- filter (not . isPrefixOf "--") <$> getArgs
 
     when (null args)
          (die $ "please specify topic, platform, SUT target and kakapo target\n" ++ show presetTopics ++ show presetPlatforms)
