@@ -25,7 +25,7 @@
 #define MINREAD 4096
 #define MAXPENDING 2 // Max connection requests
 
-char VERSION[] = "1.1.3";
+char VERSION[] = "1.1.4";
 
 struct peer {
   int sock, nread, nwrite;
