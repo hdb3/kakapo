@@ -5,6 +5,6 @@
 #include "tcpflags.c"
 #include "timedloop.c"
 #include "timespec.c"
+#include "txwait.c"
 #include "update.c"
 #include "util.c"
-#include "txwait.c"

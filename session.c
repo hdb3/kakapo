@@ -1,10 +1,10 @@
-
 /* kakapo-session - a BGP traffic source and sink */
 
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <linux/sockios.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -18,9 +18,8 @@
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <unistd.h>
 #include <sys/uio.h>
-#include <limits.h>
+#include <unistd.h>
 
 #include "kakapo.h"
 #include "libutil.h"
@@ -55,6 +54,21 @@ void *session(void *x) {
   char *tid;
   int tmp = asprintf(&tid, "%d-%d: ", pid, sd->tidx);
 
+  // wrapper for send which protects against multiple thread writes interleaving output
+  // the protection is 'soft' in that it introduces wait until queue empty semantics
+  // rather than an explicit semaphore
+  int sendFlag = 0;
+  void _send(int sock, const void *buf, size_t count) {
+    txwait(sock);
+    if (sendFlag != 0)
+      die("send flag reentry fail");
+    else
+      sendFlag = 1;
+    (0 < send(sock, buf, count, 0)) || die("send fail");
+    txwait(sock);
+    sendFlag = 0;
+  };
+
   void getsockaddresses() {
     struct sockaddr_in sockaddr;
     int socklen;
@@ -73,11 +87,11 @@ void *session(void *x) {
     fprintf(stderr, "%s\n", fromHostAddress(peerip));
   };
 
-  unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0 ,0 };
+  unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
   void send_notification(int sock, unsigned char major, unsigned char minor) {
-    notification[19]=major;
-    notification[20]=minor;
-    (0 < send(sock, notification, 21, 0)) || die("Failed to send notification to peer");
+    notification[19] = major;
+    notification[20] = minor;
+    _send(sock, notification, 21);
   };
   unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
   unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -89,7 +103,7 @@ void *session(void *x) {
       // 020c = Optional Parameter = Capability, length 0x0c
       // 010400010001 = multiprotocol, AFI/SAFI 1/1
       // 4104xxxxxxxx AS4 capability, with ASn
-      hexoptions = concat("020c","010400010001","4104", hex32(as), NULL);
+      hexoptions = concat("020c", "010400010001", "4104", hex32(as), NULL);
       // hexoptions = concat("02064104", hex32(as), NULL);
     };
 
@@ -296,7 +310,40 @@ void *session(void *x) {
 
   int sndrunning = 0;
 
-// see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y/edit?usp=sharing
+  struct bytestring build_update_block(int bsn, int cyclenumber) {
+
+    int i, usn;
+    struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
+    int buflen = 0;
+
+    // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
+    // an array to hold the entire output is exactly BLOCKSIZE in size
+    // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
+    for (i = 0; i < BLOCKSIZE; i++) {
+      usn = i + bsn * BLOCKSIZE;
+      struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+      vec[i] = b;
+      buflen += b.length;
+    };
+    char *data = malloc(buflen);
+    char *offset = data;
+
+    for (i = 0; i < BLOCKSIZE; i++) {
+      offset = mempcpy(offset, vec[i].data, vec[i].length);
+      free(vec[i].data);
+    };
+    return (struct bytestring){buflen, data};
+  };
+
+  void send_update_block(int bsn, int cyclenumber, int sock) {
+
+    struct bytestring updates = build_update_block(bsn, cyclenumber);
+    _send(sock, updates.data, updates.length);
+    txwait(sock);
+    free(updates.data);
+  };
+
+  // see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y
   void *sendthread(void *_x) {
 
     uint32_t logseq;
@@ -320,45 +367,18 @@ void *session(void *x) {
       };
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == 0) {
-        if (0==cyclenumber && FASTCYCLELIMIT > 0)
+        if (0 == cyclenumber && FASTCYCLELIMIT > 0)
           fprintf(stderr, "%s: FASTMODE START\n", tid);
         logseq = senderwait();
         gettime(&tstart);
       };
 
-      int i, usn;
-      struct iovec *vec = malloc(sizeof(struct iovec) * BLOCKSIZE);
+      send_update_block(bsn, cyclenumber, sock);
 
-      // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
-      // an array to hold the entire output is exactly BLOCKSIZE in size
-      // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-      for (i = 0; i < BLOCKSIZE; i++) {
-        usn = i + bsn * BLOCKSIZE;
-        struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
-        vec[i].iov_base = b.data; 
-        vec[i].iov_len = b.length; 
-        //if (0 == sendbs(sock, b))
-          //return -1;
-        // eBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, sd->as, 0})));
-      };
-      // there is a limit of IOV_MAX iovecs which can be sent at a single time,
-      // so we must send in chunks (or memcpy the entire block into a contiguos buffer).
-      int offset = 0;
-      int sendcount;
-      while (offset<BLOCKSIZE) {
-        sendcount = (BLOCKSIZE-offset) > IOV_MAX ? IOV_MAX : (BLOCKSIZE-offset);
-        if (-1 == writev(sock, vec+offset , sendcount))
-          return -1;
-        else
-          offset += sendcount;
-      };
-      free(vec);
-      txwait(sock);
-
-      if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT-1) {
+      if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT - 1) {
         gettime(&tend);
         sndlog(sd->tidx, tid, logseq, &tstart, &tend);
-        if (FASTCYCLELIMIT==cyclenumber && FASTCYCLELIMIT > 0 && bsn ==0 )
+        if (FASTCYCLELIMIT == cyclenumber && FASTCYCLELIMIT > 0 && bsn == 0)
           fprintf(stderr, "%s: FASTMODE END\n", tid);
       };
 
@@ -372,10 +392,9 @@ void *session(void *x) {
 
     senderwait();
 
-    // potentially could send NOTIFICATION here.....
-    send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
+    send_notification(sock, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
     sndrunning = 0;
-    tflag=1;
+    tflag = 1;
     endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
   };
 
@@ -406,7 +425,7 @@ void *session(void *x) {
     char *m = bgpopen(sd->as, HOLDTIME, htonl(localip), NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
     FLAGS(sock, __FILE__, __LINE__);
-    (0 < send(sock, m, ml, 0)) || die("Failed to send synthetic open to peer");
+    _send(sock, m, ml);
     FLAGS(sock, __FILE__, __LINE__);
 
     do
@@ -418,7 +437,7 @@ void *session(void *x) {
       goto exit;
 
     FLAGS(sock, __FILE__, __LINE__);
-    (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
+    _send(sock, keepalive, 19);
     FLAGS(sock, __FILE__, __LINE__);
 
     do
@@ -436,8 +455,7 @@ void *session(void *x) {
     } else
       slp = initlogrecord(sd->tidx, tid);
 
-
-    while (0==tflag) {
+    while (0 == tflag) {
       if ((0 == sndrunning) && (sd->role == ROLESENDER)) {
         errormsg = "sender exited unexpectedly";
         goto exit;
@@ -449,11 +467,11 @@ void *session(void *x) {
       case BGPUPDATE: // Update
         break;
       case BGPKEEPALIVE: // Keepalive
-      // trying to send while the send thread is also running is a BAD idea - because (using writev) the
-      // send here can interleave in the message flow!!!!!
-        if (sndrunning==0) {
+                         // trying to send while the send thread is also running is a BAD idea - because (using writev) the
+                         // send here can interleave in the message flow!!!!!
+        if (sndrunning == 0) {
           FLAGS(sock, __FILE__, __LINE__);
-          (0 < send(sock, keepalive, 19, 0)) || die("Failed to send keepalive to peer");
+          _send(sock, keepalive, 19);
           FLAGS(sock, __FILE__, __LINE__);
         };
         break;
@@ -478,11 +496,11 @@ void *session(void *x) {
       pthread_cancel(thrd);
     };
     if (tflag) {
-      send_notification(sock,NOTIFICATION_CEASE,NOTIFICATION_ADMIN_RESET);
+      send_notification(sock, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
       errormsg = "shutdown requested";
       fprintf(stderr, "%s: shutdown requested\n", tid);
     } else
-      tflag=1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
+      tflag = 1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
     close(sock);
     fprintf(stderr, "%s: session exit\n", tid);
     free(sd);

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
+/*
 int sendbs(int sock, struct bytestring msg) {
   int res = send(sock, msg.data, msg.length, 0);
   if (res != msg.length) {
@@ -16,6 +17,7 @@ int sendbs(int sock, struct bytestring msg) {
   } else
     return 1;
 };
+*/
 
 struct bytestring empty = {0, 0};
 
