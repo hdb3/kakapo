@@ -151,7 +151,7 @@ int readaction(struct peer *p, fd_set *set) {
     FLAGS(p->sock, __FILE__, __LINE__);
     if (res > 0) {
       p->nread += res;
-    } else if (res = 0) // normal end-of-stream
+    } else if (res == 0) // normal end-of-stream
       return 1;
     else if (errno == EAGAIN) // nothing available but not an error
       ;                       // printf("got nothing from a read, just saying....\n");
