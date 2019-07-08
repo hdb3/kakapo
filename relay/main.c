@@ -178,7 +178,7 @@ int writeaction(struct peer *p, int sock2, fd_set *set) {
     FLAGS(sock2, __FILE__, __LINE__);
     if (res > 0) {
       p->nwrite += res;
-    } else if (res = 0) // probably an error!!!!
+    } else if (res == 0) // probably an error!!!!
       return 1;
     else if (errno == EAGAIN)
       ;
