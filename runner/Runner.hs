@@ -51,11 +51,10 @@ main = do
         app = platform
         sut = docker sutHostName
         kakapo = docker kakapoHostName
-        name = "sut"
 
-        dockerFlags = [ "-v", "/coredumps:/coredumps", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
-        dockerInteractive = "-i" : dockerFlags
-        dockerDaemon = "-d" : dockerFlags
+        dockerFlags name = [ "-v", "/coredumps:/coredumps", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
+        dockerInteractive name = "-i" : dockerFlags name
+        dockerDaemon name = "-d" : dockerFlags name
         dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands
 
 -- We need to run the app in  sysinfo mode before starting everything else,
@@ -63,7 +62,7 @@ main = do
 -- (from whence it will eventualy emerge in the logs)
 
     sut ["pull",repo]
-    sut ["kill",name]
+    sut ["kill","sut"]
 
     sysinfo <- maybe "VERSION=\"UNKNOWN\" MEMSIZE=-1 CORES=-1 THREADS=-1" (map (\c -> if isControl c then ' ' else c)) <$>
                    dockerCMD sutHostName ( ["run"] ++ dockerInteractive app ++ [ repo , "sysinfo"] ) ""
@@ -73,8 +72,8 @@ main = do
     -- void $ dockerRun sutHostName (dockerDaemon app) repo []
     -- let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
-    let kakapoDocker parameters = do sut ["kill",name]
-                                     void $ dockerRun sutHostName (dockerDaemon app) repo []
+    let kakapoDocker parameters = do sut ["kill","sut"]
+                                     void $ dockerRun sutHostName (dockerDaemon "sut") repo []
                                      void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
     let
@@ -128,6 +127,6 @@ main = do
 
     mapM_ ( kakapoDocker . buildCommand ) ( blockGen b g c burstRange )
 
-    sut ["kill",name]
+    sut ["kill","sut"]
     kakapo ["kill","kakapo"]
     putStrLn "Done"
