@@ -58,6 +58,10 @@ graph metric reduction = T.intercalate "\n\n" . map plotSubgraph . map2list wher
                                   ( readMaybe $ T.unpack t)
 
 
+showPair (a,b)  = show a ++ " " ++ show b
+
+textShowPair = T.pack . showPair
+
 standardGraph :: SelectResult -> Text
 standardGraph = graph rtt mean
    where
@@ -65,16 +69,10 @@ standardGraph = graph rtt mean
    mean = T.pack . show . Mean.mean
 
 sdGraph :: SelectResult -> Text
-sdGraph = graph rtt sdMean
-   where
-   sdMean :: [Double] -> Text
-   sdMean = T.pack . (\(a,b) -> show a ++ " " ++ show b ) . Mean.meanSD
+sdGraph = graph rtt ( textShowPair . Mean.meanSD )
 
-maxminGraph :: SelectResult -> Text
-maxminGraph = graph rtt sdMean
-   where
-   sdMean :: [Double] -> Text
-   sdMean = T.pack . (\(a,b) -> show a ++ " " ++ show b ) . Mean.meanSD
+sdMinGraph :: SelectResult -> Text
+sdMinGraph = graph rtt ( textShowPair . Mean.minSD )
 
 allMeans  :: SelectResult -> Text
 allMeans =  graph rtt  ( (\(a,b,c,d) -> T.pack $ unwords $ map show [a,b,c,d]) . Mean.maxSDMinMean)

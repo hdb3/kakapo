@@ -12,7 +12,7 @@ import GenParse(getData)
 import Summary
 import Constraints
 import Graph
-renderer = sdGraph -- allMeans / standardGraph / sdGraph / maxminGraph
+--renderer = sdGraph -- allMeans / standardGraph / sdGraph / maxminGraph
 main = do
    (l,samples) <- partitionEithers <$> getData
    mapM_ putStrLn l
@@ -31,6 +31,7 @@ main = do
    then do putStrLn constraintsHelp
            putStrLn "for example: 'z samples TOPIC=BASE1M MAXBURSTCOUNT=? PLATFORM=,'"
    else do
+       let renderer = if "--min" `elem` optArgs then sdMinGraph else sdGraph
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
        putStrLn $ "Selector is " ++ showSelector selector

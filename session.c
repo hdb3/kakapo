@@ -337,6 +337,8 @@ void *session(void *x) {
 
   void send_update_block(int bsn, int cyclenumber, int sock) {
 
+    // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
+    _send(sock, keepalive, 19);
     struct bytestring updates = build_update_block(bsn, cyclenumber);
     _send(sock, updates.data, updates.length);
     txwait(sock);
