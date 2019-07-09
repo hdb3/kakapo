@@ -149,19 +149,30 @@ int readaction(struct peer *p, fd_set *set) {
     FLAGS(p->sock, __FILE__, __LINE__);
     res = readv(p->sock, iovecs, niovec);
     FLAGS(p->sock, __FILE__, __LINE__);
+
     if (res > 0) {
       p->nread += res;
-    } else if (res == 0) // normal end-of-stream
-      return 1;
-    else if (errno == EAGAIN) // nothing available but not an error
-      ;                       // printf("got nothing from a read, just saying....\n");
-                              // should not happen as we only read if the select showed read will succceed
-    else {
-      printf("end of stream on fd %d, errno: %d\n", p->sock, errno);
-      return 1;
+      return 0;
     };
-  };
-  return 0;
+
+    if (errno == EAGAIN) { // nothing available but not an error
+                           // should not happen as we only read if the select showed read will succceed
+      printf("unproductive read on stream on fd %d\n", p->sock);
+      return 0;
+    };
+
+    // all other outcomes are terminal
+    // - and the non-zero return causes the session to exit
+
+    if (res == 0) // normal end-of-stream
+      printf("end of stream on fd %d\n", p->sock);
+    else 
+      printf("end of stream on fd %d, errno: %d\n", p->sock, errno);
+
+    return 1;
+
+  } else // this is the case where we cannot read because the buffer is full
+    return 0;
 };
 
 // probapaly TODO remove the flags entirely from the actions
