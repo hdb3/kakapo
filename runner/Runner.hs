@@ -12,13 +12,22 @@ import Data.Time.Clock.System ( systemSeconds, getSystemTime )
 import Docker
 import Presets
 
+kakapoSender   = "172.18.0.21"
+kakapoReceiver = "172.18.0.22"
+sutAddress     = "172.18.0.13"
+webDAVAddress  = "10.30.65.209"
+kakapoBinary = "/usr/sbin/kakapo"
+localAS = "64504"
+
 getTopic s = fromJust $ lookup s presetTopics 
 
 optSet s = ( elem ("--" ++ s) ) <$> getArgs
---oldSchool = ( elem "--old") <$> getArgs
 
 main = do
     args <- filter (not . isPrefixOf "--") <$> getArgs
+    oldSchool <- optSet "old"
+    uuid <- ( toString . fromJust ) <$> nextUUID
+    time <- (show . systemSeconds ) <$> getSystemTime
 
     when (null args)
          (die $ "please specify topic, platform, SUT target and kakapo target\n" ++ show presetTopics ++ show presetPlatforms)
@@ -46,6 +55,10 @@ main = do
         dockerDaemon name = "-d" : dockerFlags name
         dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands 
     
+-- We need to run the app in  sysinfo mode before starting everything else,
+-- in order to push the app verion string and sysinfo data into the kakapo environment
+-- (from whence it will eventualy emerge in the logs)
+
     sut ["kill",app]
     sut ["pull",repo]
 
@@ -53,33 +66,26 @@ main = do
                    dockerCMD sutHostName ( ["run"] ++ dockerInteractive app ++ [ repo , "sysinfo"] ) ""
     putStrLn $ "Sysinfo: " ++ sysinfo
 
-    -- if ruuning the SUT app for muktiple instances of kakapo then start it here...
+
+    -- if ruuning the SUT app for multiple instances of kakapo then start it here...
     -- void $ dockerRun sutHostName (dockerDaemon app) repo []
     -- let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
-    kakapo ["kill","kakapo"]
-    kakapo ["pull",registry ++ "kakapo"]
 
     let kakapoDocker parameters = do sut ["kill",app]
                                      void $ dockerRun sutHostName (dockerDaemon app) repo []
                                      void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
-    kakapoDocker [ "ip" , "address" , "add" , "172.18.0.21/32" , "dev" , "lo"]
-    kakapoDocker [ "ip" , "address" , "add" , "172.18.0.22/32" , "dev" , "lo"]
-
-    uuid <- ( toString . fromJust ) <$> nextUUID
-    time <- (show . systemSeconds ) <$> getSystemTime
-    oldSchool <- optSet "old"
     let
         logText = "TOPIC=\'" ++ topic ++ "\' " ++ " PLATFORM=" ++ app ++ " SUT=" ++ sutHostName ++ " " ++ " TIME=" ++ time ++ " UUID=" ++ uuid ++ " " ++ sysinfo
-        base = kvSet "LOGPATH" ( "10.30.65.209/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
+        base = kvSet "LOGPATH" ( webDAVAddress ++ "/" ++ app ) $ kvSet "LOGTEXT" ( "\"" ++ logText ++ "\"") kakapoDefaultParameters
 
         expandParameters = map (\(k,v) -> k ++ "=" ++ v)
         kakapoDefaultParameters = -- NOTE!!! must include all parameters required even if otherwise set
                                   -- kvSet cannot insert (obvs this is not elegant....)
            [
              ("LOGTEXT" , "\"LOGTEXT not provided\" "),
-             ("LOGPATH" , "10.30.65.209"),
+             ("LOGPATH" , webDAVAddress),
              ("SLEEP" , "0 "),
              ("MAXBURSTCOUNT" , "1 "),
              ("IDLETHR" , "3 "),
@@ -91,7 +97,7 @@ main = do
              else
                  ("FASTCYCLELIMIT" , "1 "),
              ("CYCLECOUNT" , "10 "),
-             ("NEXTHOP" , "172.18.0.21 ")
+             ("NEXTHOP" , kakapoSender ++ " ")
            ]
 
         -- TODO - eliminate this function by using 'nubBy' over a list built by 'cons'ing the elemnts (nub will discard repeats)
@@ -107,9 +113,16 @@ main = do
         --buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , ",172.18.0.11,64504" , ",172.18.0.12,64504" ]
 
         -- kakapo in active mode:
-        buildCommand parameters = parameters ++ [ "/usr/sbin/kakapo" , "172.18.0.13,172.18.0.21,64504" , "172.18.0.13,172.18.0.22,64504" ]
+        buildCommand parameters = parameters ++ [ kakapoBinary
+                                                , sutAddress ++ "," ++ kakapoSender ++ "," ++ localAS
+                                                , sutAddress ++ "," ++ kakapoReceiver ++ "," ++ localAS ]
 
     let (b,g,c,burstRange) = getTopic topic
+
+    kakapo ["kill","kakapo"]
+    kakapo ["pull",registry ++ "kakapo"]
+    kakapoDocker [ "ip" , "address" , "add" , kakapoSender   ++ "/32" , "dev" , "lo"]
+    kakapoDocker [ "ip" , "address" , "add" , kakapoReceiver ++ "/32" , "dev" , "lo"]
 
     mapM_ ( kakapoDocker . buildCommand ) ( blockGen b g c burstRange )
 
