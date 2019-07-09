@@ -2,14 +2,7 @@ module Presets where
 
 registry = "localrepo:5000/"
 
-frr = ( registry ++ "frr", "frr")
-bgpd = (registry ++ "bgpd","bgpd")
-bird = (registry ++ "bird","bird")
-bird2 = (registry ++ "bird2","bird2")
-hbgp = (registry ++ "hbgp","hbgp")
-relay = (registry ++ "relay","relay")
-
-presetPlatforms = [("bgpd",bgpd),("bird2",bird2),("bird",bird),("frr",frr),("hbgp",hbgp),("relay",relay)]
+presetPlatforms = ["bgpd",bird2","bird","frr","hbgp","relay","hbgpdev"]
 
 -- presetTopic :: (String, ([Integer], [Integer], Integer,[Integer])) 
 -- where
