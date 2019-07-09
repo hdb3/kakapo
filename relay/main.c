@@ -157,7 +157,11 @@ int readaction(struct peer *p, fd_set *set) {
 
     if (errno == EAGAIN) { // nothing available but not an error
                            // should not happen as we only read if the select showed read will succceed
-      printf("unproductive read on stream on fd %d\n", p->sock);
+                           // **** HOWEVER *******
+                           // experience shows that this does occur at the end of sessions
+                           // _repeatedly_
+                           // so, until resolved, it is best not to log it
+      // printf("unproductive read on stream on fd %d\n", p->sock);
       return 0;
     };
 
