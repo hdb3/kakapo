@@ -10,6 +10,7 @@ import qualified Data.List
 import Data.Maybe(fromMaybe)
 import System.Environment(getArgs)
 import System.Exit(exitSuccess)
+import System.Process(callCommand)
 import GenParse(getData)
 import Summary
 import Constraints
@@ -102,7 +103,7 @@ main = do
            gnuplotPNG = "set terminal pngcairo size 1500,1000 ; " ++ gnuplotOutput "png"
            gnuplotQT = [ "pause -1" ]
            errorBars = "--eb" `elem` optArgs || "--errorbars" `elem` optArgs
-           gnuplotEB = ", '' using 1:2:3 with errorbars" 
+           gnuplotEB = ", '' using 1:2:3 notitle with errorbars" 
            gnuplotCommon = [ "set yrange [0:]"
                            , "set rmargin at screen 0.95"
                            , "set ylabel 'RTT'"
@@ -110,7 +111,14 @@ main = do
                            , "set title '" ++ gnuplotTitle ++ "'"
                            , "plot for [i=0:*] 'plot.csv' index i using 1:2 with linespoint title columnheader(1)" ++ if errorBars then gnuplotEB else ""
                            ] 
-           gnuplot commands = putStrLn $ "gnuplot -e \"" ++ Data.List.intercalate " ; " commands ++ "\""
+           gnuplot commands =
+               let commandString = "gnuplot -e \"" ++ Data.List.intercalate " ; " commands ++ "\""
+               in if "--exec" `elem` optArgs then
+                  do putStrLn $ "executing: " ++ commandString
+                     callCommand commandString
+                     putStrLn " done"
+                  else
+                     putStrLn commandString
         
        when ("--pdf" `elem` optArgs)
             ( gnuplot ( gnuplotPDF : gnuplotCommon ) )
