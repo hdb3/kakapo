@@ -7,6 +7,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Map.Strict as Map
 import qualified Data.List
+import Data.Maybe(fromMaybe)
 import System.Environment(getArgs)
 import System.Exit(exitSuccess)
 import GenParse(getData)
@@ -21,6 +22,11 @@ main = do
 
    (optArgs , selectArgs) <- Data.List.partition (Data.List.isPrefixOf "--") . tail <$> getArgs
 
+   let valueOpts s = map (drop (length s')) $ filter (Data.List.isPrefixOf s') optArgs where s' = "--" ++ s ++ "="
+       valueOpt s | null opts = Nothing
+                  | otherwise = Just $ head opts
+                  where opts = valueOpts s
+ 
    if null selectArgs then
 
        putStrLn "please provide a selector to continue analysis"
@@ -87,3 +93,32 @@ main = do
                      selection = map2FlatList (Constraints.select selector graph) -- `asTypeOf` _
                  putStrLn $ "source report (" ++ show (length selection) ++ ")"
                  putStrLn $ unlines $ map (\(ta,tb,sample) -> (T.unpack ta ++ " , " ++ T.unpack tb ++ " , " ++ getSource sample)) selection )
+
+       let topic = drop (length ("TOPIC="::String)) $ head $ filter (Data.List.isPrefixOf ("TOPIC="::String)) selectArgs
+           gnuplotTitle = fromMaybe topic (valueOpt "title")
+           gnuplotXLabel = T.unpack $ head controlConstraints
+           gnuplotOutput s = "set output '" ++ gnuplotTitle ++ "." ++ s ++ "'"
+           gnuplotPDF = "set terminal pdfcairo ; " ++ gnuplotOutput "pdf"
+           gnuplotPNG = "set terminal pngcairo size 1500,1000 ; " ++ gnuplotOutput "png"
+           gnuplotQT = [ "pause -1" ]
+           errorBars = "--eb" `elem` optArgs || "--errorbars" `elem` optArgs
+           gnuplotEB = ", '' using 1:2:3 with errorbars" 
+           gnuplotCommon = [ "set yrange [0:]"
+                           , "set rmargin at screen 0.95"
+                           , "set ylabel 'RTT'"
+                           , "set xlabel '" ++ gnuplotXLabel ++ "'"
+                           , "set title '" ++ gnuplotTitle ++ "'"
+                           , "plot for [i=0:*] 'plot.csv' index i using 1:2 with linespoint title columnheader(1)" ++ if errorBars then gnuplotEB else ""
+                           ] 
+           gnuplot commands = putStrLn $ "gnuplot -e \"" ++ Data.List.intercalate " ; " commands ++ "\""
+        
+       when ("--pdf" `elem` optArgs)
+            ( gnuplot ( gnuplotPDF : gnuplotCommon ) )
+        
+       when ("--png" `elem` optArgs)
+            --( putStrLn $ "\"" ++ Data.List.intercalate " ; " ( gnuplotPNG : gnuplotCommon ) ++ "\"" )
+            ( gnuplot ( gnuplotPNG : gnuplotCommon ) )
+        
+       when ("--qt" `elem` optArgs)
+            --( putStrLn $ "\"" ++ Data.List.intercalate " ; " ( gnuplotCommon ++ gnuplotQT ) ++ "\"" )
+            ( gnuplot ( gnuplotCommon ++ gnuplotQT ) )
