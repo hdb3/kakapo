@@ -11,3 +11,13 @@ in gnuplot:
 
 A sample commnad line for 'z':
     $ z samples TOPIC=BASE1M MAXBURSTCOUNT=? PLATFORM=,
+
+
+Here are some more complete examples:
+gnuplot -e "set yrange [0:] ; set rmargin at screen 0.95 ; set ylabel 'probe RTT' ; set xlabel 'RIB size' ; set title 'TOPIC=ANCS-800k-5p PLATFORM=bird,frr,bgpd,hbgp RIBSIZE=?' ; plot for [i=0:*] 'plot.csv' index i using 1:2 with linespoint title columnheader(1), \"\" using 1:2:3 with errorbars ; pause -1"
+
+for 'z':
+  z /var/webdav TOPIC=ANCS-800k-5p PLATFORM=, RIBSIZE=?
+
+(RIBSIZE is a derived metadat header field)
+

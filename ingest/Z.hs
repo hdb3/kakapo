@@ -13,6 +13,7 @@ import GenParse(getData)
 import Summary
 import Constraints
 import Graph
+import AddMeta
 --renderer = sdGraph -- allMeans / standardGraph / sdGraph / maxminGraph
 
 main :: IO ()
@@ -36,7 +37,8 @@ main = do
 
    else do
 
-       (errors,samples) <- partitionEithers <$> getData
+       (errors,samples') <- partitionEithers <$> getData
+       let samples = updateDict addRibsize samples'
 
        when ("--err" `elem` optArgs || "--erronly" `elem` optArgs)
             (do mapM_ putStrLn errors
