@@ -2,4 +2,4 @@ resolver: lts-13.25
 packages:
 - .
 ghc-options:
-    "$everything": -O2
+    "$everything": -O2 -Wall

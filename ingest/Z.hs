@@ -83,5 +83,5 @@ main = do
        when ("--source" `elem` optArgs)
             ( do let getSource sample = maybe "source not found" T.unpack ( lookup (T.pack "SOURCE") ( fst sample ) )
                      selection = map2FlatList (Constraints.select selector graph) -- `asTypeOf` _
-                 putStrLn $ "source report (" ++ show (length selection) ++ ")" 
-                 putStrLn $ unlines $ map (\(ta,tb,sample) -> (T.unpack ta ++ " , " ++ T.unpack tb ++ " , " ++ getSource sample))  selection )
+                 putStrLn $ "source report (" ++ show (length selection) ++ ")"
+                 putStrLn $ unlines $ map (\(ta,tb,sample) -> (T.unpack ta ++ " , " ++ T.unpack tb ++ " , " ++ getSource sample)) selection )

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module GenParse where
+module GenParse(getData,readData,Dict,Sample,Metrics,rtt) where
 
 import Data.Either(fromRight)
 import Data.Maybe(isJust,fromJust)
@@ -16,28 +16,28 @@ import Paths(getFiles) -- getFiles :: [String] -> IO [String] -- a list of file 
 type Metrics = [(Int,Double,Double,Double,Double)]
 type Dict = [(Text,Text)]
 type Sample = (Dict, Metrics)
-type Samples = [Sample]
 
 rtt :: Metrics -> [ Double ]
 rtt = map (\(_,x,_,_,_) -> x) . notSeq0
 
-rtt1 :: Metrics -> [ Double ]
-rtt1 = map (\(_,x,_,_,_) -> x) . isSeq0
+--rtt1 :: Metrics -> [ Double ]
+--rtt1 = map (\(_,x,_,_,_) -> x) . isSeq0
 
 seq0 (x,_,_,_,_) = x == 0
 
-isSeq0 :: Metrics -> Metrics
-isSeq0 = filter seq0
+--isSeq0 :: Metrics -> Metrics
+--isSeq0 = filter seq0
 
 notSeq0 :: Metrics -> Metrics
-notSeq0 =  filter (not . seq0)
+notSeq0 = filter (not . seq0)
 
 readData :: String -> IO Sample
 readData f = do
     t <- T.readFile f
     let Right (dict,metrics,_) = parseOnly mfile t
-    return  (expandDESCfield dict,metrics)
+    return (expandDESCfield dict,metrics)
 
+-- TODO remove the buried comamd line parser!!! - should be only a path parameter here
 getData :: IO [Either String (Dict, Metrics)]
 getData = do
    args <- getArgs
@@ -51,7 +51,7 @@ getData = do
            t <- T.readFile f
            return $ expandDESCfields f $ parseOnly mfile t
 
-        expandDESCfields fname ( Left s ) = Left $ "Parse fail in " ++ fname ++ " : " ++ s 
+        expandDESCfields fname ( Left s ) = Left $ "Parse fail in " ++ fname ++ " : " ++ s
         expandDESCfields fname ( Right (h,m,t)) =
             let size = length m
             in if size == 0
@@ -66,6 +66,7 @@ check fname (ks,mx) = if cyclecount ks == length mx
     where
         cyclecount = read . T.unpack . fromJust . lookup "CYCLECOUNT"
 
+-- TODO push the subparsers out of top level scope (and possibly into a separate source file)
 mfile :: Parser (Dict,Metrics,Dict)
 mfile = name "mfile parser" $ do
     start <- singleLineSection "START"
@@ -90,12 +91,12 @@ metric = name "metric" $ do
     d3 <- double
     skipSpace -- NOTE 'space' includes line end characters!!!
     return (seq,d0,d1,d2,d3)
- 
+
 eot :: Parser ()
 eot = do
     m <- peekChar
     if isJust m then return() else fail "eot"
-    
+
 skipComma = Data.Attoparsec.Text.takeWhile (\c -> c == ',' || c == ' ')
 
 isSpace c = c == '\t' || c == ' '
@@ -103,7 +104,7 @@ notSpace = not . isSpace
 -- 'spaces' note is different to 'skipSpace'; it does not consume end-of-line
 spaces = Data.Attoparsec.Text.takeWhile isSpace
 
-records ::  Parser [[ Text ]]
+records :: Parser [[ Text ]]
 records = anyFields `sepBy` char '\n'
 anyFields :: Parser [ Text ]
 anyFields = anyField `sepBy` char ','
@@ -146,7 +147,6 @@ multiLineSection l = name "multiLineSection parser" $ do
     return $ zip keys (transpose values)
 
 file :: Parser ( [(Text,Text)] , [(Text,[Text])], [(Text,Text)])
-
 file = name "file parser" $ do
     start <- singleLineSection "START"
     datas <- multiLineSection "DATA"
@@ -157,7 +157,7 @@ file = name "file parser" $ do
 
 expandDESCfield :: [(Text,Text)] -> [(Text,Text)]
 expandDESCfield = foldl p []
-    where 
+    where
                                          -- fails only IF DESC present AND not parsable
                                          -- if this actually happens then should call directly as part of the
                                          -- main parser and allow the user to handle it with other parse errors

@@ -9,7 +9,7 @@ import Control.Arrow(second)
 import qualified Data.Map.Strict as Map
 import Constraints(SelectResult,map2list)
 
-import GenParse(Sample,Metrics,rtt)
+import GenParse(Metrics,rtt)
 import qualified Mean
 
 

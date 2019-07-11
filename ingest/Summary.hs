@@ -8,7 +8,7 @@ import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.List(sortOn)
 import Data.Maybe(fromMaybe)
-import GenParse(Samples)
+import GenParse(Sample)
 
 summarise :: [(Text,Text)] -> [(Text,[(Text,Int)])]
 summarise = map (second Map.toList) . Map.toList . summariseMap
@@ -62,7 +62,7 @@ summariseMap = foldl outer Map.empty
               inner v = Map.insertWith (+) v 1
 
 
-shortReport :: String -> Samples -> IO ()
+shortReport :: String -> [Sample] -> IO ()
 shortReport title samples = do
     putStrLn $ "\nshortReport for " ++ title 
     let hdrs = Summary.summarise $ concatMap fst samples
@@ -81,7 +81,7 @@ shortReport title samples = do
     putStrLn $ show (length unassociated) ++ " unassociated found: " ++ unwords ( map showCount unassociated)
     putStrLn $ show (length variable) ++ " variable found: " ++ unwords ( map showCount variable)
 
-fullReport :: String -> [Text] -> Samples -> IO () 
+fullReport :: String -> [Text] -> [Sample] -> IO () 
 fullReport title excludes samples = do
     putStrLn $ "\nfullReport for " ++ title
     let hdrs = Summary.summarise $ concatMap fst samples

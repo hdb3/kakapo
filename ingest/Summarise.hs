@@ -6,10 +6,9 @@ import Data.List (elem)
 import Data.Text(Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Data.Map.Strict as Map
 import System.Environment(getArgs)
-import Control.Arrow(first,second)
-import GenParse(Dict,Samples,getData)
+import Control.Arrow(first)
+import GenParse(Dict,Sample,getData)
 import Summary
 import Constraints
 import Graph
@@ -35,10 +34,10 @@ main = do
            variables = selectorVariables selector
            fixedPoints = selectorFixedPoints selector
            combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd $ map2list graphs
- 
+
        fullReport "selected" ["SOURCE","START","TIME"] combinedHeaders
        shortReport "selected" combinedHeaders
-       putStrLn $ "graphSummary\n" ++ unlines graphSummary 
+       putStrLn $ "graphSummary\n" ++ unlines graphSummary
        putStrLn $ "Selector is " ++ showSelector selector
        putStrLn $ T.unpack $ "Selector variables " +++ T.unwords variables
        putStrLn $ T.unpack $ "Selector fixed points " +++ T.unwords fixedPoints
@@ -48,7 +47,7 @@ main = do
        --T.writeFile "plot.csv" $ allMeans graphs
        --T.writeFile "plot.csv" $ standardGraph graphs
 
-pruneHeaders :: [Text] -> Samples -> Samples
+pruneHeaders :: [Text] -> [Sample] -> [Sample]
 pruneHeaders labels = map (first (pruneHeader labels) )
     where
     pruneHeader :: [Text] -> Dict -> Dict
