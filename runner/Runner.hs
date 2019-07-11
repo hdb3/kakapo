@@ -15,11 +15,11 @@ import Presets
 kakapoSender   = "172.18.0.21"
 kakapoReceiver = "172.18.0.22"
 sutAddress     = "172.18.0.13"
+localAS = "64504"
 webDAVAddress  = "10.30.65.209"
 kakapoBinary = "/usr/sbin/kakapo"
-localAS = "64504"
 
-getTopic s = fromJust $ lookup s presetTopics 
+getTopic s = fromJust $ lookup s presetTopics
 
 optSet s = ( elem ("--" ++ s) ) <$> getArgs
 
@@ -36,44 +36,44 @@ main = do
          (die "expecting exactly 4 parameters (topic, platform, SUT target and kakapo target)")
 
     let topic = args !! 0
+        platform = args !! 1
+        sutHostName = args !! 2
+        kakapoHostName = args !! 3
+
     unless (isJust $ lookup topic presetTopics)
          (die $ "unknown topic\n" ++ show presetTopics)
 
-    let platform = lookup ( args !! 1 ) presetPlatforms
-    unless (isJust platform)
-         (die $ "unknown platform\n" ++ show presetPlatforms)
+    unless (platform `elem` presetPlatforms)
+           (putStrLn "** WARNING ** unknown platform")
 
-    let (repo , app ) = (fromJust platform)
-        sutHostName = (args !! 2)
-        kakapoHostName = (args !! 3)
-
+    let
+        repo = registry ++ platform
+        app = platform
         sut = docker sutHostName
         kakapo = docker kakapoHostName
 
-    let dockerFlags name = [ "-v", "/coredumps:/coredumps", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
+        dockerFlags name = [ "-v", "/coredumps:/coredumps", "--privileged", "--rm" , "--network" , "host" , "--hostname" , name, "--name", name ]
         dockerInteractive name = "-i" : dockerFlags name
         dockerDaemon name = "-d" : dockerFlags name
-        dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands 
-    
+        dockerRun host flags repo commands = docker host $ ["run"] ++ flags ++ [ repo ] ++ commands
+
 -- We need to run the app in  sysinfo mode before starting everything else,
 -- in order to push the app verion string and sysinfo data into the kakapo environment
 -- (from whence it will eventualy emerge in the logs)
 
-    sut ["kill",app]
     sut ["pull",repo]
+    sut ["kill","sut"]
 
     sysinfo <- maybe "VERSION=\"UNKNOWN\" MEMSIZE=-1 CORES=-1 THREADS=-1" (map (\c -> if isControl c then ' ' else c)) <$>
                    dockerCMD sutHostName ( ["run"] ++ dockerInteractive app ++ [ repo , "sysinfo"] ) ""
     putStrLn $ "Sysinfo: " ++ sysinfo
 
-
-    -- if ruuning the SUT app for multiple instances of kakapo then start it here...
+    -- if running the SUT app for multiple instances of kakapo then start it here...
     -- void $ dockerRun sutHostName (dockerDaemon app) repo []
     -- let kakapoDocker parameters = void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
-
-    let kakapoDocker parameters = do sut ["kill",app]
-                                     void $ dockerRun sutHostName (dockerDaemon app) repo []
+    let kakapoDocker parameters = do sut ["kill","sut"]
+                                     void $ dockerRun sutHostName (dockerDaemon "sut") repo []
                                      void $ dockerCMD kakapoHostName ( ["run"] ++ dockerInteractive "kakapo" ++ ["--entrypoint" , "/usr/bin/bash" , registry ++ "kakapo" ]) (unwords parameters)
 
     let
@@ -92,7 +92,7 @@ main = do
              ("GROUPSIZE" , "10 "),
              ("BLOCKSIZE" , "1 "),
              ("CYCLEDELAY" , "0 "),
-             if oldSchool then 
+             if oldSchool then
                  ("FASTCYCLELIMIT" , "0 ")
              else
                  ("FASTCYCLELIMIT" , "1 "),
@@ -121,11 +121,12 @@ main = do
 
     kakapo ["kill","kakapo"]
     kakapo ["pull",registry ++ "kakapo"]
+
     kakapoDocker [ "ip" , "address" , "add" , kakapoSender   ++ "/32" , "dev" , "lo"]
     kakapoDocker [ "ip" , "address" , "add" , kakapoReceiver ++ "/32" , "dev" , "lo"]
 
     mapM_ ( kakapoDocker . buildCommand ) ( blockGen b g c burstRange )
 
-    sut ["kill",app]
-
+    sut ["kill","sut"]
+    kakapo ["kill","kakapo"]
     putStrLn "Done"
