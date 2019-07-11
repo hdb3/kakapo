@@ -30,4 +30,5 @@ maxSDMinMean  :: [Double] -> (Double,Double,Double,Double)
 maxSDMinMean sample = let (_,mn,sd,_) = meanRSD sample in ( mn, sd, minimum sample , maximum sample )
 
 minSD :: [Double] -> (Double,Double)
+minSD [] = (0,0)
 minSD sample =  (minimum sample , mean sample)
