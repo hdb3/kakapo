@@ -8,30 +8,51 @@ import qualified Data.Text.IO as T
 import qualified Data.Map.Strict as Map
 import qualified Data.List
 import System.Environment(getArgs)
+import System.Exit(exitSuccess)
 import GenParse(getData)
 import Summary
 import Constraints
 import Graph
 --renderer = sdGraph -- allMeans / standardGraph / sdGraph / maxminGraph
+
+main :: IO ()
 main = do
-   (l,samples) <- partitionEithers <$> getData
-   mapM_ putStrLn l
-   putStrLn "\n++++++++++++++++++\n"
 
-   fullReport "base" ["SOURCE","START","TIME","UUID","PID"] samples
-   shortReport "base" samples
+   (optArgs , selectArgs) <- Data.List.partition (Data.List.isPrefixOf "--") . tail <$> getArgs
 
-   putStrLn "\n++++++++++++++++++\n"
+   if null selectArgs then
 
-   (optArgs , selectArgs) <- Data.List.partition (Data.List.isPrefixOf "--") <$> tail <$> getArgs
-   if null selectArgs
-   then
        putStrLn "please provide a selector to continue analysis"
-   else if ("--help" `elem` optArgs)
-   then do putStrLn constraintsHelp
-           putStrLn "for example: 'z samples TOPIC=BASE1M MAXBURSTCOUNT=? PLATFORM=,'"
+
+   else if "--help" `elem` optArgs then do
+
+         putStrLn constraintsHelp
+         putStrLn "for example: 'z samples TOPIC=BASE1M MAXBURSTCOUNT=? PLATFORM=,'"
+         putStrLn "options:"
+         putStrLn "         --source : show source files"
+         putStrLn "         --err : report files which failed to parse"
+         putStrLn "         --erronly : only report files which failed to parse, then exit"
+         putStrLn "         --min : plot minimum values from each sample rather than mean"
+
    else do
+
+       (errors,samples) <- partitionEithers <$> getData
+
+       when ("--err" `elem` optArgs || "--erronly" `elem` optArgs)
+            (do mapM_ putStrLn errors
+                putStrLn "\n++++++++++++++++++\n"
+            )
+
+       when ("--erronly" `elem` optArgs)
+            exitSuccess
+
+       fullReport "base" ["SOURCE","START","TIME","UUID","PID"] samples
+       shortReport "base" samples
+
+       putStrLn "\n++++++++++++++++++\n"
+
        let renderer = if "--min" `elem` optArgs then sdMinGraph else sdGraph
+
        let constraints = map getConstraint selectArgs
        selector <- buildSelector constraints
        putStrLn $ "Selector is " ++ showSelector selector
