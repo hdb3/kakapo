@@ -164,7 +164,8 @@ parseConstraint = do
             return Any
 
         single = do
-            match <- Data.Attoparsec.Text.takeWhile (notInClass "-,")
+            match <- Data.Attoparsec.Text.takeWhile (not . (',' ==) )
+            --match <- Data.Attoparsec.Text.takeWhile (notInClass "-,")
             requireEOT
             return $ Equality match
 
