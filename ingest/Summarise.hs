@@ -23,7 +23,7 @@ main = do
    selectArgs <- tail <$> getArgs
    if null selectArgs
    then do
-       fullReport "/" ["SOURCE","START","TIME"] r
+       fullReport "/" ["SOURCE","START","TIME","UUID"] r
        putStrLn ""
        shortReport "/" r
    else do
@@ -35,7 +35,7 @@ main = do
            fixedPoints = selectorFixedPoints selector
            combinedHeaders = pruneHeaders fixedPoints $ map snd $ concatMap snd $ map2list graphs
 
-       fullReport "selected" ["SOURCE","START","TIME"] combinedHeaders
+       fullReport "selected" ["SOURCE","START","TIME","UUID"] combinedHeaders
        shortReport "selected" combinedHeaders
        putStrLn $ "graphSummary\n" ++ unlines graphSummary
        putStrLn $ "Selector is " ++ showSelector selector
