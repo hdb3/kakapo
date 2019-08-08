@@ -19,21 +19,18 @@
 #include <unistd.h>
 
 #include "kakapo.h"
-#include "parsearg.h"
-#include "session.h"
 #include "sockbuf.h"
 #include "stats.h"
 #include "util.h"
 
 #define MAXPENDING 5 // Max connection requests
 
+struct peer *peertable;
 sem_t semrxtx;
 struct timespec txts;
 
 int pid;
-int tflag = 0; // the global termination flag - when != 0, exit gracefully
-int tidx = 0;
-pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
+int tflag = 0;      // the global termination flag - when != 0, exit gracefully
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
 uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
@@ -56,42 +53,20 @@ uint32_t HOLDTIME = 600;
 char LOGFILE[128] = "stats.csv";
 char LOGPATH[128] = "localhost";
 char LOGTEXT[1024] = "";
-char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
-char LISTENER[] = "LISTENER";
-char SENDER[] = "SENDER";
-int isListener() { return strncmp(LISTENER, ROLE, 9); };
-int isSender() { return strncmp(SENDER, ROLE, 7); };
+char MODE[128] = "BURST"; // only LISTENER and SENDER have any effect
+char BURST[] = "BURST";
+char DYNAMIC[] = "DYNAMIC";
+char CONTINUOUS[] = "CONTINUOUS";
+
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
-void startsession(int sock, int as) {
+void startpeer(struct peer *p, char *s) {
 
-  struct sessiondata *sd;
-  pthread_mutex_lock(&mutex_tidx);
-  sd = malloc(sizeof(struct sessiondata));
-  *sd = (struct sessiondata){sock, tidx++, as};
-  if (0 == isListener()) {
-    sd->role = ROLELISTENER;
-    fprintf(stderr, "%d: ROLE=LISTENER FROM ENVIRONMENT\n", pid);
-  } else if (0 == isSender()) {
-    sd->role = ROLESENDER;
-    fprintf(stderr, "%d: ROLE=SENDER FROM ENVIRONMENT\n", pid);
-  } else if (1 == tidx)
-    sd->role = ROLELISTENER;
-  else if (2 == tidx)
-    sd->role = ROLESENDER;
-  else {
-    // only ever spawn two threads....
-    pthread_mutex_unlock(&mutex_tidx);
-    return; // don't really care about unlock, this is not a happy path...
-  };
-  pthread_t thrd;
-  pthread_create(&thrd, NULL, session, sd);
-  pthread_mutex_unlock(&mutex_tidx);
-};
+  parseargument(p, s);
 
-//void client(struct peer *p) {
-void *clientthread(void *_p) {
-  struct peer *p = (struct peer *)_p;
+  if (0 == p->remote) // servers have a zero 'remote' address
+    die("server mode not supported in this version");
+
   int peersock;
   struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remote}};
   struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->local}};
@@ -105,47 +80,11 @@ void *clientthread(void *_p) {
   0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
       die("Failed to connect with peer");
 
-  startsession(peersock, p->as);
-};
+  p->sock = peersock;
 
-//void * serverthread (struct peer *p) {
-void *serverthread(void *_p) {
-  struct peer *p = (struct peer *)_p;
-  struct sockaddr_in acceptaddr;
-  int peersock;
-  socklen_t socklen;
-  long int serversock;
-  int reuse = 1;
-  struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){p->local}};
-
-  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
-
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
-
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
-
-  fprintf(stderr, "binding to %s\n", fromHostAddress(p->local));
-
-  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
-
-  0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
-
-  while (1) {
-    memset(&acceptaddr, 0, SOCKADDRSZ);
-    socklen = SOCKADDRSZ;
-    0 < (peersock = accept((long int)serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
-    (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
-    startsession(peersock, p->as);
-  }
-};
-
-void peer(char *s) {
-  struct peer *p = parseargument(s);
-  pthread_t thrd;
-  if (0 == p->remote) // servers have a zero 'remote' address
-    pthread_create(&thrd, NULL, serverthread, (void *)p);
-  else
-    pthread_create(&thrd, NULL, clientthread, (void *)p);
+  fprintf(stderr, "connected for %s\n", s);
+  pthread_create(&(p->thrd), NULL, session, p);
+  fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
 };
 
 // NOTE - the target string must be actual static memory large enough...
@@ -327,12 +266,33 @@ int main(int argc, char *argv[]) {
   getsenv("LOGFILE", LOGFILE);
   getsenv("LOGPATH", LOGPATH);
   getsenv("LOGTEXT", LOGTEXT);
-  getsenv("ROLE", ROLE);
+  getsenv("MODE", MODE);
 
   startstatsrunner();
+
+  peertable = calloc(argc, sizeof(struct peer));
   int argn;
-  for (argn = 1; argn <= argc - 1; argn++)
-    peer(argv[argn]);
+  struct peer *p;
+  for (argn = 1; argn <= argc - 1; argn++) {
+    p = peertable + argn - 1;
+    if (argn == 1)
+      p->role = ROLELISTENER;
+    else
+      p->role = ROLESENDER;
+    startpeer(p, argv[argn]);
+  };
+
+  fprintf(stderr, "connection initiated for %d peers\n", argc - 1);
+
+  for (argn = 0; argn < argc - 1; argn++) {
+    pthread_t t = (peertable + argn)->thrd;
+    fprintf(stderr, "joining %ld\n", t);
+    0 == pthread_join(t, NULL) || die("pthread join fail");
+    fprintf(stderr, "joined %ld\n", t);
+  };
+
+  fprintf(stderr, "connection complete for %d peers\n", argc - 1);
+
   while (0 == tflag)
     sleep(1);
   sleep(5);

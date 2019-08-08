@@ -37,3 +37,31 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
 uint32_t senderwait();
 void receiversignal(uint32_t seq);
 extern struct timespec txts;
+
+#define ROLELISTENER 1
+#define ROLESENDER 2
+struct peer {
+  int sock;
+  int tidx;
+  int role;
+  pthread_t thrd;
+  uint32_t remote;
+  uint32_t local;
+  uint32_t as;
+};
+
+//*void session(struct sessiondata *sd);
+void *session(void *x);
+
+#define LIMIT 3
+
+void parseargument(struct peer *p, char *s);
+char *displaypeer(struct peer *p);
+
+struct args {
+  int argc;
+  char **argv;
+};
+
+typedef struct args args_t;
+args_t commaparse(char *s);

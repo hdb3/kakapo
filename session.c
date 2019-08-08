@@ -23,7 +23,6 @@
 
 #include "kakapo.h"
 #include "libutil.h"
-#include "session.h"
 #include "stats.h"
 
 #define BUFFSIZE 0x10000
@@ -41,7 +40,7 @@
 
 void *session(void *x) {
   // from here on down all variables are function, and thus thread, local.
-  struct sessiondata *sd = (struct sessiondata *)x;
+  struct peer *sd = (struct peer *)x;
 
   uint32_t localip, peerip;
   slp_t slp = NULL;
@@ -437,6 +436,8 @@ void *session(void *x) {
     report(BGPOPEN, msgtype);
     if (BGPOPEN != msgtype)
       goto exit;
+
+    pthread_exit(NULL);
 
     FLAGS(sock, __FILE__, __LINE__);
     _send(sock, keepalive, 19);

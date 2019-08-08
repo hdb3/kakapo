@@ -1,10 +1,12 @@
 
-#include "parsearg.h"
 #include "util.h"
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "kakapo.h"
 
 args_t commaparse(char *s) {
   static char *argv[LIMIT];
@@ -20,9 +22,8 @@ args_t commaparse(char *s) {
   return (args_t){argc, argv};
 };
 
-struct peer *parseargument(char *s) {
-  struct peer *p = malloc(sizeof(struct peer));
-  args_t args = commaparse(s);
+void parseargument(struct peer *p, char *s) {
+  args_t args = commaparse(strdupa(s));
 
   if (0 == *args.argv[0]) // null string in pos 1 valid, use 0.0.0.0, implies
                           // this is a listen only peer definition
@@ -42,14 +43,12 @@ struct peer *parseargument(char *s) {
     p->as = 0;
   else if (1 != sscanf(args.argv[2], "%d", &p->as))
     die("could not read an AS number");
-
-  return p;
 };
 
-char *displaypeer(struct peer p) {
+char *displaypeer(struct peer *p) {
   static char rval[42];
   int ix;
-  ix = snprintf(rval, 42, "%s , ", fromHostAddress(p.remote));
-  snprintf(rval + ix, 42 - ix, "%s , %d", fromHostAddress(p.local), p.as);
+  ix = snprintf(rval, 42, "%s , ", fromHostAddress(p->remote));
+  snprintf(rval + ix, 42 - ix, "%s , %d", fromHostAddress(p->local), p->as);
   return rval;
 };

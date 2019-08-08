@@ -23,7 +23,6 @@
 
 //#include "kakapo.h"
 #include "libutil.h"
-#include "session.h"
 #include "stats.h"
 
 #define BUFFSIZE 0x10000
@@ -39,7 +38,7 @@
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
 
-uint32_t localip,SEEDPREFIX;
+uint32_t localip, SEEDPREFIX;
 uint32_t SEEDPREFIXLEN = 30;
 int BLOCKSIZE;
 uint32_t GROUPSIZE;
@@ -70,14 +69,14 @@ struct bytestring build_update_block(int bsn, int cyclenumber) {
   return (struct bytestring){buflen, data};
 };
 
-int main (int argc, char** argv) {
+int main(int argc, char **argv) {
   localip = toHostAddress("192.168.0.1");
   SEEDPREFIX = toHostAddress("10.0.0.0");
   BLOCKSIZE = atol(argv[1]);
   GROUPSIZE = atol(argv[2]);
-  printf("generating table size %d / %d (%d)\n", BLOCKSIZE, GROUPSIZE, BLOCKSIZE*GROUPSIZE);
+  printf("generating table size %d / %d (%d)\n", BLOCKSIZE, GROUPSIZE, BLOCKSIZE * GROUPSIZE);
   gettime(&tstart);
-  struct bytestring bs = build_update_block(0,0);
+  struct bytestring bs = build_update_block(0, 0);
   gettime(&tend);
   tdelta = timespec_sub(tend, tstart);
   printf("complete in %ld\n", timespec_to_ms(tdelta));
