@@ -5,6 +5,8 @@
 #define VERBOSE (0)
 #endif
 
+#include "sockbuf.h"
+#include "stats.h"
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 
 extern int pid;
@@ -48,6 +50,8 @@ struct peer {
   uint32_t remote;
   uint32_t local;
   uint32_t as;
+  struct sockbuf sb;
+  slp_t slp;
 };
 
 //*void session(struct sessiondata *sd);
