@@ -46,7 +46,9 @@ struct peer {
   int sock;
   int tidx;
   int role;
+  int sndrunning;
   pthread_t thrd;
+  int sendFlag;
   uint32_t remote;
   uint32_t local;
   uint32_t as;

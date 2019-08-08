@@ -38,33 +38,27 @@
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
 
-void *session(void *x) {
-  // from here on down all variables are function, and thus thread, local.
-  struct peer *p = (struct peer *)x;
-
-  struct timeval t_active, t_idle;
-  int active = 0;
 
   // wrapper for send which protects against multiple thread writes interleaving output
   // the protection is 'soft' in that it introduces wait until queue empty semantics
   // rather than an explicit semaphore
-  int sendFlag = 0;
-  void _send(int sock, const void *buf, size_t count) {
-    txwait(sock);
-    if (sendFlag != 0)
+  //int sendFlag = 0;
+  void _send(struct peer *p, const void *buf, size_t count) {
+    txwait(p->sock);
+    if (p->sendFlag != 0)
       die("send flag reentry fail");
     else
-      sendFlag = 1;
-    (0 < send(sock, buf, count, 0)) || die("send fail");
-    txwait(sock);
-    sendFlag = 0;
+      p->sendFlag = 1;
+    (0 < send(p->sock, buf, count, 0)) || die("send fail");
+    txwait(p->sock);
+    p->sendFlag = 0;
   };
 
   unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
-  void send_notification(int sock, unsigned char major, unsigned char minor) {
+  void send_notification(struct peer *p, unsigned char major, unsigned char minor) {
     notification[19] = major;
     notification[20] = minor;
-    _send(sock, notification, 21);
+    _send(p, notification, 21);
   };
   unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
   unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -121,14 +115,14 @@ void *session(void *x) {
   void doopen(char *msg, int length) {
     unsigned char version = *(unsigned char *)msg;
     if (version != 4) {
-      fprintf(stderr, "%d: unexpected version in BGP Open %d\n", p->tidx, version);
+      fprintf(stderr, "unexpected version in BGP Open %d\n", version);
     }
     uint16_t as = ntohs(*(uint16_t *)(msg + 1));
     uint16_t holdtime = ntohs(*(uint16_t *)(msg + 3));
     struct in_addr routerid = (struct in_addr){*(uint32_t *)(msg + 5)};
     unsigned char opl = *(unsigned char *)(msg + 9);
     unsigned char *hex = toHex(msg + 10, opl);
-    fprintf(stderr, "%d: BGP Open: as = %d, routerid = %s , holdtime = %d, opt params = %s\n", p->tidx, as, inet_ntoa(routerid), holdtime, hex);
+    fprintf(stderr, "BGP Open: as = %d, routerid = %s , holdtime = %d, opt params = %s\n", as, inet_ntoa(routerid), holdtime, hex);
     free(hex);
   };
 
@@ -179,7 +173,7 @@ void *session(void *x) {
     assert(0 == wrl);
     uint16_t tpal = ntohs(*(uint16_t *)(msg + 2));
     assert(0 == tpal);
-    fprintf(stderr, "%d: BGP Update(EOR) (End of RIB)\n", p->tidx);
+    fprintf(stderr, "BGP Update(EOR) (End of RIB)\n");
   };
 
   void doupdate(char *msg, int length) {
@@ -202,16 +196,16 @@ void *session(void *x) {
       uc = 0;
 
     if (1 == VERBOSE)
-      fprintf(stderr, "%d: BGP Update: withdrawn count = %d, path attributes length = %d , NLRI count = %d\n", p->tidx, wc, tpal, uc);
+      fprintf(stderr, "BGP Update: withdrawn count = %d, path attributes length = %d , NLRI count = %d\n", wc, tpal, uc);
 
-    if (ROLESENDER != p->role)
-      updatelogrecord(p->slp, uc, wc, &(p->sb).rcvtimestamp);
+    //**// if (ROLESENDER != p->role)
+    //**//   updatelogrecord(p->slp, uc, wc, &(p->sb).rcvtimestamp);
   };
 
   void donotification(char *msg, int length) {
     unsigned char ec = *(unsigned char *)(msg + 0);
     unsigned char esc = *(unsigned char *)(msg + 1);
-    fprintf(stderr, "%d: BGP Notification: error code = %d, error subcode = %d\n", p->tidx, ec, esc);
+    fprintf(stderr, "BGP Notification: error code = %d, error subcode = %d\n", ec, esc);
   };
 
   int getBGPMessage(struct sockbuf * sb) {
@@ -223,7 +217,7 @@ void *session(void *x) {
 
     header = bufferedRead(sb, 19);
     if (header == (char *)-1) {
-      fprintf(stderr, "%d: end of stream\n", p->tidx);
+      fprintf(stderr, "end of stream\n");
       return BGPENDOFSTREAM;
     } else if (0 == header) {
       return BGPTIMEOUT;
@@ -236,7 +230,7 @@ void *session(void *x) {
       if (0 < pl) {
         payload = bufferedRead(sb, pl);
         if (0 == payload) {
-          fprintf(stderr, "%d: unexpected end of stream after header received\n", p->tidx);
+          fprintf(stderr, "unexpected end of stream after header received\n");
           return BGPENDOFSTREAM;
         }
       } else
@@ -244,7 +238,7 @@ void *session(void *x) {
     }
     if (1 == VERBOSE) {
       unsigned char *hex = toHex(payload, pl);
-      fprintf(stderr, "%d: BGP msg type %s length %d received [%s]\n", p->tidx, showtype(msgtype), pl, hex);
+      fprintf(stderr, "BGP msg type %s length %d received [%s]\n", showtype(msgtype), pl, hex);
       free(hex);
     }
 
@@ -271,19 +265,17 @@ void *session(void *x) {
 
     if (1 == VERBOSE) {
       if (expected == got) {
-        fprintf(stderr, "%d: session: OK, got %s\n", p->tidx, showtype(expected));
+        fprintf(stderr, "session: OK, got %s\n", showtype(expected));
       } else {
-        fprintf(stderr, "%d: session: expected %s, got %s (%d)\n", p->tidx, showtype(expected), showtype(got), got);
+        fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
       }
     } else {
       if (expected != got)
-        fprintf(stderr, "%d: session: expected %s, got %s (%d)\n", p->tidx, showtype(expected), showtype(got), got);
+        fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
     }
   }
 
-  int sndrunning = 0;
-
-  struct bytestring build_update_block(int bsn, int cyclenumber) {
+  struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t local) {
 
     int i, usn;
     struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
@@ -294,7 +286,7 @@ void *session(void *x) {
     // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
     for (i = 0; i < BLOCKSIZE; i++) {
       usn = i + bsn * BLOCKSIZE;
-      struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(p->local, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+      struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(local, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
       vec[i] = b;
       buflen += b.length;
     };
@@ -308,13 +300,13 @@ void *session(void *x) {
     return (struct bytestring){buflen, data};
   };
 
-  void send_update_block(int bsn, int cyclenumber, int sock) {
+  void send_update_block(int bsn, int cyclenumber, struct peer *p) {
 
     // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
-    _send(sock, keepalive, 19);
-    struct bytestring updates = build_update_block(bsn, cyclenumber);
-    _send(sock, updates.data, updates.length);
-    txwait(sock);
+    _send(p, keepalive, 19);
+    struct bytestring updates = build_update_block(bsn, cyclenumber,p->local);
+    _send(p, updates.data, updates.length);
+    txwait(p->sock);
     free(updates.data);
   };
 
@@ -349,7 +341,7 @@ void *session(void *x) {
         gettime(&tstart);
       };
 
-      send_update_block(bsn, cyclenumber, p->sock);
+      send_update_block(bsn, cyclenumber, p);
 
       if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT - 1) {
         gettime(&tend);
@@ -363,18 +355,24 @@ void *session(void *x) {
       else
         return 0; // ask to be restarted...
     };
-    sndrunning = 1;
+    p->sndrunning = 1;
     timedloopms(SLEEP, sendupdates);
 
     senderwait();
 
-    send_notification(p->sock, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
-    sndrunning = 0;
+    send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
+    p->sndrunning = 0;
     tflag = 1;
     endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
   };
 
-  long int threadmain(struct peer *p) {
+//void *session(void *x) {
+//  struct peer *p = (struct peer *)x;
+//  return (int *)threadmain(p);
+//}
+void *session(void *x) {
+  struct peer *p = (struct peer *)x;
+//long int threadmain(struct peer *p) {
 
     int msgtype;
     char *errormsg = "unspecified error";
@@ -402,7 +400,7 @@ void *session(void *x) {
     char *m = bgpopen(p->as, HOLDTIME, htonl(p->local), NULL); // let the code build the optional parameter :: capability
     int ml = fromHex(m);
     FLAGS(p->sock, __FILE__, __LINE__);
-    _send(p->sock, m, ml);
+    _send(p, m, ml);
     FLAGS(p->sock, __FILE__, __LINE__);
 
     do
@@ -416,7 +414,7 @@ void *session(void *x) {
     pthread_exit(NULL);
 
     FLAGS(p->sock, __FILE__, __LINE__);
-    _send(p->sock, keepalive, 19);
+    _send(p, keepalive, 19);
     FLAGS(p->sock, __FILE__, __LINE__);
 
     do
@@ -429,13 +427,13 @@ void *session(void *x) {
 
     pthread_t thrd;
     if (p->role == ROLESENDER) {
-      sndrunning = 1;
+      p->sndrunning = 1;
       pthread_create(&thrd, NULL, sendthread, p);
     } else
       p->slp = initlogrecord(p->tidx, "N/A");
 
     while (0 == tflag) {
-      if ((0 == sndrunning) && (p->role == ROLESENDER)) {
+      if ((0 == p->sndrunning) && (p->role == ROLESENDER)) {
         errormsg = "sender exited unexpectedly";
         goto exit;
       };
@@ -448,9 +446,9 @@ void *session(void *x) {
       case BGPKEEPALIVE: // Keepalive
                          // trying to send while the send thread is also running is a BAD idea - because (using writev) the
                          // send here can interleave in the message flow!!!!!
-        if (sndrunning == 0) {
+        if (p->sndrunning == 0) {
           FLAGS(p->sock, __FILE__, __LINE__);
-          _send(p->sock, keepalive, 19);
+          _send(p, keepalive, 19);
           FLAGS(p->sock, __FILE__, __LINE__);
         };
         break;
@@ -471,11 +469,11 @@ void *session(void *x) {
     };
   exit:
     closelogrecord(p->slp, p->tidx); // closelogrecord is safe in case that initlogrecord was not called...
-    if (1 == sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
+    if (1 == p->sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
       pthread_cancel(thrd);
     };
     if (tflag) {
-      send_notification(p->sock, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
+      send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
       errormsg = "shutdown requested";
       fprintf(stderr, "%d: shutdown requested\n", p->tidx);
     } else
@@ -491,5 +489,7 @@ void *session(void *x) {
   // the variables are thread local, and to allow inner functions access to
   // those local variables
 
-  return (int *)threadmain(p);
-}
+//void *session(void *x) {
+//  struct peer *p = (struct peer *)x;
+//  return (int *)threadmain(p);
+//}
