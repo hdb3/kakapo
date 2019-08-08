@@ -38,333 +38,332 @@
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
 
+// wrapper for send which protects against multiple thread writes interleaving output
+// the protection is 'soft' in that it introduces wait until queue empty semantics
+// rather than an explicit semaphore
+//int sendFlag = 0;
+void _send(struct peer *p, const void *buf, size_t count) {
+  txwait(p->sock);
+  if (p->sendFlag != 0)
+    die("send flag reentry fail");
+  else
+    p->sendFlag = 1;
+  (0 < send(p->sock, buf, count, 0)) || die("send fail");
+  txwait(p->sock);
+  p->sendFlag = 0;
+};
 
-  // wrapper for send which protects against multiple thread writes interleaving output
-  // the protection is 'soft' in that it introduces wait until queue empty semantics
-  // rather than an explicit semaphore
-  //int sendFlag = 0;
-  void _send(struct peer *p, const void *buf, size_t count) {
-    txwait(p->sock);
-    if (p->sendFlag != 0)
-      die("send flag reentry fail");
-    else
-      p->sendFlag = 1;
-    (0 < send(p->sock, buf, count, 0)) || die("send fail");
-    txwait(p->sock);
-    p->sendFlag = 0;
+unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
+void send_notification(struct peer *p, unsigned char major, unsigned char minor) {
+  notification[19] = major;
+  notification[20] = minor;
+  _send(p, notification, 21);
+};
+unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
+unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+
+char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
+  if (NULL == hexoptions) { // then we should build our own AS4 capability
+                            // using the provided AS number
+    // 020c = Optional Parameter = Capability, length 0x0c
+    // 010400010001 = multiprotocol, AFI/SAFI 1/1
+    // 4104xxxxxxxx AS4 capability, with ASn
+    hexoptions = concat("020c", "010400010001", "4104", hex32(as), NULL);
+    // hexoptions = concat("02064104", hex32(as), NULL);
   };
 
-  unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
-  void send_notification(struct peer *p, unsigned char major, unsigned char minor) {
-    notification[19] = major;
-    notification[20] = minor;
-    _send(p, notification, 21);
-  };
-  unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
-  unsigned char marker[16] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-  const char *hexmarker = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+  char *hexmessage =
+      concat(hex8(4), hex16(as), hex16(holdtime), hex32(routerid),
+             hex8(strlen(hexoptions) / 2), hexoptions, NULL);
+  int messagelength = strlen(hexmessage) / 2 + 19;
+  char *ret =
+      concat(hexmarker, hex16(messagelength), hex8(1), hexmessage, NULL);
+  return ret;
+};
 
-  char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
-    if (NULL == hexoptions) { // then we should build our own AS4 capability
-                              // using the provided AS number
-      // 020c = Optional Parameter = Capability, length 0x0c
-      // 010400010001 = multiprotocol, AFI/SAFI 1/1
-      // 4104xxxxxxxx AS4 capability, with ASn
-      hexoptions = concat("020c", "010400010001", "4104", hex32(as), NULL);
-      // hexoptions = concat("02064104", hex32(as), NULL);
-    };
+int isMarker(const unsigned char *buf) {
+  return (0 == memcmp(buf, marker, 16));
+}
 
-    char *hexmessage =
-        concat(hex8(4), hex16(as), hex16(holdtime), hex32(routerid),
-               hex8(strlen(hexoptions) / 2), hexoptions, NULL);
-    int messagelength = strlen(hexmessage) / 2 + 19;
-    char *ret =
-        concat(hexmarker, hex16(messagelength), hex8(1), hexmessage, NULL);
-    return ret;
-  };
-
-  int isMarker(const unsigned char *buf) {
-    return (0 == memcmp(buf, marker, 16));
+char *showtype(char msgtype) {
+  switch (msgtype) {
+  case BGPENDOFSTREAM:
+    return "ENDOFSTREAM";
+    break;
+  case BGPTIMEOUT:
+    return "TIMEOUT";
+    break;
+  case BGPOPEN:
+    return "OPEN";
+    break;
+  case BGPUPDATE:
+    return "UPDATE";
+    break;
+  case BGPNOTIFICATION:
+    return "NOTIFICATION";
+    break;
+  case BGPKEEPALIVE:
+    return "KEEPALIVE";
+    break;
+  default:
+    return "UNKNOWN";
   }
+}
 
-  char *showtype(char msgtype) {
-    switch (msgtype) {
-    case BGPENDOFSTREAM:
-      return "ENDOFSTREAM";
-      break;
-    case BGPTIMEOUT:
-      return "TIMEOUT";
-      break;
-    case BGPOPEN:
-      return "OPEN";
-      break;
-    case BGPUPDATE:
-      return "UPDATE";
-      break;
-    case BGPNOTIFICATION:
-      return "NOTIFICATION";
-      break;
-    case BGPKEEPALIVE:
-      return "KEEPALIVE";
-      break;
-    default:
-      return "UNKNOWN";
-    }
+void doopen(char *msg, int length) {
+  unsigned char version = *(unsigned char *)msg;
+  if (version != 4) {
+    fprintf(stderr, "unexpected version in BGP Open %d\n", version);
   }
+  uint16_t as = ntohs(*(uint16_t *)(msg + 1));
+  uint16_t holdtime = ntohs(*(uint16_t *)(msg + 3));
+  struct in_addr routerid = (struct in_addr){*(uint32_t *)(msg + 5)};
+  unsigned char opl = *(unsigned char *)(msg + 9);
+  unsigned char *hex = toHex(msg + 10, opl);
+  fprintf(stderr, "BGP Open: as = %d, routerid = %s , holdtime = %d, opt params = %s\n", as, inet_ntoa(routerid), holdtime, hex);
+  free(hex);
+};
 
-  void doopen(char *msg, int length) {
-    unsigned char version = *(unsigned char *)msg;
-    if (version != 4) {
-      fprintf(stderr, "unexpected version in BGP Open %d\n", version);
-    }
-    uint16_t as = ntohs(*(uint16_t *)(msg + 1));
-    uint16_t holdtime = ntohs(*(uint16_t *)(msg + 3));
-    struct in_addr routerid = (struct in_addr){*(uint32_t *)(msg + 5)};
-    unsigned char opl = *(unsigned char *)(msg + 9);
-    unsigned char *hex = toHex(msg + 10, opl);
-    fprintf(stderr, "BGP Open: as = %d, routerid = %s , holdtime = %d, opt params = %s\n", as, inet_ntoa(routerid), holdtime, hex);
-    free(hex);
-  };
+void printPrefix(char *pfx, int length) {
+  uint32_t addr = ntohl(*((uint32_t *)pfx));
+  uint32_t mask = (0xffffffff >> (32 - length)) << (32 - length);
+  uint32_t maskedaddr = htonl(addr & mask);
+  struct in_addr inaddr = (struct in_addr){maskedaddr};
+  fprintf(stderr, "%s/%d\n", inet_ntoa(inaddr), length);
+};
 
-  void printPrefix(char *pfx, int length) {
-    uint32_t addr = ntohl(*((uint32_t *)pfx));
-    uint32_t mask = (0xffffffff >> (32 - length)) << (32 - length);
-    uint32_t maskedaddr = htonl(addr & mask);
-    struct in_addr inaddr = (struct in_addr){maskedaddr};
-    fprintf(stderr, "%s/%d\n", inet_ntoa(inaddr), length);
-  };
-
-  // simpleParseNLRI
-  int spnlri(char *nlri, int length) {
-    int count = 0;
-    int offset = 0;
-    for (; offset < length;) {
-      count++;
-      if (nlri[offset] == 0)
-        offset += 1;
-      else if (nlri[offset] < 9)
-        offset += 2;
-      else if (nlri[offset] < 17)
-        offset += 3;
-      else if (nlri[offset] < 25)
-        offset += 4;
-      else if (nlri[offset] < 33)
-        offset += 5;
-      else {
-        unsigned char *hex = toHex(nlri, length);
-        fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count, length, hex);
-        assert(0);
-      }
-      if ((1 == VERBOSE) && (offset < length))
-        printPrefix(nlri + offset + 1, nlri[offset]);
-    }
-
-    // debug only
-    if (offset != length) {
+// simpleParseNLRI
+int spnlri(char *nlri, int length) {
+  int count = 0;
+  int offset = 0;
+  for (; offset < length;) {
+    count++;
+    if (nlri[offset] == 0)
+      offset += 1;
+    else if (nlri[offset] < 9)
+      offset += 2;
+    else if (nlri[offset] < 17)
+      offset += 3;
+    else if (nlri[offset] < 25)
+      offset += 4;
+    else if (nlri[offset] < 33)
+      offset += 5;
+    else {
       unsigned char *hex = toHex(nlri, length);
       fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count, length, hex);
+      assert(0);
     }
-    assert(offset == length);
-    return count;
+    if ((1 == VERBOSE) && (offset < length))
+      printPrefix(nlri + offset + 1, nlri[offset]);
   }
 
-  void doeor(char *msg, int length) {
-    uint16_t wrl = ntohs(*(uint16_t *)msg);
-    assert(0 == wrl);
-    uint16_t tpal = ntohs(*(uint16_t *)(msg + 2));
-    assert(0 == tpal);
-    fprintf(stderr, "BGP Update(EOR) (End of RIB)\n");
-  };
-
-  void doupdate(char *msg, int length) {
-    uint16_t wrl = ntohs(*(uint16_t *)msg);
-    assert(wrl < length - 1);
-    char *withdrawn = msg + 2;
-    uint16_t tpal = ntohs(*(uint16_t *)(msg + wrl + 2));
-    char *pa = msg + wrl + 4;
-    assert(wrl + tpal < length - 3);
-    char *nlri = msg + wrl + tpal + 4;
-    uint16_t nlril = length - wrl - tpal - 4;
-    int wc, uc;
-    if (wrl > 0)
-      wc = spnlri(withdrawn, wrl);
-    else
-      wc = 0;
-    if (nlril > 0)
-      uc = spnlri(nlri, nlril);
-    else
-      uc = 0;
-
-    if (1 == VERBOSE)
-      fprintf(stderr, "BGP Update: withdrawn count = %d, path attributes length = %d , NLRI count = %d\n", wc, tpal, uc);
-
-    //**// if (ROLESENDER != p->role)
-    //**//   updatelogrecord(p->slp, uc, wc, &(p->sb).rcvtimestamp);
-  };
-
-  void donotification(char *msg, int length) {
-    unsigned char ec = *(unsigned char *)(msg + 0);
-    unsigned char esc = *(unsigned char *)(msg + 1);
-    fprintf(stderr, "BGP Notification: error code = %d, error subcode = %d\n", ec, esc);
-  };
-
-  int getBGPMessage(struct sockbuf * sb) {
-    char *header;
-    char *payload;
-    int received;
-    uint16_t pl;
-    unsigned char msgtype;
-
-    header = bufferedRead(sb, 19);
-    if (header == (char *)-1) {
-      fprintf(stderr, "end of stream\n");
-      return BGPENDOFSTREAM;
-    } else if (0 == header) {
-      return BGPTIMEOUT;
-    } else if (!isMarker(header)) {
-      die("Failed to find BGP marker in msg header from peer");
-      return BGPENDOFSTREAM;
-    } else {
-      pl = (ntohs(*(uint16_t *)(header + 16))) - 19;
-      msgtype = *(char *)(header + 18);
-      if (0 < pl) {
-        payload = bufferedRead(sb, pl);
-        if (0 == payload) {
-          fprintf(stderr, "unexpected end of stream after header received\n");
-          return BGPENDOFSTREAM;
-        }
-      } else
-        payload = 0;
-    }
-    if (1 == VERBOSE) {
-      unsigned char *hex = toHex(payload, pl);
-      fprintf(stderr, "BGP msg type %s length %d received [%s]\n", showtype(msgtype), pl, hex);
-      free(hex);
-    }
-
-    switch (msgtype) {
-    case BGPOPEN:
-      doopen(payload, pl);
-      break;
-    case BGPUPDATE:
-      if (pl == 4)
-        doeor(payload, pl);
-      else
-        doupdate(payload, pl);
-      break;
-    case BGPNOTIFICATION:
-      donotification(payload, pl);
-      break;
-    case BGPKEEPALIVE: // keepalive, no analysis required
-      break;
-    };
-    return msgtype;
+  // debug only
+  if (offset != length) {
+    unsigned char *hex = toHex(nlri, length);
+    fprintf(stderr, "**** %d %d %d %d %s \n", nlri[offset], offset, count, length, hex);
   }
+  assert(offset == length);
+  return count;
+}
 
-  void report(int expected, int got) {
+void doeor(char *msg, int length) {
+  uint16_t wrl = ntohs(*(uint16_t *)msg);
+  assert(0 == wrl);
+  uint16_t tpal = ntohs(*(uint16_t *)(msg + 2));
+  assert(0 == tpal);
+  fprintf(stderr, "BGP Update(EOR) (End of RIB)\n");
+};
 
-    if (1 == VERBOSE) {
-      if (expected == got) {
-        fprintf(stderr, "session: OK, got %s\n", showtype(expected));
-      } else {
-        fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
+void doupdate(char *msg, int length) {
+  uint16_t wrl = ntohs(*(uint16_t *)msg);
+  assert(wrl < length - 1);
+  char *withdrawn = msg + 2;
+  uint16_t tpal = ntohs(*(uint16_t *)(msg + wrl + 2));
+  char *pa = msg + wrl + 4;
+  assert(wrl + tpal < length - 3);
+  char *nlri = msg + wrl + tpal + 4;
+  uint16_t nlril = length - wrl - tpal - 4;
+  int wc, uc;
+  if (wrl > 0)
+    wc = spnlri(withdrawn, wrl);
+  else
+    wc = 0;
+  if (nlril > 0)
+    uc = spnlri(nlri, nlril);
+  else
+    uc = 0;
+
+  if (1 == VERBOSE)
+    fprintf(stderr, "BGP Update: withdrawn count = %d, path attributes length = %d , NLRI count = %d\n", wc, tpal, uc);
+
+  //**// if (ROLESENDER != p->role)
+  //**//   updatelogrecord(p->slp, uc, wc, &(p->sb).rcvtimestamp);
+};
+
+void donotification(char *msg, int length) {
+  unsigned char ec = *(unsigned char *)(msg + 0);
+  unsigned char esc = *(unsigned char *)(msg + 1);
+  fprintf(stderr, "BGP Notification: error code = %d, error subcode = %d\n", ec, esc);
+};
+
+int getBGPMessage(struct sockbuf *sb) {
+  char *header;
+  char *payload;
+  int received;
+  uint16_t pl;
+  unsigned char msgtype;
+
+  header = bufferedRead(sb, 19);
+  if (header == (char *)-1) {
+    fprintf(stderr, "end of stream\n");
+    return BGPENDOFSTREAM;
+  } else if (0 == header) {
+    return BGPTIMEOUT;
+  } else if (!isMarker(header)) {
+    die("Failed to find BGP marker in msg header from peer");
+    return BGPENDOFSTREAM;
+  } else {
+    pl = (ntohs(*(uint16_t *)(header + 16))) - 19;
+    msgtype = *(char *)(header + 18);
+    if (0 < pl) {
+      payload = bufferedRead(sb, pl);
+      if (0 == payload) {
+        fprintf(stderr, "unexpected end of stream after header received\n");
+        return BGPENDOFSTREAM;
       }
-    } else {
-      if (expected != got)
-        fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
-    }
+    } else
+      payload = 0;
+  }
+  if (1 == VERBOSE) {
+    unsigned char *hex = toHex(payload, pl);
+    fprintf(stderr, "BGP msg type %s length %d received [%s]\n", showtype(msgtype), pl, hex);
+    free(hex);
   }
 
-  struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t local) {
-
-    int i, usn;
-    struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
-    int buflen = 0;
-
-    // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
-    // an array to hold the entire output is exactly BLOCKSIZE in size
-    // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-    for (i = 0; i < BLOCKSIZE; i++) {
-      usn = i + bsn * BLOCKSIZE;
-      struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(local, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
-      vec[i] = b;
-      buflen += b.length;
-    };
-    char *data = malloc(buflen);
-    char *offset = data;
-
-    for (i = 0; i < BLOCKSIZE; i++) {
-      offset = mempcpy(offset, vec[i].data, vec[i].length);
-      free(vec[i].data);
-    };
-    return (struct bytestring){buflen, data};
+  switch (msgtype) {
+  case BGPOPEN:
+    doopen(payload, pl);
+    break;
+  case BGPUPDATE:
+    if (pl == 4)
+      doeor(payload, pl);
+    else
+      doupdate(payload, pl);
+    break;
+  case BGPNOTIFICATION:
+    donotification(payload, pl);
+    break;
+  case BGPKEEPALIVE: // keepalive, no analysis required
+    break;
   };
+  return msgtype;
+}
 
-  void send_update_block(int bsn, int cyclenumber, struct peer *p) {
+void report(int expected, int got) {
 
-    // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
-    _send(p, keepalive, 19);
-    struct bytestring updates = build_update_block(bsn, cyclenumber,p->local);
-    _send(p, updates.data, updates.length);
-    txwait(p->sock);
-    free(updates.data);
+  if (1 == VERBOSE) {
+    if (expected == got) {
+      fprintf(stderr, "session: OK, got %s\n", showtype(expected));
+    } else {
+      fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
+    }
+  } else {
+    if (expected != got)
+      fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
+  }
+}
+
+struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t local) {
+
+  int i, usn;
+  struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
+  int buflen = 0;
+
+  // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
+  // an array to hold the entire output is exactly BLOCKSIZE in size
+  // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
+  for (i = 0; i < BLOCKSIZE; i++) {
+    usn = i + bsn * BLOCKSIZE;
+    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(local, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+    vec[i] = b;
+    buflen += b.length;
   };
+  char *data = malloc(buflen);
+  char *offset = data;
 
-  // see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y
-  void *sendthread(void *_x) {
-    struct peer *p = (struct peer *) p;
+  for (i = 0; i < BLOCKSIZE; i++) {
+    offset = mempcpy(offset, vec[i].data, vec[i].length);
+    free(vec[i].data);
+  };
+  return (struct bytestring){buflen, data};
+};
 
-    uint32_t logseq;
-    struct timespec tstart, tend;
+void send_update_block(int bsn, int cyclenumber, struct peer *p) {
 
-    int sendupdates(int seq) {
+  // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
+  _send(p, keepalive, 19);
+  struct bytestring updates = build_update_block(bsn, cyclenumber, p->local);
+  _send(p, updates.data, updates.length);
+  txwait(p->sock);
+  free(updates.data);
+};
 
-      if (MAXBURSTCOUNT == 0)
-        return -1;
+// see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y
+void *sendthread(void *_x) {
+  struct peer *p = (struct peer *)p;
 
-      int bsn = seq % MAXBURSTCOUNT;
-      int cyclenumber = seq / MAXBURSTCOUNT;
-      if (((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) || (FASTCYCLELIMIT > 0 && logseq > CYCLECOUNT)) {
-        fprintf(stderr, "%d: sendupdates: sending complete\n", p->tidx);
-        return -1;
-      };
+  uint32_t logseq;
+  struct timespec tstart, tend;
 
-      if (0 == seq) {
-        gettime(&tstart);
-        startlog(p->tidx, "N/A", &tstart);
-      };
+  int sendupdates(int seq) {
 
-      if (cyclenumber >= FASTCYCLELIMIT || bsn == 0) {
-        if (0 == cyclenumber && FASTCYCLELIMIT > 0)
-          fprintf(stderr, "%d: FASTMODE START\n", p->tidx);
-        logseq = senderwait();
-        gettime(&tstart);
-      };
+    if (MAXBURSTCOUNT == 0)
+      return -1;
 
-      send_update_block(bsn, cyclenumber, p);
-
-      if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT - 1) {
-        gettime(&tend);
-        sndlog(p->tidx, "N/A", logseq, &tstart, &tend);
-        if (FASTCYCLELIMIT == cyclenumber && FASTCYCLELIMIT > 0 && bsn == 0)
-          fprintf(stderr, "%d: FASTMODE END\n", p->tidx);
-      };
-
-      if (bsn == MAXBURSTCOUNT - 1)
-        return CYCLEDELAY;
-      else
-        return 0; // ask to be restarted...
+    int bsn = seq % MAXBURSTCOUNT;
+    int cyclenumber = seq / MAXBURSTCOUNT;
+    if (((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) || (FASTCYCLELIMIT > 0 && logseq > CYCLECOUNT)) {
+      fprintf(stderr, "%d: sendupdates: sending complete\n", p->tidx);
+      return -1;
     };
-    p->sndrunning = 1;
-    timedloopms(SLEEP, sendupdates);
 
-    senderwait();
+    if (0 == seq) {
+      gettime(&tstart);
+      startlog(p->tidx, "N/A", &tstart);
+    };
 
-    send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
-    p->sndrunning = 0;
-    tflag = 1;
-    endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
+    if (cyclenumber >= FASTCYCLELIMIT || bsn == 0) {
+      if (0 == cyclenumber && FASTCYCLELIMIT > 0)
+        fprintf(stderr, "%d: FASTMODE START\n", p->tidx);
+      logseq = senderwait();
+      gettime(&tstart);
+    };
+
+    send_update_block(bsn, cyclenumber, p);
+
+    if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT - 1) {
+      gettime(&tend);
+      sndlog(p->tidx, "N/A", logseq, &tstart, &tend);
+      if (FASTCYCLELIMIT == cyclenumber && FASTCYCLELIMIT > 0 && bsn == 0)
+        fprintf(stderr, "%d: FASTMODE END\n", p->tidx);
+    };
+
+    if (bsn == MAXBURSTCOUNT - 1)
+      return CYCLEDELAY;
+    else
+      return 0; // ask to be restarted...
   };
+  p->sndrunning = 1;
+  timedloopms(SLEEP, sendupdates);
+
+  senderwait();
+
+  send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
+  p->sndrunning = 0;
+  tflag = 1;
+  endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
+};
 
 //void *session(void *x) {
 //  struct peer *p = (struct peer *)x;
@@ -372,122 +371,122 @@
 //}
 void *session(void *x) {
   struct peer *p = (struct peer *)x;
-//long int threadmain(struct peer *p) {
+  //long int threadmain(struct peer *p) {
 
-    int msgtype;
-    char *errormsg = "unspecified error";
+  int msgtype;
+  char *errormsg = "unspecified error";
 
-    switch (p->role) {
-    case ROLELISTENER:
-      fprintf(stderr, "%d: session start - role=LISTENER\n", p->tidx);
-      break;
-    case ROLESENDER:
-      fprintf(stderr, "%d: session start - role=SENDER\n", p->tidx);
-      break;
-    default:
-      fprintf(stderr, "%d: session start - role=<unassigned>\n", p->tidx);
+  switch (p->role) {
+  case ROLELISTENER:
+    fprintf(stderr, "%d: session start - role=LISTENER\n", p->tidx);
+    break;
+  case ROLESENDER:
+    fprintf(stderr, "%d: session start - role=SENDER\n", p->tidx);
+    break;
+  default:
+    fprintf(stderr, "%d: session start - role=<unassigned>\n", p->tidx);
+    goto exit;
+  };
+
+  // getsockaddresses();
+
+  int one = 1;
+  setsockopt(p->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
+  one = 1;
+  setsockopt(p->sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
+  bufferInit(&(p->sb), p->sock, BUFFSIZE, TIMEOUT);
+
+  char *m = bgpopen(p->as, HOLDTIME, htonl(p->local), NULL); // let the code build the optional parameter :: capability
+  int ml = fromHex(m);
+  FLAGS(p->sock, __FILE__, __LINE__);
+  _send(p, m, ml);
+  FLAGS(p->sock, __FILE__, __LINE__);
+
+  do
+    msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
+  while (msgtype == BGPTIMEOUT);
+
+  report(BGPOPEN, msgtype);
+  if (BGPOPEN != msgtype)
+    goto exit;
+
+  pthread_exit(NULL);
+
+  FLAGS(p->sock, __FILE__, __LINE__);
+  _send(p, keepalive, 19);
+  FLAGS(p->sock, __FILE__, __LINE__);
+
+  do
+    msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
+  while (msgtype == BGPTIMEOUT);
+
+  report(BGPKEEPALIVE, msgtype);
+  if (BGPKEEPALIVE != msgtype)
+    goto exit;
+
+  pthread_t thrd;
+  if (p->role == ROLESENDER) {
+    p->sndrunning = 1;
+    pthread_create(&thrd, NULL, sendthread, p);
+  } else
+    p->slp = initlogrecord(p->tidx, "N/A");
+
+  while (0 == tflag) {
+    if ((0 == p->sndrunning) && (p->role == ROLESENDER)) {
+      errormsg = "sender exited unexpectedly";
       goto exit;
     };
-
-    // getsockaddresses();
-
-    int one = 1;
-    setsockopt(p->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
-    one = 1;
-    setsockopt(p->sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
-    bufferInit(&(p->sb), p->sock, BUFFSIZE, TIMEOUT);
-
-    char *m = bgpopen(p->as, HOLDTIME, htonl(p->local), NULL); // let the code build the optional parameter :: capability
-    int ml = fromHex(m);
-    FLAGS(p->sock, __FILE__, __LINE__);
-    _send(p, m, ml);
-    FLAGS(p->sock, __FILE__, __LINE__);
-
-    do
-      msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
-    while (msgtype == BGPTIMEOUT);
-
-    report(BGPOPEN, msgtype);
-    if (BGPOPEN != msgtype)
-      goto exit;
-
-    pthread_exit(NULL);
-
-    FLAGS(p->sock, __FILE__, __LINE__);
-    _send(p, keepalive, 19);
-    FLAGS(p->sock, __FILE__, __LINE__);
-
-    do
-      msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
-    while (msgtype == BGPTIMEOUT);
-
-    report(BGPKEEPALIVE, msgtype);
-    if (BGPKEEPALIVE != msgtype)
-      goto exit;
-
-    pthread_t thrd;
-    if (p->role == ROLESENDER) {
-      p->sndrunning = 1;
-      pthread_create(&thrd, NULL, sendthread, p);
-    } else
-      p->slp = initlogrecord(p->tidx, "N/A");
-
-    while (0 == tflag) {
-      if ((0 == p->sndrunning) && (p->role == ROLESENDER)) {
-        errormsg = "sender exited unexpectedly";
-        goto exit;
+    msgtype = getBGPMessage(&(p->sb)); // keepalive or updates from now on
+    switch (msgtype) {
+    case BGPTIMEOUT: // this is an idle recv timeout event
+      break;
+    case BGPUPDATE: // Update
+      break;
+    case BGPKEEPALIVE: // Keepalive
+                       // trying to send while the send thread is also running is a BAD idea - because (using writev) the
+                       // send here can interleave in the message flow!!!!!
+      if (p->sndrunning == 0) {
+        FLAGS(p->sock, __FILE__, __LINE__);
+        _send(p, keepalive, 19);
+        FLAGS(p->sock, __FILE__, __LINE__);
       };
-      msgtype = getBGPMessage(&(p->sb)); // keepalive or updates from now on
-      switch (msgtype) {
-      case BGPTIMEOUT: // this is an idle recv timeout event
-        break;
-      case BGPUPDATE: // Update
-        break;
-      case BGPKEEPALIVE: // Keepalive
-                         // trying to send while the send thread is also running is a BAD idea - because (using writev) the
-                         // send here can interleave in the message flow!!!!!
-        if (p->sndrunning == 0) {
-          FLAGS(p->sock, __FILE__, __LINE__);
-          _send(p, keepalive, 19);
-          FLAGS(p->sock, __FILE__, __LINE__);
-        };
-        break;
-      case BGPNOTIFICATION: // Notification
-        fprintf(stderr, "%d: session: got Notification\n", p->tidx);
-        errormsg = "got Notification";
-        goto exit;
-      default:
-        if (msgtype < 0) { // all non message events except recv timeout
-          fprintf(stderr, "%d: session: end of stream\n", p->tidx);
-          errormsg = "got end of stream";
-        } else { // unexpected BGP message - unless BGP++ it must be an Open....
-          report(BGPUNKNOWN, msgtype);
-          errormsg = "got unexpected BGP message";
-        }
-        goto exit;
+      break;
+    case BGPNOTIFICATION: // Notification
+      fprintf(stderr, "%d: session: got Notification\n", p->tidx);
+      errormsg = "got Notification";
+      goto exit;
+    default:
+      if (msgtype < 0) { // all non message events except recv timeout
+        fprintf(stderr, "%d: session: end of stream\n", p->tidx);
+        errormsg = "got end of stream";
+      } else { // unexpected BGP message - unless BGP++ it must be an Open....
+        report(BGPUNKNOWN, msgtype);
+        errormsg = "got unexpected BGP message";
       }
-    };
-  exit:
-    closelogrecord(p->slp, p->tidx); // closelogrecord is safe in case that initlogrecord was not called...
-    if (1 == p->sndrunning) {         // this guards against calling pthread_cancel on a thread which already exited
-      pthread_cancel(thrd);
-    };
-    if (tflag) {
-      send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
-      errormsg = "shutdown requested";
-      fprintf(stderr, "%d: shutdown requested\n", p->tidx);
-    } else
-      tflag = 1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
-    close(p->sock);
-    fprintf(stderr, "%d: session exit\n", p->tidx);
-    // NB - endlog calls exit()!
-    endlog(errormsg);
-  } // end of threadmain
+      goto exit;
+    }
+  };
+exit:
+  closelogrecord(p->slp, p->tidx); // closelogrecord is safe in case that initlogrecord was not called...
+  if (1 == p->sndrunning) {        // this guards against calling pthread_cancel on a thread which already exited
+    pthread_cancel(thrd);
+  };
+  if (tflag) {
+    send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
+    errormsg = "shutdown requested";
+    fprintf(stderr, "%d: shutdown requested\n", p->tidx);
+  } else
+    tflag = 1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
+  close(p->sock);
+  fprintf(stderr, "%d: session exit\n", p->tidx);
+  // NB - endlog calls exit()!
+  endlog(errormsg);
+} // end of threadmain
 
-  // effective start of 'main, i.e. function 'session'
-  // all code and variables are defined within 'session' function to ensure that
-  // the variables are thread local, and to allow inner functions access to
-  // those local variables
+// effective start of 'main, i.e. function 'session'
+// all code and variables are defined within 'session' function to ensure that
+// the variables are thread local, and to allow inner functions access to
+// those local variables
 
 //void *session(void *x) {
 //  struct peer *p = (struct peer *)x;
