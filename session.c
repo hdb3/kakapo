@@ -365,13 +365,8 @@ void *sendthread(void *_x) {
   endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
 };
 
-//void *session(void *x) {
-//  struct peer *p = (struct peer *)x;
-//  return (int *)threadmain(p);
-//}
 void *session(void *x) {
   struct peer *p = (struct peer *)x;
-  //long int threadmain(struct peer *p) {
 
   int msgtype;
   char *errormsg = "unspecified error";
@@ -398,9 +393,7 @@ void *session(void *x) {
 
   char *m = bgpopen(p->as, HOLDTIME, htonl(p->local), NULL); // let the code build the optional parameter :: capability
   int ml = fromHex(m);
-  FLAGS(p->sock, __FILE__, __LINE__);
   _send(p, m, ml);
-  FLAGS(p->sock, __FILE__, __LINE__);
 
   do
     msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
@@ -412,9 +405,7 @@ void *session(void *x) {
 
   pthread_exit(NULL);
 
-  FLAGS(p->sock, __FILE__, __LINE__);
   _send(p, keepalive, 19);
-  FLAGS(p->sock, __FILE__, __LINE__);
 
   do
     msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
@@ -446,9 +437,7 @@ void *session(void *x) {
                        // trying to send while the send thread is also running is a BAD idea - because (using writev) the
                        // send here can interleave in the message flow!!!!!
       if (p->sndrunning == 0) {
-        FLAGS(p->sock, __FILE__, __LINE__);
         _send(p, keepalive, 19);
-        FLAGS(p->sock, __FILE__, __LINE__);
       };
       break;
     case BGPNOTIFICATION: // Notification
@@ -481,14 +470,4 @@ exit:
   fprintf(stderr, "%d: session exit\n", p->tidx);
   // NB - endlog calls exit()!
   endlog(errormsg);
-} // end of threadmain
-
-// effective start of 'main, i.e. function 'session'
-// all code and variables are defined within 'session' function to ensure that
-// the variables are thread local, and to allow inner functions access to
-// those local variables
-
-//void *session(void *x) {
-//  struct peer *p = (struct peer *)x;
-//  return (int *)threadmain(p);
-//}
+}

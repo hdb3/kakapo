@@ -286,9 +286,9 @@ int main(int argc, char *argv[]) {
 
   for (argn = 0; argn < argc - 1; argn++) {
     pthread_t t = (peertable + argn)->thrd;
-    fprintf(stderr, "joining %ld\n", t);
+    // fprintf(stderr, "joining %ld\n", t);
     0 == pthread_join(t, NULL) || die("pthread join fail");
-    fprintf(stderr, "joined %ld\n", t);
+    // fprintf(stderr, "joined %ld\n", t);
   };
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
