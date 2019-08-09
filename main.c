@@ -39,6 +39,7 @@ uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
 uint32_t BLOCKSIZE = 3;
+uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t NEXTHOP;
 char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
@@ -257,6 +258,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
   getuint32env("BLOCKSIZE", &BLOCKSIZE);
+  getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);

@@ -274,39 +274,46 @@ void report(int expected, int got) {
   }
 }
 
-struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t localip) {
+struct bytestring build_update_block(int start, int length, uint32_t localip, uint32_t localpref) {
 
-  int i, usn;
-  struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
+  assert(length <= TABLESIZE);
+  int i;
+  struct bytestring *vec = malloc(sizeof(struct bytestring) * length);
   int buflen = 0;
 
-  // the loopcount runs from 0 to BLOCKSIZE -1, + a fixed offset (bsn * BLOCKSIZE)
-  // an array to hold the entire output is exactly BLOCKSIZE in size
-  // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
-  for (i = 0; i < BLOCKSIZE; i++) {
-    usn = i + bsn * BLOCKSIZE;
-    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+  for (i = start; i < start + length; i++) {
+    int usn = i % TABLESIZE;
+    int cyclenumber = 1 + i / TABLESIZE;
+    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber, 0}));
     vec[i] = b;
     buflen += b.length;
   };
   char *data = malloc(buflen);
   char *offset = data;
 
-  for (i = 0; i < BLOCKSIZE; i++) {
+  for (i = 0; i < length; i++) {
     offset = mempcpy(offset, vec[i].data, vec[i].length);
     free(vec[i].data);
   };
   return (struct bytestring){buflen, data};
 };
 
-void send_update_block(int bsn, int cyclenumber, struct peer *p) {
+void send_update_block(int offset, int length, struct peer *p) {
 
   // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
   _send(p, keepalive, 19);
-  struct bytestring updates = build_update_block(bsn, cyclenumber, p->localip);
+  struct bytestring updates = build_update_block(offset, length, p->localip, 100);
   _send(p, updates.data, updates.length);
   txwait(p->sock);
   free(updates.data);
+};
+
+void send_eor(struct peer *p) {
+
+  struct bytestring b = update(empty, empty, empty);
+  _send(p, b.data, b.length);
+  txwait(p->sock);
+  free(b.data);
 };
 
 // see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y
@@ -500,6 +507,9 @@ void *establish(void *x) {
   report(BGPKEEPALIVE, msgtype);
   if (BGPKEEPALIVE != msgtype)
     goto exit;
+
+  // send_update_block(0, TABLESIZE, p);
+  send_eor(p);
 
   pthread_exit(NULL);
 

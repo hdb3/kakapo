@@ -21,6 +21,7 @@ extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;
 extern uint32_t GROUPSIZE;
 extern uint32_t BLOCKSIZE;
+extern uint32_t TABLESIZE;
 extern uint32_t MAXBURSTCOUNT;
 extern uint32_t NEXTHOP;
 extern uint32_t CYCLECOUNT;
