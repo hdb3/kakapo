@@ -49,8 +49,8 @@ struct peer {
   int sndrunning;
   pthread_t thrd;
   int sendFlag;
-  uint32_t remote;
-  uint32_t local;
+  uint32_t remoteip;
+  uint32_t localip;
   uint32_t as;
   struct sockbuf sb;
   slp_t slp;
@@ -58,6 +58,7 @@ struct peer {
 
 //*void session(struct sessiondata *sd);
 void *session(void *x);
+void *establish(void *x);
 
 #define LIMIT 3
 

@@ -64,12 +64,12 @@ void startpeer(struct peer *p, char *s) {
 
   parseargument(p, s);
 
-  if (0 == p->remote) // servers have a zero 'remote' address
+  if (0 == p->remoteip) // servers have a zero 'remote' address
     die("server mode not supported in this version");
 
   int peersock;
-  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remote}};
-  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->local}};
+  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remoteip}};
+  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
 
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
@@ -83,7 +83,7 @@ void startpeer(struct peer *p, char *s) {
   p->sock = peersock;
 
   fprintf(stderr, "connected for %s\n", s);
-  pthread_create(&(p->thrd), NULL, session, p);
+  pthread_create(&(p->thrd), NULL, establish, p);
   fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
 };
 

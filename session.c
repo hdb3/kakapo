@@ -274,7 +274,7 @@ void report(int expected, int got) {
   }
 }
 
-struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t local) {
+struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t localip) {
 
   int i, usn;
   struct bytestring *vec = malloc(sizeof(struct bytestring) * BLOCKSIZE);
@@ -285,7 +285,7 @@ struct bytestring build_update_block(int bsn, int cyclenumber, uint32_t local) {
   // for (usn = bsn * BLOCKSIZE; usn < (bsn + 1) * BLOCKSIZE; usn++) {
   for (i = 0; i < BLOCKSIZE; i++) {
     usn = i + bsn * BLOCKSIZE;
-    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(local, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
+    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber + 1, 0}));
     vec[i] = b;
     buflen += b.length;
   };
@@ -303,7 +303,7 @@ void send_update_block(int bsn, int cyclenumber, struct peer *p) {
 
   // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
   _send(p, keepalive, 19);
-  struct bytestring updates = build_update_block(bsn, cyclenumber, p->local);
+  struct bytestring updates = build_update_block(bsn, cyclenumber, p->localip);
   _send(p, updates.data, updates.length);
   txwait(p->sock);
   free(updates.data);
@@ -391,7 +391,7 @@ void *session(void *x) {
   setsockopt(p->sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
   bufferInit(&(p->sb), p->sock, BUFFSIZE, TIMEOUT);
 
-  char *m = bgpopen(p->as, HOLDTIME, htonl(p->local), NULL); // let the code build the optional parameter :: capability
+  char *m = bgpopen(p->as, HOLDTIME, htonl(p->localip), NULL); // let the code build the optional parameter :: capability
   int ml = fromHex(m);
   _send(p, m, ml);
 
@@ -470,4 +470,39 @@ exit:
   fprintf(stderr, "%d: session exit\n", p->tidx);
   // NB - endlog calls exit()!
   endlog(errormsg);
+}
+
+void *establish(void *x) {
+  struct peer *p = (struct peer *)x;
+
+  int msgtype;
+
+  int one = 1;
+  setsockopt(p->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
+  one = 1;
+  setsockopt(p->sock, IPPROTO_TCP, TCP_QUICKACK, (void *)&one, sizeof(one));
+  bufferInit(&(p->sb), p->sock, BUFFSIZE, TIMEOUT);
+
+  char *m = bgpopen(p->as, HOLDTIME, htonl(p->localip), NULL); // let the code build the optional parameter :: capability
+  int ml = fromHex(m);
+  _send(p, m, ml);
+
+  msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
+
+  report(BGPOPEN, msgtype);
+  if (BGPOPEN != msgtype)
+    goto exit;
+
+  _send(p, keepalive, 19);
+
+  msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
+
+  report(BGPKEEPALIVE, msgtype);
+  if (BGPKEEPALIVE != msgtype)
+    goto exit;
+
+  pthread_exit(NULL);
+
+exit:
+  fprintf(stderr, "%d: abnormal session exit\n", p->tidx);
 }
