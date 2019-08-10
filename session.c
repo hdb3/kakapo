@@ -27,14 +27,6 @@
 
 #define BUFFSIZE 0x10000
 
-#define BGPENDOFSTREAM (-1)
-#define BGPTIMEOUT 0
-#define BGPOPEN 1
-#define BGPUPDATE 2
-#define BGPNOTIFICATION 3
-#define BGPKEEPALIVE 4
-#define BGPUNKNOWN 5
-
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
 
@@ -207,57 +199,52 @@ void donotification(char *msg, int length) {
   fprintf(stderr, "BGP Notification: error code = %d, error subcode = %d\n", ec, esc);
 };
 
-int getBGPMessage(struct sockbuf *sb) {
+int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
   char *header;
-  char *payload;
-  int received;
-  uint16_t pl;
-  unsigned char msgtype;
+  // char *payload;
+  // uint16_t pl;
+  // unsigned char msgtype;
+
+  bm->payload = 0;
 
   header = bufferedRead(sb, 19);
   if (header == (char *)-1) {
-    fprintf(stderr, "end of stream\n");
-    return BGPENDOFSTREAM;
+    // fprintf(stderr, "end of stream\n");
+    bm->msgtype = BGPENDOFSTREAM;
   } else if (0 == header) {
-    return BGPTIMEOUT;
+    bm->msgtype = BGPTIMEOUT;
   } else if (!isMarker(header)) {
+    // this is a differnt condition and should have a seprate value 'BGPUNSYNCHRONISED'
     die("Failed to find BGP marker in msg header from peer");
-    return BGPENDOFSTREAM;
+    bm->msgtype = BGPENDOFSTREAM;
   } else {
-    pl = (ntohs(*(uint16_t *)(header + 16))) - 19;
-    msgtype = *(char *)(header + 18);
-    if (0 < pl) {
-      payload = bufferedRead(sb, pl);
-      if (0 == payload) {
+    bm->pl = (ntohs(*(uint16_t *)(header + 16))) - 19;
+    bm->msgtype = *(char *)(header + 18);
+    if (0 < bm->pl) {
+      bm->payload = bufferedRead(sb, bm->pl);
+      if (0 == bm->payload) {
         fprintf(stderr, "unexpected end of stream after header received\n");
-        return BGPENDOFSTREAM;
+        bm->msgtype = BGPENDOFSTREAM;
       }
-    } else
-      payload = 0;
-  }
-  if (1 == VERBOSE) {
-    unsigned char *hex = toHex(payload, pl);
-    fprintf(stderr, "BGP msg type %s length %d received [%s]\n", showtype(msgtype), pl, hex);
-    free(hex);
+    }
   }
 
-  switch (msgtype) {
+  switch (bm->msgtype) {
   case BGPOPEN:
-    doopen(payload, pl);
+    doopen(bm->payload, bm->pl);
     break;
   case BGPUPDATE:
-    if (pl == 4)
-      doeor(payload, pl);
+    if (bm->pl == 4)
+      doeor(bm->payload, bm->pl);
     else
-      doupdate(payload, pl);
+      doupdate(bm->payload, bm->pl);
     break;
   case BGPNOTIFICATION:
-    donotification(payload, pl);
+    donotification(bm->payload, bm->pl);
     break;
-  case BGPKEEPALIVE: // keepalive, no analysis required
+  case BGPKEEPALIVE:
     break;
   };
-  return msgtype;
 }
 
 void report(int expected, int got) {
@@ -375,7 +362,8 @@ void *sendthread(void *_x) {
 void *session(void *x) {
   struct peer *p = (struct peer *)x;
 
-  int msgtype;
+  //int msgtype;
+  struct bgp_message bm;
   char *errormsg = "unspecified error";
 
   switch (p->role) {
@@ -402,24 +390,26 @@ void *session(void *x) {
   int ml = fromHex(m);
   _send(p, m, ml);
 
-  do
-    msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
-  while (msgtype == BGPTIMEOUT);
+  getBGPMessage(&bm, &(p->sb)); // this is expected to be an Open
+                                //  do
+                                //    msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
+                                //  while (msgtype == BGPTIMEOUT);
 
-  report(BGPOPEN, msgtype);
-  if (BGPOPEN != msgtype)
+  report(BGPOPEN, bm.msgtype);
+  if (BGPOPEN != bm.msgtype)
     goto exit;
 
   pthread_exit(NULL);
 
   _send(p, keepalive, 19);
 
-  do
-    msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
-  while (msgtype == BGPTIMEOUT);
+  getBGPMessage(&bm, &(p->sb)); // this is expected to be a Keepalive
+                                //  do
+                                //    msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
+                                //  while (msgtype == BGPTIMEOUT);
 
-  report(BGPKEEPALIVE, msgtype);
-  if (BGPKEEPALIVE != msgtype)
+  report(BGPKEEPALIVE, bm.msgtype);
+  if (BGPKEEPALIVE != bm.msgtype)
     goto exit;
 
   pthread_t thrd;
@@ -434,8 +424,9 @@ void *session(void *x) {
       errormsg = "sender exited unexpectedly";
       goto exit;
     };
-    msgtype = getBGPMessage(&(p->sb)); // keepalive or updates from now on
-    switch (msgtype) {
+    //    msgtype = getBGPMessage(&(p->sb)); // keepalive or updates from now on
+    getBGPMessage(&bm, &(p->sb)); // keepalive or updates from now on
+    switch (bm.msgtype) {
     case BGPTIMEOUT: // this is an idle recv timeout event
       break;
     case BGPUPDATE: // Update
@@ -452,11 +443,11 @@ void *session(void *x) {
       errormsg = "got Notification";
       goto exit;
     default:
-      if (msgtype < 0) { // all non message events except recv timeout
+      if (bm.msgtype < 0) { // all non message events except recv timeout
         fprintf(stderr, "%d: session: end of stream\n", p->tidx);
         errormsg = "got end of stream";
       } else { // unexpected BGP message - unless BGP++ it must be an Open....
-        report(BGPUNKNOWN, msgtype);
+        report(BGPUNKNOWN, bm.msgtype);
         errormsg = "got unexpected BGP message";
       }
       goto exit;
@@ -477,12 +468,14 @@ exit:
   fprintf(stderr, "%d: session exit\n", p->tidx);
   // NB - endlog calls exit()!
   endlog(errormsg);
-}
+};
 
+/*
+*/
 void *establish(void *x) {
   struct peer *p = (struct peer *)x;
 
-  int msgtype;
+  struct bgp_message bm;
 
   int one = 1;
   setsockopt(p->sock, IPPROTO_TCP, TCP_NODELAY, (void *)&one, sizeof(one));
@@ -494,18 +487,18 @@ void *establish(void *x) {
   int ml = fromHex(m);
   _send(p, m, ml);
 
-  msgtype = getBGPMessage(&(p->sb)); // this is expected to be an Open
+  getBGPMessage(&bm, &(p->sb)); // this is expected to be an Open
 
-  report(BGPOPEN, msgtype);
-  if (BGPOPEN != msgtype)
+  report(BGPOPEN, bm.msgtype);
+  if (BGPOPEN != bm.msgtype)
     goto exit;
 
   _send(p, keepalive, 19);
 
-  msgtype = getBGPMessage(&(p->sb)); // this is expected to be a Keepalive
+  getBGPMessage(&bm, &(p->sb)); // this is expected to be a Keepalive
 
-  report(BGPKEEPALIVE, msgtype);
-  if (BGPKEEPALIVE != msgtype)
+  report(BGPKEEPALIVE, bm.msgtype);
+  if (BGPKEEPALIVE != bm.msgtype)
     goto exit;
 
   // send_update_block(0, TABLESIZE, p);
@@ -515,4 +508,4 @@ void *establish(void *x) {
 
 exit:
   fprintf(stderr, "%d: abnormal session exit\n", p->tidx);
-}
+};

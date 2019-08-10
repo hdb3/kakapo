@@ -73,3 +73,17 @@ struct args {
 
 typedef struct args args_t;
 args_t commaparse(char *s);
+
+#define BGPENDOFSTREAM (-1)
+#define BGPTIMEOUT 0
+#define BGPOPEN 1
+#define BGPUPDATE 2
+#define BGPNOTIFICATION 3
+#define BGPKEEPALIVE 4
+#define BGPUNKNOWN 5
+
+struct bgp_message {
+  char *payload;
+  uint16_t pl;
+  unsigned char msgtype;
+};
