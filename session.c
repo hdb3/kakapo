@@ -548,7 +548,7 @@ void *single_peer_burst_test(struct peer *p) {
   struct timespec ts;
 
   fprintf(stderr, "single_peer_burst_test listener : %s\n", fromHostAddress(p->localip));
-  fprintf(stderr, "single_peer_burst_test sender   : %s\n", fromHostAddress((p+1)->localip));
+  fprintf(stderr, "single_peer_burst_test sender   : %s\n", fromHostAddress((p + 1)->localip));
   gettime(&ts);
 
   send_update_block(0, TABLESIZE, p + 1);
