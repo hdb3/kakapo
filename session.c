@@ -389,22 +389,22 @@ struct crf_state {
 // typedef int pf_count (int *) pft;
 // typedef pft int pf_count (void *p);
 
-void crf(struct crf_state *crfs, int (*pf) (int *, struct bgp_message *), int *pf_state, struct peer *p) {
+void crf(struct crf_state *crfs, int (*pf)(int *, struct bgp_message *), int *pf_state, struct peer *p) {
 
   struct bgp_message bm;
-  crfs->status=0;
+  crfs->status = 0;
 
   gettime(&crfs->start);
   while (crfs->status == 0) {
     if (BGPKEEPALIVE == bm.msgtype)
-      break;	    
+      break;
     if (BGPUPDATE == bm.msgtype) {
       // ignore EOR
-      if (bm.pl ==4)
-	doeor(bm.payload);
+      if (bm.pl == 4)
+        doeor(bm.payload);
       else
-        crfs->status = pf(pf_state,&bm);
-      break;	    
+        crfs->status = pf(pf_state, &bm);
+      break;
     } else {
       fprintf(stderr, "crf: exception exit\n");
       report(BGPUPDATE, bm.msgtype);
@@ -414,10 +414,10 @@ void crf(struct crf_state *crfs, int (*pf) (int *, struct bgp_message *), int *p
   gettime(&crfs->end);
   // tdelta = timespec_sub(tend, tstart);
   // printf("complete in %ld\n", timespec_to_ms(tdelta));
-  fprintf(stderr,"crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
+  fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
 
-int pf_count (int *counter, struct bgp_message *bm) {
+int pf_count(int *counter, struct bgp_message *bm) {
   *counter--;
   return (counter > 0 ? 1 : 0);
 };
@@ -548,9 +548,8 @@ void *single_peer_burst_test(struct peer *p) {
 
   gettime(&ts);
 
-  send_update_block(0, TABLESIZE, p+1);
+  send_update_block(0, TABLESIZE, p + 1);
   crf_count(TABLESIZE, &crfs, p);
-  fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", TABLESIZE,crfs.status,showdeltams(ts));
-   //pthread_exit(NULL);
-
+  fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", TABLESIZE, crfs.status, showdeltams(ts));
+  //pthread_exit(NULL);
 };

@@ -15,8 +15,8 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "util.h"
 #include "timespec.h"
+#include "util.h"
 
 int die(char *mess) {
   if (0 != errno)
