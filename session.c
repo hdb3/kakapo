@@ -167,7 +167,7 @@ int spnlri(char *nlri, int length) {
   return count;
 }
 
-void doeor(char *msg, int length) {
+void doeor(char *msg) {
   uint16_t wrl = ntohs(*(uint16_t *)msg);
   assert(0 == wrl);
   uint16_t tpal = ntohs(*(uint16_t *)(msg + 2));
@@ -377,6 +377,48 @@ int expect_open(struct peer *p) {
     report(BGPOPEN, bm.msgtype);
     return -1;
   };
+};
+
+int pf_count (int *counter) {
+  *counter--;
+  return (counter > 0 ? 1 : 0);
+};
+
+int crf_count(int counter,struct peer *p)) {
+  return crf(&pf_count,&counter,p);
+};
+
+struct crf_state {
+  struct timespec start;
+  struct timespec end;
+  int status;
+ };
+
+void crf(struct crf_state *crfs, pft pf, void *pfs, struct peer *p) {
+
+  struct bgp_message bm;
+  void *pf_state;
+  crfs->status=0;
+
+  getttime(&crfs->start);
+  while (pr == 0) {
+  do {
+    if (BGPKEEPALIVE == bm.msgtype)
+      break;	    
+    if (BGPUPDATE == bm.msgtype) {
+      // ignore EOR
+      if (bm.pl ==4)
+	doeor(bm.payload);
+      else
+        crfs->status = pf(&pf_state,&bm);
+      break;	    
+    } else {
+      fprintf(stderr, "crf: exception exit\n");
+      report(BGPUPDATE, bm.msgtype);
+      crfs->status = -1;
+    }
+  };
+  getttime(&crfs->end);
 };
 
 void *session(void *x) {
