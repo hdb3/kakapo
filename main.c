@@ -22,7 +22,7 @@
 #include "kakapo.h"
 #include "sockbuf.h"
 #include "stats.h"
-#include "util.h"
+//#include "util.h"
 
 #define MAXPENDING 5 // Max connection requests
 

@@ -48,6 +48,11 @@ uint32_t senderwait();
 void receiversignal(uint32_t seq);
 extern struct timespec txts;
 
+//struct prefix {
+//  uint32_t ip;
+//  uint8_t  length;
+//};
+
 #define ROLELISTENER 1
 #define ROLESENDER 2
 struct peer {

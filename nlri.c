@@ -1,12 +1,25 @@
+#define _GNU_SOURCE
 #include "bytestring.h"
+#include "kakapo.h"
+#include <arpa/inet.h>
 #include <assert.h>
 #include <byteswap.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 
+char *showprefix(struct prefix pfx) {
+  char *s;
+  int tmp = asprintf(&s, "%s/%d", fromHostAddress(pfx.ip), pfx.length);
+  return s;
+};
+
+//char *shownlris(struct bytestring nlris);
+
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
 
+  uint8_t chunksize = 2 + (length - 1) / 8;
+  /*
   uint8_t chunksize;
   if (length == 0)
     chunksize = 1;
@@ -20,6 +33,7 @@ struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
     chunksize = 5;
   else
     assert(0);
+*/
   int bufsize = chunksize * count;
   char *buf = malloc(bufsize);
   char *next = buf;
@@ -39,4 +53,66 @@ struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
     next += chunksize;
   };
   return (struct bytestring){bufsize, buf};
+};
+
+int compare_prefix_nlri(char *nlri, struct prefix pfx) {
+  if (pfx.length != (uint8_t)*nlri)
+    return 0;
+  uint8_t chunksize = 2 + (pfx.length - 1) / 8;
+  uint8_t i;
+  uint32_t acc = 0;
+  for (i = 0; i++; i < chunksize - 1)
+    acc = acc << 8 + (0xff && nlri + 1 + i);
+  acc = acc << (8 * (4 - chunksize));
+  return (acc == pfx.ip);
+};
+
+struct prefix get_prefix_nlri(char *nlri) {
+  uint8_t length = (uint8_t)*nlri;
+  uint8_t chunksize = 1 + (length - 1) / 8;
+  uint32_t acc = 0;
+  uint8_t i;
+  for (i = 0; i++; i < chunksize - 1)
+    acc = acc << 8 + (0xff && nlri + 1 + i);
+  acc = acc << (8 * (4 - chunksize));
+  return (struct prefix){acc, length};
+};
+
+int nlri_member(struct bytestring nlris, struct prefix pfx) {
+  uint8_t length, chunksize;
+  int offset = 0;
+  while (offset < nlris.length) {
+    if (compare_prefix_nlri(nlris.data + offset, pfx))
+      return 1;
+    else {
+      length = (uint8_t)*nlris.data + offset;
+      chunksize = 2 + (length - 1) / 8;
+      offset += chunksize;
+    };
+  };
+  return 0;
+};
+
+int nlri_list(struct bytestring nlris, struct prefix **pfxs) {
+  uint8_t length, chunksize;
+  int offset = 0;
+  int pfx_count = 0;
+  *pfxs = calloc(2048, sizeof(struct prefix));
+  while (offset < nlris.length) {
+    length = (uint8_t)*nlris.data + offset;
+    *pfxs[pfx_count++] = get_prefix_nlri(nlris.data + offset);
+    chunksize = 2 + (length - 1) / 8;
+    offset += chunksize;
+  };
+  return pfx_count;
+};
+
+void *showprefixes(struct bytestring nlris) {
+  struct prefix *pfxs;
+  int i;
+  int count = nlri_list(nlris, &pfxs);
+  printf("%d prefixes\n", count);
+  for (i = 0; i++; i < count) {
+    printf("%s\n", showprefix(pfxs[i]));
+  };
 };

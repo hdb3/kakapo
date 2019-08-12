@@ -176,6 +176,19 @@ void doeor(char *msg) {
   fprintf(stderr, "BGP Update(EOR) (End of RIB)\n");
 };
 
+struct bytestring get_nlri(struct bytestring update) {
+  uint16_t wrl = ntohs(*(uint16_t *)(update.data));
+  assert(wrl < update.length - 1);
+  uint16_t tpal = ntohs(*(uint16_t *)(update.data + wrl + 2));
+  assert(wrl + tpal < update.length - 3);
+  char *nlri = update.data + wrl + tpal + 4;
+  uint16_t nlril = update.length - wrl - tpal - 4;
+  if (0 == nlril)
+    return (struct bytestring){0, 0};
+  else
+    return (struct bytestring){nlril, nlri};
+};
+
 void doupdate(char *msg, int length) {
   uint16_t wrl = ntohs(*(uint16_t *)msg);
   assert(wrl < length - 1);
@@ -197,9 +210,6 @@ void doupdate(char *msg, int length) {
 
   if (1 == VERBOSE)
     fprintf(stderr, "BGP Update: withdrawn count = %d, path attributes length = %d , NLRI count = %d\n", wc, tpal, uc);
-
-  //**// if (ROLESENDER != p->role)
-  //**//   updatelogrecord(p->slp, uc, wc, &(p->sb).rcvtimestamp);
 };
 
 void donotification(char *msg, int length) {
@@ -435,6 +445,12 @@ void crf(struct crf_state *crfs, int (*pf)(int *, struct bgp_message *), int *pf
   fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
 
+int pf_update(struct prefix *pfx, struct bgp_message *bm) {
+  struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
+  struct bytestring nlri = get_nlri(msg);
+  return (nlri_member(nlri, *pfx) ? 1 : 0);
+};
+
 int pf_count(int *counter, struct bgp_message *bm) {
   *counter--;
   return (counter > 0 ? 1 : 0);
@@ -602,6 +618,24 @@ void *canary(struct peer *p) {
   };
   crf_count(sender_count, &crfs, p);
   // fprintf(stderr, "final canary replies complete: elapsed time %s\n", showdeltams(ts));
+  fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
+};
+
+void *strict_canary(struct peer *p) {
+  struct timespec ts;
+  struct crf_state crfs;
+
+  gettime(&ts);
+  fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
+  advertise_canary(p);
+  crf_count(1, &crfs, p);
+  fprintf(stderr, "first canary reply complete: elapsed time %s\n", showdeltams(ts));
+
+  fprintf(stderr, "canary wthdraw from : %s\n", fromHostAddress(p->localip));
+  withdraw_canary(p);
+  crf_count(1, &crfs, p);
+  fprintf(stderr, "final canary repliy complete: elapsed time %s\n", showdeltams(ts));
+
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
 
