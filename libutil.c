@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "bytestring.c"
 #include "nlri.c"
 #include "pathattributes.c"

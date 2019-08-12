@@ -5,6 +5,13 @@
 #define VERBOSE (0)
 #endif
 
+#define _GNU_SOURCE
+#ifndef VERSION
+#define VERSION "version undefined"
+#endif
+#ifndef BUILDDATE
+#define BUILDDATE "builddate unknown"
+#endif
 #include "sockbuf.h"
 #include "stats.h"
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
@@ -60,6 +67,8 @@ struct peer {
 //*void session(struct sessiondata *sd);
 void *session(void *x);
 void *establish(void *x);
+void *single_peer_burst_test(struct peer *p);
+// void *single_peer_burst_test(void *x);
 
 #define LIMIT 3
 

@@ -1,5 +1,6 @@
 /* kakapo-session - a BGP traffic source and sink */
 
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -379,30 +380,22 @@ int expect_open(struct peer *p) {
   };
 };
 
-int pf_count (int *counter) {
-  *counter--;
-  return (counter > 0 ? 1 : 0);
-};
-
-int crf_count(int counter,struct peer *p)) {
-  return crf(&pf_count,&counter,p);
-};
-
 struct crf_state {
   struct timespec start;
   struct timespec end;
   int status;
- };
+};
 
-void crf(struct crf_state *crfs, pft pf, void *pfs, struct peer *p) {
+// typedef int pf_count (int *) pft;
+// typedef pft int pf_count (void *p);
+
+void crf(struct crf_state *crfs, int (*pf) (int *, struct bgp_message *), int *pf_state, struct peer *p) {
 
   struct bgp_message bm;
-  void *pf_state;
   crfs->status=0;
 
-  getttime(&crfs->start);
-  while (pr == 0) {
-  do {
+  gettime(&crfs->start);
+  while (crfs->status == 0) {
     if (BGPKEEPALIVE == bm.msgtype)
       break;	    
     if (BGPUPDATE == bm.msgtype) {
@@ -410,7 +403,7 @@ void crf(struct crf_state *crfs, pft pf, void *pfs, struct peer *p) {
       if (bm.pl ==4)
 	doeor(bm.payload);
       else
-        crfs->status = pf(&pf_state,&bm);
+        crfs->status = pf(pf_state,&bm);
       break;	    
     } else {
       fprintf(stderr, "crf: exception exit\n");
@@ -418,7 +411,19 @@ void crf(struct crf_state *crfs, pft pf, void *pfs, struct peer *p) {
       crfs->status = -1;
     }
   };
-  getttime(&crfs->end);
+  gettime(&crfs->end);
+  // tdelta = timespec_sub(tend, tstart);
+  // printf("complete in %ld\n", timespec_to_ms(tdelta));
+  fprintf(stderr,"crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
+};
+
+int pf_count (int *counter, struct bgp_message *bm) {
+  *counter--;
+  return (counter > 0 ? 1 : 0);
+};
+
+void crf_count(int counter, struct crf_state *crfs, struct peer *p) {
+  return crf(crfs, pf_count, &counter, p);
 };
 
 void *session(void *x) {
@@ -511,6 +516,7 @@ exit:
 
 void *establish(void *x) {
   struct peer *p = (struct peer *)x;
+  struct crf_state crfs;
 
   init(p);
   send_open(p);
@@ -525,8 +531,26 @@ void *establish(void *x) {
   // send_update_block(0, TABLESIZE, p);
   send_eor(p);
 
+  // crf_count(TABLESIZE, &crfs, p);
+  // fprintf(stderr, "crf_count(%d) return status=%d\n", TABLESIZE,crfs.status);
+
   pthread_exit(NULL);
 
 exit:
-  fprintf(stderr, "%d: abnormal session exit\n", p->tidx);
+  fprintf(stderr, "establish: abnormal exit\n");
+};
+
+// void *single_peer_burst_test(void *x) {
+//   struct peer *p = (struct peer *)x;
+void *single_peer_burst_test(struct peer *p) {
+  struct crf_state crfs;
+  struct timespec ts;
+
+  gettime(&ts);
+
+  send_update_block(0, TABLESIZE, p+1);
+  crf_count(TABLESIZE, &crfs, p);
+  fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", TABLESIZE,crfs.status,showdeltams(ts));
+   //pthread_exit(NULL);
+
 };

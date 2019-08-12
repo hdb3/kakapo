@@ -1,6 +1,7 @@
 
 /* kakapo - a BGP traffic source and sink */
 
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -75,10 +76,10 @@ void startpeer(struct peer *p, char *s) {
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
 
-  0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
+  0 == bind(peersock, (const struct sockaddr *)&myaddr, SOCKADDRSZ) ||
       die("Failed to bind local address");
 
-  0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
+  0 == (connect(peersock, (const struct sockaddr *)&peeraddr, SOCKADDRSZ)) ||
       die("Failed to connect with peer");
 
   p->sock = peersock;
@@ -294,6 +295,9 @@ int main(int argc, char *argv[]) {
   };
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
+
+  single_peer_burst_test(p);
+  fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
 
   while (0 == tflag)
     sleep(1);
