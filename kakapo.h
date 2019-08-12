@@ -64,11 +64,10 @@ struct peer {
   slp_t slp;
 };
 
-//*void session(struct sessiondata *sd);
 void *session(void *x);
 void *establish(void *x);
 void *single_peer_burst_test(struct peer *p);
-// void *single_peer_burst_test(void *x);
+void *conditioning(struct peer *p);
 
 #define LIMIT 3
 

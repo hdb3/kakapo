@@ -42,7 +42,7 @@ char *showdeltams(struct timespec ts) {
   struct timespec now;
   char *s;
   gettime(&now);
-  int elapsed_ms = timespec_to_ms(timespec_sub(ts, now));
+  int elapsed_ms = timespec_to_ms(timespec_sub(now, ts));
   int tmp = asprintf(&s, "%03d", elapsed_ms);
   return s;
 };

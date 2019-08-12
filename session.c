@@ -529,11 +529,7 @@ void *establish(void *x) {
   if (0 != expect_keepalive(p))
     goto exit;
 
-  // send_update_block(0, TABLESIZE, p);
   send_eor(p);
-
-  // crf_count(TABLESIZE, &crfs, p);
-  // fprintf(stderr, "crf_count(%d) return status=%d\n", TABLESIZE,crfs.status);
 
   pthread_exit(NULL);
 
@@ -541,8 +537,6 @@ exit:
   fprintf(stderr, "establish: abnormal exit\n");
 };
 
-// void *single_peer_burst_test(void *x) {
-//   struct peer *p = (struct peer *)x;
 void *single_peer_burst_test(struct peer *p) {
   struct crf_state crfs;
   struct timespec ts;
@@ -554,5 +548,16 @@ void *single_peer_burst_test(struct peer *p) {
   send_update_block(0, TABLESIZE, p + 1);
   crf_count(TABLESIZE, &crfs, p);
   fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", TABLESIZE, crfs.status, showdeltams(ts));
-  //pthread_exit(NULL);
+};
+
+void *conditioning(struct peer *p) {
+  struct crf_state crfs;
+  struct timespec ts;
+
+  gettime(&ts);
+  while ((++p)->sock != 0) {
+    fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
+    send_update_block(0, TABLESIZE, p);
+  };
+  fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
