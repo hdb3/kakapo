@@ -396,6 +396,7 @@ void crf(struct crf_state *crfs, int (*pf)(int *, struct bgp_message *), int *pf
 
   gettime(&crfs->start);
   while (crfs->status == 0) {
+    getBGPMessage(&bm, &(p->sb));
     if (BGPKEEPALIVE == bm.msgtype)
       break;
     if (BGPUPDATE == bm.msgtype) {
@@ -546,6 +547,8 @@ void *single_peer_burst_test(struct peer *p) {
   struct crf_state crfs;
   struct timespec ts;
 
+  fprintf(stderr, "single_peer_burst_test listener : %s\n", fromHostAddress(p->localip));
+  fprintf(stderr, "single_peer_burst_test sender   : %s\n", fromHostAddress((p+1)->localip));
   gettime(&ts);
 
   send_update_block(0, TABLESIZE, p + 1);

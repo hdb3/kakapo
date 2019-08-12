@@ -26,7 +26,6 @@
 
 #define MAXPENDING 5 // Max connection requests
 
-struct peer *peertable;
 sem_t semrxtx;
 struct timespec txts;
 
@@ -273,9 +272,11 @@ int main(int argc, char *argv[]) {
 
   startstatsrunner();
 
-  peertable = calloc(argc, sizeof(struct peer));
+  struct peer *peertable;
   int argn;
   struct peer *p;
+
+  peertable = calloc(argc, sizeof(struct peer));
   for (argn = 1; argn <= argc - 1; argn++) {
     p = peertable + argn - 1;
     if (argn == 1)
@@ -296,7 +297,7 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
 
-  single_peer_burst_test(p);
+  single_peer_burst_test(peertable);
   fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
 
   while (0 == tflag)
