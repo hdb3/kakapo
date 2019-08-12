@@ -269,6 +269,26 @@ void send_update_block(int offset, int length, struct peer *p) {
   free(updates.data);
 };
 
+void send_single_update(struct peer *p, uint32_t ip, uint8_t length) {
+  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->localip, (uint32_t[]){42, 0}));
+  _send(p, b.data, b.length);
+  free(b.data);
+};
+
+void send_single_withdraw(struct peer *p, uint32_t ip, uint8_t length) {
+  struct bytestring b = update(empty, nlris(ip, length, 1, 0), empty);
+  _send(p, b.data, b.length);
+  free(b.data);
+};
+
+void advertise_canary(struct peer *p) {
+  send_single_update(p, p->localip + p->tidx, 32);
+};
+
+void withdraw_canary(struct peer *p) {
+  send_single_withdraw(p, p->localip + p->tidx, 32);
+};
+
 void send_eor(struct peer *p) {
 
   struct bytestring b = update(empty, empty, empty);
@@ -385,9 +405,6 @@ struct crf_state {
   struct timespec end;
   int status;
 };
-
-// typedef int pf_count (int *) pft;
-// typedef pft int pf_count (void *p);
 
 void crf(struct crf_state *crfs, int (*pf)(int *, struct bgp_message *), int *pf_state, struct peer *p) {
 
@@ -551,7 +568,6 @@ void *single_peer_burst_test(struct peer *p) {
 };
 
 void *conditioning(struct peer *p) {
-  struct crf_state crfs;
   struct timespec ts;
 
   gettime(&ts);
@@ -560,4 +576,53 @@ void *conditioning(struct peer *p) {
     send_update_block(0, TABLESIZE, p);
   };
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
+};
+
+void *canary(struct peer *p) {
+  struct timespec ts;
+  struct crf_state crfs;
+  int i = 1;
+
+  gettime(&ts);
+  while ((p + i)->sock != 0) {
+    // fprintf(stderr, "canary from : %s\n", fromHostAddress((p+i)->localip));
+    advertise_canary(p + i);
+    i++;
+  };
+  int sender_count = i - 1;
+  // fprintf(stderr, "%d sender peers found n", sender_count);
+  crf_count(sender_count, &crfs, p);
+  // fprintf(stderr, "first canary replies complete: elapsed time %s\n", showdeltams(ts));
+
+  i = 1;
+  while (i <= sender_count) {
+    // fprintf(stderr, "canary from : %s\n", fromHostAddress((p+i)->localip));
+    withdraw_canary(p + i);
+    i++;
+  };
+  crf_count(sender_count, &crfs, p);
+  // fprintf(stderr, "final canary replies complete: elapsed time %s\n", showdeltams(ts));
+  fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
+};
+
+void *conditioning_single_peer(struct peer *p) {
+  struct timespec ts;
+
+  gettime(&ts);
+  fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
+  send_update_block(0, TABLESIZE, p);
+  fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
+};
+
+void *notify_all(struct peer *p) {
+  struct timespec ts;
+
+  gettime(&ts);
+  while ((p)->sock != 0) {
+    fprintf(stderr, "Notification from : %s\n", fromHostAddress(p->localip));
+    send_update_block(0, TABLESIZE, p);
+    send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
+    p++;
+  };
+  fprintf(stderr, "Notification complete: elapsed time %s\n", showdeltams(ts));
 };

@@ -279,6 +279,7 @@ int main(int argc, char *argv[]) {
   peertable = calloc(argc, sizeof(struct peer));
   for (argn = 1; argn <= argc - 1; argn++) {
     p = peertable + argn - 1;
+    p->tidx = argn;
     if (argn == 1)
       p->role = ROLELISTENER;
     else
@@ -290,20 +291,22 @@ int main(int argc, char *argv[]) {
 
   for (argn = 0; argn < argc - 1; argn++) {
     pthread_t t = (peertable + argn)->thrd;
-    // fprintf(stderr, "joining %ld\n", t);
     0 == pthread_join(t, NULL) || die("pthread join fail");
-    // fprintf(stderr, "joined %ld\n", t);
   };
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
+
+  canary(peertable);
+  fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
   conditioning(peertable);
   single_peer_burst_test(peertable);
   fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
 
-  while (0 == tflag)
-    sleep(1);
-  sleep(5);
+  notify_all(peertable);
+  fprintf(stderr, "notification complete for %d peers\n", argc - 1);
+
+  sleep(1);
   fprintf(stderr, "%d: kakapo exit\n", pid);
   exit(0);
 }
