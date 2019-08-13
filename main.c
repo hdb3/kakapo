@@ -292,10 +292,8 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "connection initiated for %d peers\n", argc - 1);
 
-  for (argn = 0; argn < argc - 1; argn++) {
-    pthread_t t = (peertable + argn)->thrd;
-    0 == pthread_join(t, NULL) || die("pthread join fail");
-  };
+  for (argn = 0; argn < argc - 1; argn++)
+    0 == pthread_join((peertable + argn)->thrd, NULL) || die("pthread join fail");
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
   crf_test(peertable);
@@ -310,6 +308,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
 */
 
+  sleep(10);
   notify_all(peertable);
   fprintf(stderr, "notification complete for %d peers\n", argc - 1);
 

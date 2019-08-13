@@ -255,7 +255,7 @@ struct bytestring build_update_block(int start, int length, uint32_t localip, ui
   for (i = start; i < start + length; i++) {
     int usn = i % TABLESIZE;
     int cyclenumber = 1 + i / TABLESIZE;
-    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + SEEDPREFIX, cyclenumber, 0}));
+    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + 1000000, cyclenumber, 0}));
     vec[i] = b;
     buflen += b.length;
   };
@@ -443,9 +443,7 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
     }
   };
   gettime(&crfs->end);
-  // tdelta = timespec_sub(tend, tstart);
-  // printf("complete in %ld\n", timespec_to_ms(tdelta));
-  fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
+  // fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
 
 int pf_update(struct prefix *pfx, struct bgp_message *bm) {
@@ -467,7 +465,8 @@ void crf_count(int counter, struct crf_state *crfs, struct peer *p) {
   int counter_start = counter;
   int counter_end = counter;
   crf(crfs, (pf_t *)pf_count, &counter_end, p);
-  printf("counter start: %d counter end: %d\n", counter_start, counter_end);
+  if (1 != crfs->status)
+    printf("** WARNING - crf_count - counter start: %d counter end: %d\n", counter_start, counter_end);
 };
 
 void *session(void *x) {
@@ -693,7 +692,6 @@ void *notify_all(struct peer *p) {
   gettime(&ts);
   while ((p)->sock != 0) {
     fprintf(stderr, "Notification from : %s\n", fromHostAddress(p->localip));
-    send_update_block(0, TABLESIZE, p);
     send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
     p++;
   };
