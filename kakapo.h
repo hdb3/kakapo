@@ -76,6 +76,7 @@ void *single_peer_burst_test(struct peer *p);
 void *conditioning(struct peer *p);
 void *notify_all(struct peer *p);
 void *canary(struct peer *p);
+void *crf_test(struct peer *p);
 
 #define LIMIT 3
 

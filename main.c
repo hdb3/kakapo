@@ -298,13 +298,17 @@ int main(int argc, char *argv[]) {
   };
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
+  crf_test(peertable);
+  fprintf(stderr, "crf_test complete\n");
 
+  /*
   canary(peertable);
   fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
   conditioning(peertable);
   single_peer_burst_test(peertable);
   fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
+*/
 
   notify_all(peertable);
   fprintf(stderr, "notification complete for %d peers\n", argc - 1);

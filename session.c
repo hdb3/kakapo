@@ -411,6 +411,7 @@ int expect_open(struct peer *p) {
 };
 
 typedef int(pf_t)(void *, struct bgp_message *);
+typedef void *(thread_t)(void *);
 
 struct crf_state {
   struct timespec start;
@@ -434,7 +435,7 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
         doeor(bm.payload);
       else
         crfs->status = pf(pf_state, &bm);
-      break;
+      continue;
     } else {
       fprintf(stderr, "crf: exception exit\n");
       report(BGPUPDATE, bm.msgtype);
@@ -446,6 +447,7 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
   // printf("complete in %ld\n", timespec_to_ms(tdelta));
   fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
+
 int pf_update(struct prefix *pfx, struct bgp_message *bm) {
   struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
   struct bytestring nlri = get_nlri(msg);
@@ -457,12 +459,15 @@ void crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
 };
 
 int pf_count(int *counter, struct bgp_message *bm) {
-  *counter--;
-  return (counter > 0 ? 1 : 0);
+  (*counter)--;
+  return (*counter > 0 ? 0 : 1);
 };
 
 void crf_count(int counter, struct crf_state *crfs, struct peer *p) {
-  return crf(crfs, (pf_t *)pf_count, &counter, p);
+  int counter_start = counter;
+  int counter_end = counter;
+  crf(crfs, (pf_t *)pf_count, &counter_end, p);
+  printf("counter start: %d counter end: %d\n", counter_start, counter_end);
 };
 
 void *session(void *x) {
@@ -573,6 +578,30 @@ void *establish(void *x) {
 
 exit:
   fprintf(stderr, "establish: abnormal exit\n");
+};
+
+void *crf_thread(struct peer *p) {
+  struct timespec ts;
+  struct crf_state crfs;
+  fprintf(stderr, "crf_test listener : %s\n", fromHostAddress(p->localip));
+  gettime(&ts);
+  crf_count(TABLESIZE, &crfs, p);
+  fprintf(stderr, "crf_test listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
+};
+
+void *crf_test(struct peer *p) {
+  struct timespec ts;
+  pthread_t crf_threadid;
+
+  pthread_create(&crf_threadid, NULL, (thread_t *)crf_thread, p);
+
+  fprintf(stderr, "crf_test sender   : %s\n", fromHostAddress((p + 1)->localip));
+  gettime(&ts);
+  // sleep(5);
+  send_update_block(0, TABLESIZE, p + 1);
+  fprintf(stderr, "crf_test transmit elapsed time %s\n", showdeltams(ts));
+  pthread_join(crf_threadid, NULL);
+  fprintf(stderr, "crf_test total elapsed time %s\n", showdeltams(ts));
 };
 
 void *single_peer_burst_test(struct peer *p) {
