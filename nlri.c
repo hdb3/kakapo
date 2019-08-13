@@ -55,41 +55,35 @@ struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
   return (struct bytestring){bufsize, buf};
 };
 
-int compare_prefix_nlri(char *nlri, struct prefix pfx) {
-  if (pfx.length != (uint8_t)*nlri)
-    return 0;
-  uint8_t chunksize = 2 + (pfx.length - 1) / 8;
-  uint8_t i;
-  uint32_t acc = 0;
-  for (i = 0; i++; i < chunksize - 1)
-    acc = acc << 8 + (0xff && nlri + 1 + i);
-  acc = acc << (8 * (4 - chunksize));
-  return (acc == pfx.ip);
-};
-
 struct prefix get_prefix_nlri(char *nlri) {
   uint8_t length = (uint8_t)*nlri;
   uint8_t chunksize = 1 + (length - 1) / 8;
   uint32_t acc = 0;
-  uint8_t i;
-  for (i = 0; i++; i < chunksize - 1)
-    acc = acc << 8 + (0xff && nlri + 1 + i);
-  acc = acc << (8 * (4 - chunksize));
+  uint8_t i, b;
+  // accumulate with shift the most significant bytes
+  for (i = 0; i < chunksize; i++)
+    acc = (acc << 8) + (uint8_t) * (nlri + 1 + i);
+  // apply the remaining shift and byteswap for canonical form
+  acc = __bswap_32(acc) << (8 * (4 - chunksize));
   return (struct prefix){acc, length};
 };
 
 int nlri_member(struct bytestring nlris, struct prefix pfx) {
   uint8_t length, chunksize;
   int offset = 0;
+  //printf("nlri_member? %s\n",showprefix(pfx));
   while (offset < nlris.length) {
-    if (compare_prefix_nlri(nlris.data + offset, pfx))
+    //printf("offset: %d\n",offset);
+    struct prefix pfx2 = get_prefix_nlri(nlris.data + offset);
+    //printf("nlri_member: %s\n",showprefix(pfx2));
+    if (pfx.length == pfx2.length && pfx.ip == pfx2.ip)
       return 1;
-    else {
-      length = (uint8_t)*nlris.data + offset;
-      chunksize = 2 + (length - 1) / 8;
-      offset += chunksize;
-    };
+    length = (uint8_t) * (nlris.data + offset);
+    chunksize = 2 + (length - 1) / 8;
+    //printf("offset=%d length=%d chunksize=%d\n",offset,length,chunksize);
+    offset += chunksize;
   };
+  //printf("nlri_member fail\n");
   return 0;
 };
 
@@ -99,8 +93,8 @@ int nlri_list(struct bytestring nlris, struct prefix **pfxs) {
   int pfx_count = 0;
   *pfxs = calloc(2048, sizeof(struct prefix));
   while (offset < nlris.length) {
-    length = (uint8_t)*nlris.data + offset;
-    *pfxs[pfx_count++] = get_prefix_nlri(nlris.data + offset);
+    length = (uint8_t) * (nlris.data + offset);
+    (*pfxs)[pfx_count++] = get_prefix_nlri(nlris.data + offset);
     chunksize = 2 + (length - 1) / 8;
     offset += chunksize;
   };
@@ -112,7 +106,7 @@ void *showprefixes(struct bytestring nlris) {
   int i;
   int count = nlri_list(nlris, &pfxs);
   printf("%d prefixes\n", count);
-  for (i = 0; i++; i < count) {
+  for (i = 0; i < count; i++) {
     printf("%s\n", showprefix(pfxs[i]));
   };
 };
