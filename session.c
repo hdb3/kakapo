@@ -292,11 +292,11 @@ void send_single_withdraw(struct peer *p, uint32_t ip, uint8_t length) {
 };
 
 void advertise_canary(struct peer *p) {
-  send_single_update(p, p->localip + p->tidx, 32);
+  send_single_update(p, CANARYSEED + p->tidx, 32);
 };
 
 void withdraw_canary(struct peer *p) {
-  send_single_withdraw(p, p->localip + p->tidx, 32);
+  send_single_withdraw(p, CANARYSEED + p->tidx, 32);
 };
 
 void send_eor(struct peer *p) {
@@ -410,13 +410,15 @@ int expect_open(struct peer *p) {
   };
 };
 
+typedef int(pf_t)(void *, struct bgp_message *);
+
 struct crf_state {
   struct timespec start;
   struct timespec end;
   int status;
 };
 
-void crf(struct crf_state *crfs, int (*pf)(int *, struct bgp_message *), int *pf_state, struct peer *p) {
+void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *pf_state, struct peer *p) {
 
   struct bgp_message bm;
   crfs->status = 0;
@@ -444,11 +446,14 @@ void crf(struct crf_state *crfs, int (*pf)(int *, struct bgp_message *), int *pf
   // printf("complete in %ld\n", timespec_to_ms(tdelta));
   fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
-
 int pf_update(struct prefix *pfx, struct bgp_message *bm) {
   struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
   struct bytestring nlri = get_nlri(msg);
-  return (nlri_member(nlri, *pfx) ? 1 : 0);
+  return (nlri_member(nlri, *pfx));
+};
+
+void crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
+  return crf(crfs, (pf_t *)pf_update, pfx, p);
 };
 
 int pf_count(int *counter, struct bgp_message *bm) {
@@ -457,7 +462,7 @@ int pf_count(int *counter, struct bgp_message *bm) {
 };
 
 void crf_count(int counter, struct crf_state *crfs, struct peer *p) {
-  return crf(crfs, pf_count, &counter, p);
+  return crf(crfs, (pf_t *)pf_count, &counter, p);
 };
 
 void *session(void *x) {
@@ -579,19 +584,9 @@ void *single_peer_burst_test(struct peer *p) {
   gettime(&ts);
 
   send_update_block(0, TABLESIZE, p + 1);
+  fprintf(stderr, "single_peer_burst_test transmit elapsed time %s\n", showdeltams(ts));
   crf_count(TABLESIZE, &crfs, p);
   fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", TABLESIZE, crfs.status, showdeltams(ts));
-};
-
-void *conditioning(struct peer *p) {
-  struct timespec ts;
-
-  gettime(&ts);
-  while ((++p)->sock != 0) {
-    fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
-    send_update_block(0, TABLESIZE, p);
-  };
-  fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
 
 void *canary(struct peer *p) {
@@ -624,17 +619,20 @@ void *canary(struct peer *p) {
 void *strict_canary(struct peer *p) {
   struct timespec ts;
   struct crf_state crfs;
+  struct prefix pfx = (struct prefix){CANARYSEED + p->tidx, 32};
 
   gettime(&ts);
   fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
-  advertise_canary(p);
-  crf_count(1, &crfs, p);
+  send_single_update(p, CANARYSEED + p->tidx, 32);
+  crf_update(&pfx, &crfs, p);
+  // crf_count(1, &crfs, p);
   fprintf(stderr, "first canary reply complete: elapsed time %s\n", showdeltams(ts));
 
   fprintf(stderr, "canary wthdraw from : %s\n", fromHostAddress(p->localip));
-  withdraw_canary(p);
-  crf_count(1, &crfs, p);
-  fprintf(stderr, "final canary repliy complete: elapsed time %s\n", showdeltams(ts));
+  // withdraw_canary(p);
+  send_single_withdraw(p, CANARYSEED + p->tidx, 32);
+  //crf_count(1, &crfs, p);
+  //fprintf(stderr, "final canary repliy complete: elapsed time %s\n", showdeltams(ts));
 
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
@@ -645,6 +643,18 @@ void *conditioning_single_peer(struct peer *p) {
   gettime(&ts);
   fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
   send_update_block(0, TABLESIZE, p);
+  fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
+};
+
+void *conditioning(struct peer *p) {
+  struct timespec ts;
+
+  gettime(&ts);
+  while ((++p)->sock != 0) {
+    fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
+    send_update_block(0, TABLESIZE, p);
+    strict_canary(p);
+  };
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
 

@@ -24,6 +24,7 @@ extern uint32_t TIMEOUT;
 extern uint32_t FASTCYCLELIMIT;
 extern uint32_t IDLETHR;
 
+extern uint32_t CANARYSEED;
 extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;
 extern uint32_t GROUPSIZE;

@@ -47,8 +47,10 @@ char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
 uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
-uint32_t CYCLECOUNT = 1;         // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
-uint32_t CYCLEDELAY = 5;         // seconds
+uint32_t CANARYSEED;
+char sCANARYSEED[] = "192.168.255.0";
+uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
+uint32_t CYCLEDELAY = 5; // seconds
 uint32_t HOLDTIME = 600;
 
 char LOGFILE[128] = "stats.csv";
@@ -248,8 +250,9 @@ int main(int argc, char *argv[]) {
   }
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
-  NEXTHOP = toHostAddress(sNEXTHOP);       /// must initliase here because cant do it in the declaration
-  SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
+  NEXTHOP = toHostAddress(sNEXTHOP); /// must initliase here because cant do it in the declaration
+  SEEDPREFIX = toHostAddress(sSEEDPREFIX);
+  CANARYSEED = toHostAddress(sCANARYSEED);
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
   getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
