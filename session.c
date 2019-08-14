@@ -480,6 +480,25 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
   // fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
 
+int pf_withdrawn(int *counter, struct bgp_message *bm) {
+  struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
+  struct bytestring withdrawn = get_withdrawn(msg);
+  int withdrawn_count = nlri_count(withdrawn);
+  printf("** pf_withdrawn - %d/%d\n", *counter, withdrawn_count);
+  (*counter) -= withdrawn_count;
+  return (*counter > 0 ? 0 : 1);
+};
+
+void crf_withdrawn_count(int counter, struct crf_state *crfs, struct peer *p) {
+  int counter_end = counter;
+  printf("** START - crf_withdrawn_count - %d\n", counter_end);
+  crf(crfs, (pf_t *)pf_withdrawn, &counter_end, p);
+  if (1 != crfs->status)
+    printf("** WARNING - crf_withdrawn_count - counter start: %d counter end: %d\n", counter, counter_end);
+  else
+    printf("** END - crf_withdrawn_count - %d\n", counter);
+};
+
 int pf_update(struct prefix *pfx, struct bgp_message *bm) {
   struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
   struct bytestring nlri = get_nlri(msg);
@@ -701,7 +720,7 @@ void *canary(struct peer *p) {
     withdraw_canary(p + i);
     i++;
   };
-  crf_count(sender_count, &crfs, p);
+  crf_withdrawn_count(sender_count, &crfs, p);
   // fprintf(stderr, "final canary replies complete: elapsed time %s\n", showdeltams(ts));
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
@@ -722,6 +741,7 @@ void *strict_canary(struct peer *listener, struct peer *p) {
   // withdraw_canary(p);
   send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
   //crf_count(1, &crfs, p);
+  crf_withdrawn_count(1, &crfs, listener);
   //fprintf(stderr, "final canary repliy complete: elapsed time %s\n", showdeltams(ts));
 
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));

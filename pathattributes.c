@@ -69,7 +69,7 @@ char paMED[] = {Optional, MULTI_EXIT_DISC, 4, 0, 0, 0, 100};
 
 char *paLocalPref(uint32_t localpref) {
   static char b[] = {Transitive, LOCAL_PREF, 4, 0, 0, 0, 0};
-  *((uint32_t *)(b + 3)) = localpref;
+  *((uint32_t *)(b + 3)) = __bswap_32(localpref);
   return b;
 };
 
