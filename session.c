@@ -696,11 +696,11 @@ void *single_peer_burst_test(struct peer *p, int count) {
   struct crf_state crfs;
   struct timespec ts;
 
-  fprintf(stderr, "single_peer_burst_test listener start\n");
+  // fprintf(stderr, "single_peer_burst_test listener start\n");
   gettime(&ts);
 
   send_update_block(0, count, p + 1);
-  fprintf(stderr, "single_peer_burst_test transmit elapsed time %s\n", showdeltams(ts));
+  // fprintf(stderr, "single_peer_burst_test transmit elapsed time %s\n", showdeltams(ts));
   crf_count(count, &crfs, p);
   fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", count, crfs.status, showdeltams(ts));
 };
@@ -733,14 +733,14 @@ void *strict_canary(struct peer *listener, struct peer *p) {
   struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32(p->tidx), 32};
 
   gettime(&ts);
-  fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
+  // fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
   send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
   crf_update(&pfx, &crfs, listener);
 
   send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
   crf_withdrawn_count(1, &crfs, listener);
 
-  fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
+  // fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
 
 void *conditioning_single_peer(struct peer *p) {
@@ -772,7 +772,7 @@ void *burst_receive_thread(struct burst_receive *br) {
   struct crf_state crfs;
   gettime(&ts);
   crf_count(br->count, &crfs, br->p);
-  fprintf(stderr, "burst_receive listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
+  //fprintf(stderr, "burst_receive listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
 };
 
 void *multi_peer_burst_test(struct peer *p, int count) {
@@ -781,7 +781,7 @@ void *multi_peer_burst_test(struct peer *p, int count) {
   struct burst_receive br = {p, count};
   struct peer *sender;
   int sent = 0;
-  fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
+  //fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
   pthread_create(&threadid, NULL, (thread_t *)burst_receive_thread, &br);
   gettime(&ts);
   do {
@@ -793,9 +793,9 @@ void *multi_peer_burst_test(struct peer *p, int count) {
         break;
     };
   } while (sent < count);
-  fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltams(ts));
+  //fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltams(ts));
   pthread_join(threadid, NULL);
-  strict_canary_all(p);
+  //strict_canary_all(p);
   fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %s\n", count, showdeltams(ts));
 };
 
@@ -816,7 +816,7 @@ void *notify_all(struct peer *p) {
 
   gettime(&ts);
   while ((p)->sock != 0) {
-    fprintf(stderr, "Notification from : %s\n", fromHostAddress(p->localip));
+    // fprintf(stderr, "Notification from : %s\n", fromHostAddress(p->localip));
     send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
     p++;
   };
