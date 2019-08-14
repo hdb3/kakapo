@@ -35,6 +35,7 @@ extern uint32_t NEXTHOP;
 extern uint32_t CYCLECOUNT;
 extern uint32_t CYCLEDELAY;
 extern uint32_t HOLDTIME;
+extern char *MODE;
 
 void startlog(uint32_t tid, char *tids, struct timespec *start);
 // void startlog(uint32_t tid,char *tids, struct timespec *start,uint32_t
@@ -77,6 +78,7 @@ void *conditioning(struct peer *p);
 void *notify_all(struct peer *p);
 void *canary(struct peer *p);
 void *crf_test(struct peer *p);
+void *crf_canary_test(struct peer *p);
 
 #define LIMIT 3
 

@@ -579,6 +579,34 @@ exit:
   fprintf(stderr, "establish: abnormal exit\n");
 };
 
+void *crf_canary_thread(struct peer *p) {
+  struct timespec ts;
+  struct crf_state crfs;
+  struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32((p + 1)->tidx), 32};
+  fprintf(stderr, "crf_test listener : %s\n", fromHostAddress(p->localip));
+  gettime(&ts);
+  crf_update(&pfx, &crfs, p);
+  fprintf(stderr, "crf_test listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
+};
+
+void *crf_canary_test(struct peer *p) {
+  struct timespec ts;
+  pthread_t crf_threadid;
+
+  pthread_create(&crf_threadid, NULL, (thread_t *)crf_canary_thread, p);
+
+  fprintf(stderr, "crf_canary_test sender   : %s\n", fromHostAddress((p + 1)->localip));
+  gettime(&ts);
+  send_update_block(0, TABLESIZE, p + 1);
+  fprintf(stderr, "crf_canary_test block transmit elapsed time %s\n", showdeltams(ts));
+  sleep(2);
+  send_single_update((p + 1), CANARYSEED + __bswap_32((p + 1)->tidx), 32);
+  fprintf(stderr, "crf_canary_test canary transmit elapsed time %s\n", showdeltams(ts));
+  // sleep(5);
+  pthread_join(crf_threadid, NULL);
+  fprintf(stderr, "crf_canary_test total elapsed time %s\n", showdeltams(ts));
+};
+
 void *crf_thread(struct peer *p) {
   struct timespec ts;
   struct crf_state crfs;
@@ -644,21 +672,21 @@ void *canary(struct peer *p) {
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
 
-void *strict_canary(struct peer *p) {
+void *strict_canary(struct peer *listener, struct peer *p) {
   struct timespec ts;
   struct crf_state crfs;
-  struct prefix pfx = (struct prefix){CANARYSEED + p->tidx, 32};
+  struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32(p->tidx), 32};
 
   gettime(&ts);
   fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
-  send_single_update(p, CANARYSEED + p->tidx, 32);
-  crf_update(&pfx, &crfs, p);
+  send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
+  crf_update(&pfx, &crfs, listener);
   // crf_count(1, &crfs, p);
   fprintf(stderr, "first canary reply complete: elapsed time %s\n", showdeltams(ts));
 
   fprintf(stderr, "canary wthdraw from : %s\n", fromHostAddress(p->localip));
   // withdraw_canary(p);
-  send_single_withdraw(p, CANARYSEED + p->tidx, 32);
+  send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
   //crf_count(1, &crfs, p);
   //fprintf(stderr, "final canary repliy complete: elapsed time %s\n", showdeltams(ts));
 
@@ -676,12 +704,12 @@ void *conditioning_single_peer(struct peer *p) {
 
 void *conditioning(struct peer *p) {
   struct timespec ts;
-
+  struct peer *listener = p;
   gettime(&ts);
   while ((++p)->sock != 0) {
     fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
     send_update_block(0, TABLESIZE, p);
-    strict_canary(p);
+    strict_canary(listener, p);
   };
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };

@@ -56,7 +56,8 @@ uint32_t HOLDTIME = 600;
 char LOGFILE[128] = "stats.csv";
 char LOGPATH[128] = "localhost";
 char LOGTEXT[1024] = "";
-char MODE[128] = "BURST"; // only LISTENER and SENDER have any effect
+char *MODE;
+char sMODE[128] = "BURST"; // only LISTENER and SENDER have any effect
 char BURST[] = "BURST";
 char DYNAMIC[] = "DYNAMIC";
 char CONTINUOUS[] = "CONTINUOUS";
@@ -258,6 +259,7 @@ int main(int argc, char *argv[]) {
   getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
+  gethostaddress("CANARYSEED", &CANARYSEED);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
   getuint32env("BLOCKSIZE", &BLOCKSIZE);
@@ -271,6 +273,7 @@ int main(int argc, char *argv[]) {
   getsenv("LOGFILE", LOGFILE);
   getsenv("LOGPATH", LOGPATH);
   getsenv("LOGTEXT", LOGTEXT);
+  MODE = sMODE;
   getsenv("MODE", MODE);
 
   startstatsrunner();
@@ -296,17 +299,21 @@ int main(int argc, char *argv[]) {
     0 == pthread_join((peertable + argn)->thrd, NULL) || die("pthread join fail");
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
-  crf_test(peertable);
-  fprintf(stderr, "crf_test complete\n");
 
-  /*
-  canary(peertable);
-  fprintf(stderr, "canary complete for %d peers\n", argc - 1);
+  if (0 == strcmp(MODE, "TEST")) {
+    crf_test(peertable);
+    fprintf(stderr, "crf_test complete\n");
+    crf_canary_test(peertable);
+    fprintf(stderr, "crf_canary_test complete\n");
+  } else {
 
-  conditioning(peertable);
-  single_peer_burst_test(peertable);
-  fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
-*/
+    canary(peertable);
+    fprintf(stderr, "canary complete for %d peers\n", argc - 1);
+
+    conditioning(peertable);
+    single_peer_burst_test(peertable);
+    fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
+  }
 
   sleep(10);
   notify_all(peertable);
