@@ -101,6 +101,19 @@ int nlri_list(struct bytestring nlris, struct prefix **pfxs) {
   return pfx_count;
 };
 
+int nlri_count(struct bytestring nlris) {
+  uint8_t length, chunksize;
+  int offset = 0;
+  int pfx_count = 0;
+  while (offset < nlris.length) {
+    length = (uint8_t) * (nlris.data + offset);
+    pfx_count++;
+    chunksize = 2 + (length - 1) / 8;
+    offset += chunksize;
+  };
+  return pfx_count;
+};
+
 void *showprefixes(struct bytestring nlris) {
   struct prefix *pfxs;
   int i;

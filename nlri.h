@@ -11,5 +11,7 @@ int nlri_member(struct bytestring nlris, struct prefix pfx);
 char *showprefix(struct prefix pfx);
 char *shownlris(struct bytestring nlris);
 void *showprefixes(struct bytestring nlris);
+int nlri_count(struct bytestring nlris);
+int nlri_list(struct bytestring nlris, struct prefix **pfxs);
 
 #endif

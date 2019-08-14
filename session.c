@@ -189,6 +189,31 @@ struct bytestring get_nlri(struct bytestring update) {
     return (struct bytestring){nlril, nlri};
 };
 
+struct bytestring get_withdrawn(struct bytestring update) {
+  uint16_t wrl = ntohs(*(uint16_t *)(update.data));
+  assert(wrl < update.length - 1);
+  // uint16_t tpal = ntohs(*(uint16_t *)(update.data + wrl + 2));
+  // assert(wrl + tpal < update.length - 3);
+  // char *nlri = update.data + wrl + tpal + 4;
+  // uint16_t nlril = update.length - wrl - tpal - 4;
+  if (0 == wrl)
+    return (struct bytestring){0, 0};
+  else
+    return (struct bytestring){wrl, update.data};
+};
+
+struct bytestring get_path(struct bytestring update) {
+  uint16_t wrl = ntohs(*(uint16_t *)(update.data));
+  assert(wrl < update.length - 1);
+  uint16_t tpal = ntohs(*(uint16_t *)(update.data + wrl + 2));
+  assert(wrl + tpal < update.length - 3);
+  char *path = update.data + wrl + 4;
+  if (0 == tpal)
+    return (struct bytestring){0, 0};
+  else
+    return (struct bytestring){tpal, path};
+};
+
 void doupdate(char *msg, int length) {
   uint16_t wrl = ntohs(*(uint16_t *)msg);
   assert(wrl < length - 1);
@@ -289,7 +314,7 @@ void send_update_block(int offset, int length, struct peer *p) {
 };
 
 void send_single_update(struct peer *p, uint32_t ip, uint8_t length) {
-  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->tidx, p->localip, (uint32_t[]){42, 0}));
+  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, 0}));
   _send(p, b.data, b.length);
   free(b.data);
 };
