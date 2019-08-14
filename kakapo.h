@@ -73,7 +73,8 @@ struct peer {
 
 void *session(void *x);
 void *establish(void *x);
-void *single_peer_burst_test(struct peer *p);
+void *single_peer_burst_test(struct peer *p, int count);
+void *multi_peer_burst_test(struct peer *p, int count);
 void *conditioning(struct peer *p);
 void *notify_all(struct peer *p);
 void *strict_canary_all(struct peer *p);
