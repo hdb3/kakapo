@@ -96,7 +96,7 @@ void getsenv(char *name, char *tgt) {
   char *s;
   if (s = getenv(name)) {
     strcpy(tgt, s);
-    fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, s);
+    fprintf(stderr, "read %s from environment: %s\n", name, s);
   };
 };
 
@@ -104,7 +104,7 @@ void gethostaddress(char *name, uint32_t *tgt) {
   char *s;
   if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
     *tgt = toHostAddress(s);
-    fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, fromHostAddress(*tgt));
+    fprintf(stderr, "read %s from environment: %s\n", name, fromHostAddress(*tgt));
   };
 };
 
@@ -113,7 +113,7 @@ void getuint32env(char *name, uint32_t *tgt) {
   uint32_t n;
   if ((s = getenv(name)) && (1 == sscanf(s, "%d", &n))) {
     *tgt = n;
-    fprintf(stderr, "%d: read %s from environment: %d\n", pid, name, n);
+    fprintf(stderr, "read %s from environment: %d\n", name, n);
   };
 };
 
@@ -122,7 +122,7 @@ void getllienv(char *name, long long int *tgt) {
   long long int n;
   if ((s = getenv(name)) && (1 == sscanf(s, "%lld", &n))) {
     *tgt = n;
-    fprintf(stderr, "%d: read %s from environment: %lld\n", pid, name, n);
+    fprintf(stderr, "read %s from environment: %lld\n", name, n);
   };
 };
 
@@ -242,8 +242,7 @@ int main(int argc, char *argv[]) {
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
   pid = getpid();
-  fprintf(stderr, "%d: kakapo\n", pid);
-  fprintf(stderr, "%d: kakapo  Version %s (%s) \n", pid, VERSION, BUILDDATE);
+  fprintf(stderr, "kakapo  Version %s (%s) \n", VERSION, BUILDDATE);
   if (1 > argc) {
     fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
     fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
