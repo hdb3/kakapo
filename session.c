@@ -455,7 +455,7 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
   while (crfs->status == 0) {
     getBGPMessage(&bm, &(p->sb));
     if (BGPKEEPALIVE == bm.msgtype)
-      break;
+      continue;
     if (BGPUPDATE == bm.msgtype) {
       // ignore EOR
       if (bm.pl == 4)
@@ -729,6 +729,16 @@ void *conditioning_single_peer(struct peer *p) {
   fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
   send_update_block(0, TABLESIZE, p);
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
+};
+
+void *strict_canary_all(struct peer *p) {
+  struct timespec ts;
+  struct peer *listener = p;
+  gettime(&ts);
+  while ((++p)->sock != 0) {
+    strict_canary(listener, p);
+  };
+  fprintf(stderr, "strict_canary_all complete: elapsed time %s\n", showdeltams(ts));
 };
 
 void *conditioning(struct peer *p) {

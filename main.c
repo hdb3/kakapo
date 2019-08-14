@@ -307,19 +307,19 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "crf_canary_test complete\n");
   } else {
 
-    canary(peertable);
+    strict_canary_all(peertable);
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
     conditioning(peertable);
-    canary(peertable);
+    strict_canary_all(peertable);
     single_peer_burst_test(peertable);
-    canary(peertable);
+    strict_canary_all(peertable);
     single_peer_burst_test(peertable);
-    canary(peertable);
+    strict_canary_all(peertable);
     single_peer_burst_test(peertable);
-    canary(peertable);
+    strict_canary_all(peertable);
     single_peer_burst_test(peertable);
-    canary(peertable);
+    strict_canary_all(peertable);
     fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
   }
 
