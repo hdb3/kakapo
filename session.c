@@ -301,11 +301,11 @@ void send_single_withdraw(struct peer *p, uint32_t ip, uint8_t length) {
 };
 
 void advertise_canary(struct peer *p) {
-  send_single_update(p, CANARYSEED + p->tidx, 32);
+  send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
 };
 
 void withdraw_canary(struct peer *p) {
-  send_single_withdraw(p, CANARYSEED + p->tidx, 32);
+  send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
 };
 
 void send_eor(struct peer *p) {
