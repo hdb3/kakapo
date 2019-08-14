@@ -245,19 +245,27 @@ int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
   }
 }
 
-struct bytestring build_update_block(int start, int length, uint32_t localip, uint32_t localpref) {
+static uint64_t usn = 0;
+#define TEN7 10000000
+struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref) {
 
   assert(length <= TABLESIZE);
   int i;
   struct bytestring *vec = malloc(sizeof(struct bytestring) * length);
   int buflen = 0;
 
-  for (i = start; i < start + length; i++) {
-    int usn = i % TABLESIZE;
-    int cyclenumber = 1 + i / TABLESIZE;
-    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + 1000000, cyclenumber, 0}));
+  for (i = 0; i < length; i++) {
+    // int seq = i % TABLESIZE;
+    // int cyclenumber = 1 + i / TABLESIZE;
+    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, i),
+                                 empty,
+                                 iBGPpath(localip,
+                                          localpref,
+                                          (uint32_t[]){i + TEN7, peer_index, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
+    // struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + 1000000, cyclenumber, 0}));
     vec[i] = b;
     buflen += b.length;
+    usn++;
   };
   char *data = malloc(buflen);
   char *offset = data;
@@ -273,14 +281,15 @@ void send_update_block(int offset, int length, struct peer *p) {
 
   // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
   _send(p, keepalive, 19);
-  struct bytestring updates = build_update_block(offset, length, p->localip, 100);
+  uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn % TABLESIZE);
+  struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref);
   _send(p, updates.data, updates.length);
   txwait(p->sock);
   free(updates.data);
 };
 
 void send_single_update(struct peer *p, uint32_t ip, uint8_t length) {
-  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->localip, (uint32_t[]){42, 0}));
+  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->tidx, p->localip, (uint32_t[]){42, 0}));
   _send(p, b.data, b.length);
   free(b.data);
 };

@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "pathattributes.h"
 #include "bytestring.h"
 #include <assert.h>
@@ -64,8 +65,13 @@ struct bytestring pa2bytestring(char *pa) {
 };
 
 char paOrigin[] = {Transitive, ORIGIN, 1, INCOMPLETE};
-char paLocalPref[] = {Transitive, LOCAL_PREF, 4, 0, 0, 0, 100};
 char paMED[] = {Optional, MULTI_EXIT_DISC, 4, 0, 0, 0, 100};
+
+char *paLocalPref(uint32_t localpref) {
+  static char b[] = {Transitive, LOCAL_PREF, 4, 0, 0, 0, 0};
+  *((uint32_t *)(b + 3)) = localpref;
+  return b;
+};
 
 char *paNextHop(uint32_t nexthop) {
   static char b[] = {Transitive, NEXT_HOP, 4, 0, 0, 0, 0};
