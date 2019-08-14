@@ -311,8 +311,16 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
     conditioning(peertable);
+    canary(peertable);
     single_peer_burst_test(peertable);
-    fprintf(stderr, "single_peer_burst_test complete for %d peers\n", argc - 1);
+    canary(peertable);
+    single_peer_burst_test(peertable);
+    canary(peertable);
+    single_peer_burst_test(peertable);
+    canary(peertable);
+    single_peer_burst_test(peertable);
+    canary(peertable);
+    fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
   }
 
   sleep(10);

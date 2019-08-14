@@ -16,7 +16,7 @@ char *showprefix(struct prefix pfx) {
 
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
 
-  uint8_t chunksize = 2 + (length - 1) / 8;
+  uint8_t chunksize = 1 + (length + 7) / 8;
   int bufsize = chunksize * count;
   char *buf = malloc(bufsize);
   char *next = buf;
@@ -54,19 +54,14 @@ struct prefix get_prefix_nlri(char *nlri) {
 int nlri_member(struct bytestring nlris, struct prefix pfx) {
   uint8_t length, chunksize;
   int offset = 0;
-  //printf("nlri_member? %s\n",showprefix(pfx));
   while (offset < nlris.length) {
-    //printf("offset: %d\n",offset);
     struct prefix pfx2 = get_prefix_nlri(nlris.data + offset);
-    //printf("nlri_member: %s\n",showprefix(pfx2));
     if (pfx.length == pfx2.length && pfx.ip == pfx2.ip)
       return 1;
     length = (uint8_t) * (nlris.data + offset);
-    chunksize = 2 + (length - 1) / 8;
-    //printf("offset=%d length=%d chunksize=%d\n",offset,length,chunksize);
+    chunksize = 1 + (length + 7) / 8;
     offset += chunksize;
   };
-  //printf("nlri_member fail\n");
   return 0;
 };
 
@@ -78,7 +73,7 @@ int nlri_list(struct bytestring nlris, struct prefix **pfxs) {
   while (offset < nlris.length) {
     length = (uint8_t) * (nlris.data + offset);
     (*pfxs)[pfx_count++] = get_prefix_nlri(nlris.data + offset);
-    chunksize = 2 + (length - 1) / 8;
+    chunksize = 1 + (length + 7) / 8;
     offset += chunksize;
   };
   return pfx_count;
@@ -91,7 +86,7 @@ int nlri_count(struct bytestring nlris) {
   while (offset < nlris.length) {
     length = (uint8_t) * (nlris.data + offset);
     pfx_count++;
-    chunksize = 2 + (length - 1) / 8;
+    chunksize = 1 + (length + 7) / 8;
     offset += chunksize;
   };
   return pfx_count;

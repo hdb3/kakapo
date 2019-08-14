@@ -192,14 +192,10 @@ struct bytestring get_nlri(struct bytestring update) {
 struct bytestring get_withdrawn(struct bytestring update) {
   uint16_t wrl = ntohs(*(uint16_t *)(update.data));
   assert(wrl < update.length - 1);
-  // uint16_t tpal = ntohs(*(uint16_t *)(update.data + wrl + 2));
-  // assert(wrl + tpal < update.length - 3);
-  // char *nlri = update.data + wrl + tpal + 4;
-  // uint16_t nlril = update.length - wrl - tpal - 4;
   if (0 == wrl)
     return (struct bytestring){0, 0};
   else
-    return (struct bytestring){wrl, update.data};
+    return (struct bytestring){wrl, update.data + 2};
 };
 
 struct bytestring get_path(struct bytestring update) {
@@ -280,14 +276,11 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   int buflen = 0;
 
   for (i = 0; i < length; i++) {
-    // int seq = i % TABLESIZE;
-    // int cyclenumber = 1 + i / TABLESIZE;
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, i),
                                  empty,
                                  iBGPpath(localip,
                                           localpref,
                                           (uint32_t[]){i + TEN7, peer_index, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
-    // struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn), empty, iBGPpath(localip, (uint32_t[]){usn + 1000000, cyclenumber, 0}));
     vec[i] = b;
     buflen += b.length;
     usn++;
@@ -477,26 +470,21 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
     }
   };
   gettime(&crfs->end);
-  // fprintf(stderr, "crf() completed in %ld\n", timespec_to_ms(timespec_sub(crfs->end, crfs->start)));
 };
 
 int pf_withdrawn(int *counter, struct bgp_message *bm) {
   struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
   struct bytestring withdrawn = get_withdrawn(msg);
   int withdrawn_count = nlri_count(withdrawn);
-  printf("** pf_withdrawn - %d/%d\n", *counter, withdrawn_count);
   (*counter) -= withdrawn_count;
   return (*counter > 0 ? 0 : 1);
 };
 
 void crf_withdrawn_count(int counter, struct crf_state *crfs, struct peer *p) {
   int counter_end = counter;
-  printf("** START - crf_withdrawn_count - %d\n", counter_end);
   crf(crfs, (pf_t *)pf_withdrawn, &counter_end, p);
   if (1 != crfs->status)
     printf("** WARNING - crf_withdrawn_count - counter start: %d counter end: %d\n", counter, counter_end);
-  else
-    printf("** END - crf_withdrawn_count - %d\n", counter);
 };
 
 int pf_update(struct prefix *pfx, struct bgp_message *bm) {
@@ -655,7 +643,6 @@ void *crf_canary_test(struct peer *p) {
   sleep(2);
   send_single_update((p + 1), CANARYSEED + __bswap_32((p + 1)->tidx), 32);
   fprintf(stderr, "crf_canary_test canary transmit elapsed time %s\n", showdeltams(ts));
-  // sleep(5);
   pthread_join(crf_threadid, NULL);
   fprintf(stderr, "crf_canary_test total elapsed time %s\n", showdeltams(ts));
 };
@@ -677,7 +664,6 @@ void *crf_test(struct peer *p) {
 
   fprintf(stderr, "crf_test sender   : %s\n", fromHostAddress((p + 1)->localip));
   gettime(&ts);
-  // sleep(5);
   send_update_block(0, TABLESIZE, p + 1);
   fprintf(stderr, "crf_test transmit elapsed time %s\n", showdeltams(ts));
   pthread_join(crf_threadid, NULL);
@@ -705,23 +691,18 @@ void *canary(struct peer *p) {
 
   gettime(&ts);
   while ((p + i)->sock != 0) {
-    // fprintf(stderr, "canary from : %s\n", fromHostAddress((p+i)->localip));
     advertise_canary(p + i);
     i++;
   };
   int sender_count = i - 1;
-  // fprintf(stderr, "%d sender peers found n", sender_count);
   crf_count(sender_count, &crfs, p);
-  // fprintf(stderr, "first canary replies complete: elapsed time %s\n", showdeltams(ts));
 
   i = 1;
   while (i <= sender_count) {
-    // fprintf(stderr, "canary from : %s\n", fromHostAddress((p+i)->localip));
     withdraw_canary(p + i);
     i++;
   };
   crf_withdrawn_count(sender_count, &crfs, p);
-  // fprintf(stderr, "final canary replies complete: elapsed time %s\n", showdeltams(ts));
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
 
@@ -734,15 +715,9 @@ void *strict_canary(struct peer *listener, struct peer *p) {
   fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
   send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
   crf_update(&pfx, &crfs, listener);
-  // crf_count(1, &crfs, p);
-  fprintf(stderr, "first canary reply complete: elapsed time %s\n", showdeltams(ts));
 
-  fprintf(stderr, "canary wthdraw from : %s\n", fromHostAddress(p->localip));
-  // withdraw_canary(p);
   send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
-  //crf_count(1, &crfs, p);
   crf_withdrawn_count(1, &crfs, listener);
-  //fprintf(stderr, "final canary repliy complete: elapsed time %s\n", showdeltams(ts));
 
   fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
