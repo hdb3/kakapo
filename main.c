@@ -51,7 +51,7 @@ uint32_t CANARYSEED;
 char sCANARYSEED[] = "192.168.255.0";
 uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
 uint32_t CYCLEDELAY = 5; // seconds
-uint32_t HOLDTIME = 600;
+uint32_t HOLDTIME = 10000;
 
 char LOGFILE[128] = "stats.csv";
 char LOGPATH[128] = "localhost";

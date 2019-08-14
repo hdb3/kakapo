@@ -299,7 +299,7 @@ void send_update_block(int offset, int length, struct peer *p) {
 
   // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
   _send(p, keepalive, 19);
-  uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn % TABLESIZE);
+  uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / TABLESIZE);
   struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref);
   _send(p, updates.data, updates.length);
   txwait(p->sock);
