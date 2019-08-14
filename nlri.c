@@ -14,26 +14,9 @@ char *showprefix(struct prefix pfx) {
   return s;
 };
 
-//char *shownlris(struct bytestring nlris);
-
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
 
   uint8_t chunksize = 2 + (length - 1) / 8;
-  /*
-  uint8_t chunksize;
-  if (length == 0)
-    chunksize = 1;
-  else if (length < 9)
-    chunksize = 2;
-  else if (length < 17)
-    chunksize = 3;
-  else if (length < 25)
-    chunksize = 4;
-  else if (length < 33)
-    chunksize = 5;
-  else
-    assert(0);
-*/
   int bufsize = chunksize * count;
   char *buf = malloc(bufsize);
   char *next = buf;
