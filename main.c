@@ -311,6 +311,32 @@ int main(int argc, char *argv[]) {
     strict_canary_all(peertable);
     multi_peer_burst_test(peertable, MAXBURSTCOUNT);
     strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+  } else if (0 == strcmp(MODE, "BOTH")) {
+    strict_canary_all(peertable);
+    conditioning(peertable);
+    strict_canary_all(peertable);
+    single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
+    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    strict_canary_all(peertable);
   } else {
 
     strict_canary_all(peertable);
@@ -329,11 +355,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
   }
 
-  sleep(10);
   notify_all(peertable);
   fprintf(stderr, "notification complete for %d peers\n", argc - 1);
-
-  sleep(1);
-  fprintf(stderr, "%d: kakapo exit\n", pid);
+  fprintf(stderr, "kakapo exit\n");
   exit(0);
 }

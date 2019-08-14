@@ -46,6 +46,16 @@ void _send(struct peer *p, const void *buf, size_t count) {
   p->sendFlag = 0;
 };
 
+// __send: variant od _send which does not use txwait
+void __send(struct peer *p, const void *buf, size_t count) {
+  if (p->sendFlag != 0)
+    die("send flag reentry fail");
+  else
+    p->sendFlag = 1;
+  (0 < send(p->sock, buf, count, 0)) || die("send fail");
+  p->sendFlag = 0;
+};
+
 unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
 void send_notification(struct peer *p, unsigned char major, unsigned char minor) {
   notification[19] = major;
@@ -298,11 +308,10 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
 void send_update_block(int offset, int length, struct peer *p) {
 
   // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
-  _send(p, keepalive, 19);
+  // _send(p, keepalive, 19);
   uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / TABLESIZE);
   struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref);
   _send(p, updates.data, updates.length);
-  txwait(p->sock);
   free(updates.data);
 };
 
@@ -314,8 +323,8 @@ void send_next_update(struct peer *p) {
                                         localpref,
                                         (uint32_t[]){TEN7 + usn % TABLESIZE, p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
-  _send(p, b.data, b.length);
-  txwait(p->sock);
+  // printf("send_next_update for peer %d %s %d\n",p->tidx,fromHostAddress(p->localip),p->sock);
+  __send(p, b.data, b.length);
   free(b.data);
 };
 
@@ -343,7 +352,7 @@ void send_eor(struct peer *p) {
 
   struct bytestring b = update(empty, empty, empty);
   _send(p, b.data, b.length);
-  txwait(p->sock);
+  // txwait(p->sock);
   free(b.data);
 };
 
@@ -777,8 +786,8 @@ void *multi_peer_burst_test(struct peer *p, int count) {
   gettime(&ts);
   do {
     sender = p;
-    while ((++p)->sock != 0) {
-      send_next_update(p);
+    while ((++sender)->sock != 0) {
+      send_next_update(sender);
       sent++;
       if (sent == count)
         break;
