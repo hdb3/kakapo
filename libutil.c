@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "bytestring.c"
+#include "logbuffer.c"
 #include "nlri.c"
 #include "pathattributes.c"
 #include "sockbuf.c"

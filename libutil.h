@@ -1,4 +1,5 @@
 #include "bytestring.h"
+#include "logbuffer.h"
 #include "nlri.h"
 #include "pathattributes.h"
 #include "sockbuf.h"

@@ -8,7 +8,16 @@ int main(int argc, char **argv) {
   struct log_record *lrp;
   logbuffer_init(&lb, 10, 100);
 
-  for (i = 0; i < 12; i++) {
+  for (i = 0; i < 4; i++) {
+    lr.index = i;
+    lr.ts = (struct timespec){42, 1000 * i};
+    logbuffer_write(&lb, &lr);
+  };
+
+  lrp = logbuffer_read(&lb);
+  lrp = logbuffer_read(&lb);
+
+  for (i = 4; i < 12; i++) {
     lr.index = i;
     lr.ts = (struct timespec){42, 1000 * i};
     logbuffer_write(&lb, &lr);

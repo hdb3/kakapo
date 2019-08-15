@@ -1,3 +1,5 @@
+#ifndef __LOGBUFFER_H
+#define __LOGBUFFER_H
 
 #include "timespec.h"
 
@@ -19,3 +21,4 @@ void logbuffer_init(struct logbuffer *lb, int size, int bsize);
 void logbuffer_write(struct logbuffer *lb, struct log_record *lr);
 struct log_record *logbuffer_read(struct logbuffer *lb);
 void logbuffer_destroy(struct logbuffer *lb);
+#endif
