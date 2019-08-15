@@ -6,7 +6,7 @@ int main(int argc, char **argv) {
   struct logbuffer lb;
   struct log_record lr;
   struct log_record *lrp;
-  logbuffer_init(&lb, 10, 100);
+  logbuffer_init(&lb, 10, 100, (struct timespec){0, 0});
 
   for (i = 0; i < 4; i++) {
     lr.index = i;

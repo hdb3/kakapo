@@ -854,13 +854,12 @@ struct logger_local {
 
 int logger(struct logbuffer *lb, struct logger_local *llp) {
   struct log_record *lrp;
-  printf("logger\n");
   lrp = logbuffer_read(lb);
   while (NULL != lrp) {
     if (0 == lrp->ts.tv_sec)
-      return 0;
+      return 1;
     else {
-      printf("index=%d ts=%f\n", lrp->index, timespec_to_double(lrp->ts));
+      // printf("index=%d ts=%f\n", lrp->index, timespec_to_double(lrp->ts));
       if (0 == lrp->index) { // first entry
         llp->first_lr = *lrp;
         llp->last_lr = *lrp;
@@ -877,10 +876,10 @@ int logger(struct logbuffer *lb, struct logger_local *llp) {
     lrp = logbuffer_read(lb);
   };
 
-  return 1;
+  return 0;
 };
 
-void *logging_thread(struct logbuffer *lb, struct timespec ts_duration) {
+void *logging_thread(struct logbuffer *lb) {
 
   struct timespec ts_delay, ts_target, ts_entry, ts_exit, ts_now;
   struct logger_local *llp = malloc(sizeof(struct logger_local));
@@ -895,7 +894,7 @@ void *logging_thread(struct logbuffer *lb, struct timespec ts_duration) {
         break;
     if (logger(lb, llp))
       break;
-    ts_target = timespec_add(ts_target, ts_duration);
+    ts_target = timespec_add(ts_target, lb->duration);
   };
 };
 
@@ -908,8 +907,8 @@ void *multi_peer_rate_test(struct peer *p, int count, int window) {
   int sent = 0;
   int received = 0;
   int target;
-  int RATEBLOCKSIZE = 10000;
-  logbuffer_init(&lb, 1000, RATEBLOCKSIZE);
+  int RATEBLOCKSIZE = 1000000;
+  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);
@@ -922,7 +921,7 @@ void *multi_peer_rate_test(struct peer *p, int count, int window) {
     if (target > 0 && sent < count) {
       send_next_update(sender);
       sent++;
-      if ((++sender)->sock != 0)
+      if ((++sender)->sock == 0)
         sender = p + 1;
       continue;
     } else {
