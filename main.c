@@ -39,6 +39,7 @@ uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
 uint32_t BLOCKSIZE = 3;
+uint32_t WINDOW = 100;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t NEXTHOP;
@@ -262,6 +263,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
   getuint32env("BLOCKSIZE", &BLOCKSIZE);
+  getuint32env("WINDOW", &WINDOW);
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   gethostaddress("NEXTHOP", &NEXTHOP);
@@ -336,8 +338,15 @@ int main(int argc, char *argv[]) {
     strict_canary_all(peertable);
     multi_peer_burst_test(peertable, MAXBURSTCOUNT);
     strict_canary_all(peertable);
+  } else if (0 == strcmp(MODE, "RATE")) {
+    fprintf(stderr, "rate test mode\n");
+    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
+    strict_canary_all(peertable);
+    conditioning(peertable);
+    multi_peer_rate_test(peertable, MAXBURSTCOUNT, WINDOW);
   } else {
 
+    fprintf(stderr, "default test mode, take a guess.....\n");
     strict_canary_all(peertable);
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 

@@ -822,3 +822,127 @@ void *notify_all(struct peer *p) {
   };
   fprintf(stderr, "Notification complete: elapsed time %s\n", showdeltams(ts));
 };
+
+//
+// Coniuous mode test support
+//
+
+int bgp_receive(struct peer *p) {
+  struct bgp_message bm;
+
+  while (1) {
+    getBGPMessage(&bm, &(p->sb));
+    if (BGPKEEPALIVE == bm.msgtype)
+      continue;
+    if (BGPUPDATE == bm.msgtype) {
+      // ignore EOR
+      if (bm.pl == 4)
+        continue;
+      else
+        return 1;
+    } else {
+      report(BGPUPDATE, bm.msgtype);
+      return 0;
+    }
+  }
+};
+
+struct logger_local {
+  struct log_record first_lr;
+  struct log_record last_lr;
+};
+
+int logger(struct logbuffer *lb, struct logger_local *llp) {
+  struct log_record *lrp;
+  printf("logger\n");
+  lrp = logbuffer_read(lb);
+  while (NULL != lrp) {
+    if (0 == lrp->ts.tv_sec)
+      return 0;
+    else {
+      printf("index=%d ts=%f\n", lrp->index, timespec_to_double(lrp->ts));
+      if (0 == lrp->index) { // first entry
+        llp->first_lr = *lrp;
+        llp->last_lr = *lrp;
+      } else { // 2nd or later entry, rate calculation is possible
+        struct timespec aggregate_duration = timespec_sub(lrp->ts, llp->first_lr.ts);
+        int aggregate_count = lrp->index * lb->block_size;
+        struct timespec cycle_duration = timespec_sub(lrp->ts, llp->last_lr.ts);
+        int cycle_count = (lrp->index - llp->last_lr.index) * lb->block_size;
+        printf("aggregate rate = %d (%d/%f)\n", (int)(aggregate_count / timespec_to_double(aggregate_duration)), aggregate_count, timespec_to_double(aggregate_duration));
+        printf("current rate = %d (%d/%f)\n", (int)(cycle_count / timespec_to_double(cycle_duration)), cycle_count, timespec_to_double(cycle_duration));
+      }
+    };
+    llp->last_lr = *lrp;
+    lrp = logbuffer_read(lb);
+  };
+
+  return 1;
+};
+
+void *logging_thread(struct logbuffer *lb, struct timespec ts_duration) {
+
+  struct timespec ts_delay, ts_target, ts_entry, ts_exit, ts_now;
+  struct logger_local *llp = malloc(sizeof(struct logger_local));
+
+  gettime(&ts_target);
+
+  while (1) {
+    gettime(&ts_now);
+    ts_delay = timespec_sub(ts_target, ts_now);
+    while (ts_delay.tv_sec > 0 || (ts_delay.tv_sec == 0 && ts_delay.tv_nsec > 0))
+      if (0 == nanosleep(&ts_delay, &ts_delay))
+        break;
+    if (logger(lb, llp))
+      break;
+    ts_target = timespec_add(ts_target, ts_duration);
+  };
+};
+
+void *multi_peer_rate_test(struct peer *p, int count, int window) {
+  struct timespec ts;
+  pthread_t threadid;
+  struct logbuffer lb;
+  struct log_record lr;
+  struct peer *sender;
+  int sent = 0;
+  int received = 0;
+  int target;
+  int RATEBLOCKSIZE = 10000;
+  logbuffer_init(&lb, 1000, RATEBLOCKSIZE);
+  pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
+  gettime(&ts);
+  clock_gettime(CLOCK_REALTIME, &lr.ts);
+  lr.index = 0;
+  logbuffer_write(&lb, &lr);
+
+  sender = p + 1;
+  do {
+    target = window + received - sent;
+    if (target > 0 && sent < count) {
+      send_next_update(sender);
+      sent++;
+      if ((++sender)->sock != 0)
+        sender = p + 1;
+      continue;
+    } else {
+      if (bgp_receive(p)) {
+        received++;
+        if (0 == received % RATEBLOCKSIZE) {
+          // ideally this should use a clock value from the read buffer system....
+          clock_gettime(CLOCK_REALTIME, &lr.ts);
+          lr.index = received / RATEBLOCKSIZE;
+          logbuffer_write(&lb, &lr);
+        }
+      } else
+        // bgp_receive() returned an exception
+        break;
+    };
+  } while (received < count);
+  // let the logger thread know it should exit.
+  lr.ts = (struct timespec){0, 0};
+  lr.index = -1;
+  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %s\n", count, window, showdeltams(ts));
+  pthread_join(threadid, NULL);
+  fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltams(ts));
+};
