@@ -86,9 +86,9 @@ void startpeer(struct peer *p, char *s) {
 
   p->sock = peersock;
 
-  fprintf(stderr, "connected for %s\n", s);
+  // fprintf(stderr, "connected for %s\n", s);
   pthread_create(&(p->thrd), NULL, establish, p);
-  fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
+  // fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
 };
 
 // NOTE - the target string must be actual static memory large enough...

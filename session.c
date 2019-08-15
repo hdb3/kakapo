@@ -804,7 +804,7 @@ void *conditioning(struct peer *p) {
   struct peer *listener = p;
   gettime(&ts);
   while ((++p)->sock != 0) {
-    fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
+    fprintf(stderr, "conditioning %s\n", fromHostAddress(p->localip));
     send_update_block(0, TABLESIZE, p);
     strict_canary(listener, p);
   };
