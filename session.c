@@ -692,17 +692,21 @@ void *crf_test(struct peer *p) {
   fprintf(stderr, "crf_test total elapsed time %s\n", showdeltams(ts));
 };
 
-void *single_peer_burst_test(struct peer *p, int count) {
+double single_peer_burst_test(struct peer *p, int count) {
   struct crf_state crfs;
-  struct timespec ts;
+  struct timespec ts_start, ts_end;
+  double elapsed;
 
   // fprintf(stderr, "single_peer_burst_test listener start\n");
-  gettime(&ts);
+  gettime(&ts_start);
 
   send_update_block(0, count, p + 1);
   // fprintf(stderr, "single_peer_burst_test transmit elapsed time %s\n", showdeltams(ts));
   crf_count(count, &crfs, p);
-  fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %s\n", count, crfs.status, showdeltams(ts));
+  gettime(&ts_end);
+  elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
+  fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %f\n", count, crfs.status, elapsed);
+  return elapsed;
 };
 
 void *canary(struct peer *p) {
@@ -775,15 +779,16 @@ void *burst_receive_thread(struct burst_receive *br) {
   //fprintf(stderr, "burst_receive listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
 };
 
-void *multi_peer_burst_test(struct peer *p, int count) {
-  struct timespec ts;
+double multi_peer_burst_test(struct peer *p, int count) {
+  struct timespec ts_start, ts_end;
+  double elapsed;
   pthread_t threadid;
   struct burst_receive br = {p, count};
   struct peer *sender;
   int sent = 0;
   //fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
   pthread_create(&threadid, NULL, (thread_t *)burst_receive_thread, &br);
-  gettime(&ts);
+  gettime(&ts_start);
   do {
     sender = p;
     while ((++sender)->sock != 0) {
@@ -796,7 +801,10 @@ void *multi_peer_burst_test(struct peer *p, int count) {
   //fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltams(ts));
   pthread_join(threadid, NULL);
   //strict_canary_all(p);
-  fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %s\n", count, showdeltams(ts));
+  gettime(&ts_end);
+  elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
+  fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f\n", count, elapsed);
+  return elapsed;
 };
 
 void *conditioning(struct peer *p) {
@@ -941,6 +949,7 @@ void *multi_peer_rate_test(struct peer *p, int count, int window) {
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};
   lr.index = -1;
+  logbuffer_write(&lb, &lr);
   fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %s\n", count, window, showdeltams(ts));
   pthread_join(threadid, NULL);
   fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltams(ts));

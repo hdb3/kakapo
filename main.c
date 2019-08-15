@@ -34,6 +34,7 @@ int tflag = 0;      // the global termination flag - when != 0, exit gracefully
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
 uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
+uint32_t REPEAT = 5;         // enabler for new testmodes
 
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
@@ -238,6 +239,21 @@ uint32_t senderwait() {
   return rcvseq;
 };
 
+void summarise(char *s, double *r) {
+  int i;
+  double max = 0;
+  double min = 0;
+  double sum = 0;
+
+  for (i = 0; i < REPEAT; i++) {
+    sum += r[i];
+    max = r[i] > max ? r[i] : max;
+    min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
+  };
+  double mean = sum / ((double)REPEAT);
+  fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
+};
+
 int main(int argc, char *argv[]) {
 
   setvbuf(stdout, NULL, _IOLBF, 0);
@@ -257,6 +273,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
   getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
+  getuint32env("REPEAT", &REPEAT);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
   gethostaddress("CANARYSEED", &CANARYSEED);
@@ -277,11 +294,13 @@ int main(int argc, char *argv[]) {
   MODE = sMODE;
   getsenv("MODE", MODE);
 
-  startstatsrunner();
+  // startstatsrunner();
 
   struct peer *peertable;
-  int argn;
+  int i, argn;
   struct peer *p;
+  double *results = malloc(REPEAT * sizeof(double));
+  double *results2 = malloc(REPEAT * sizeof(double));
 
   peertable = calloc(argc, sizeof(struct peer));
   for (argn = 1; argn <= argc - 1; argn++) {
@@ -307,37 +326,22 @@ int main(int argc, char *argv[]) {
     crf_canary_test(peertable);
     fprintf(stderr, "crf_canary_test complete\n");
   } else if (0 == strcmp(MODE, "MULTI")) {
-    strict_canary_all(peertable);
     conditioning(peertable);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    summarise("multi_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "BOTH")) {
-    strict_canary_all(peertable);
     conditioning(peertable);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    multi_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+      strict_canary_all(peertable);
+      results2[i] = multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    summarise("single_peer_burst_test", results);
+    summarise("multi_peer_burst_test", results2);
   } else if (0 == strcmp(MODE, "RATE")) {
     fprintf(stderr, "rate test mode\n");
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
@@ -351,15 +355,12 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
     conditioning(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
     strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
-    single_peer_burst_test(peertable, MAXBURSTCOUNT);
-    strict_canary_all(peertable);
+    summarise("single_peer_burst_test", results);
     fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
   }
 
