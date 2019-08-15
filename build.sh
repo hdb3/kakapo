@@ -2,6 +2,7 @@
 shopt -s expand_aliases
 alias GCC="gcc -g -pthread -O3 -DBUILDDATE=\"\\\"$(date)\\\"\" -DVERSION=\"\\\"$(git describe)\\\"\""
 GCC -o nlri-unittest nlri-unittest.c libutil.c
+GCC -o logbuffer-test logbuffer-test.c logbuffer.c timespec.c
 GCC -o kakapo main.c session.c stats.c libutil.c parsearg.c
 #GCC timedloop-unittest.c libutil.c -o timedloop-unittest
 #GCC -o bytestring-unittest bytestring-unittest.c libutil.c
