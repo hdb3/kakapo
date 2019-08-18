@@ -53,7 +53,7 @@ void connectPeer(struct peer *p) {
   0 < (p->sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
 
-  0 == bind(p->sock, (struct sockaddr *) &(p->local), SOCKADDRSZ) ||
+  0 == bind(p->sock, (struct sockaddr *)&(p->local), SOCKADDRSZ) ||
       die("Failed to bind local address");
   p->nread = 0;
   p->nwrite = 0;
@@ -170,7 +170,7 @@ int readaction(struct peer *p, fd_set *set) {
 
     if (res == 0) // normal end-of-stream
       printf("end of stream on fd %d\n", p->sock);
-    else 
+    else
       printf("end of stream on fd %d, errno: %d\n", p->sock, errno);
 
     return 1;
@@ -259,12 +259,12 @@ void serveraccept(int serversock, struct peer *p) {
   socklen_t socklen;
   memset(&acceptaddr, 0, SOCKADDRSZ);
   socklen = SOCKADDRSZ;
-  0 < (peersock = accept(serversock, (struct sockaddr *) &acceptaddr, &socklen)) || die("Failed to accept peer connection");
+  0 < (peersock = accept(serversock, (struct sockaddr *)&acceptaddr, &socklen)) || die("Failed to accept peer connection");
   (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
   socklen = SOCKADDRSZ;
-  0 == (getpeername(peersock, (struct sockaddr *) &p->remote, &socklen)) || die("Failed to get peer address");
+  0 == (getpeername(peersock, (struct sockaddr *)&p->remote, &socklen)) || die("Failed to get peer address");
   socklen = SOCKADDRSZ;
-  0 == (getsockname(peersock, (struct sockaddr *) &p->local, &socklen)) || die("Failed to get local address");
+  0 == (getsockname(peersock, (struct sockaddr *)&p->local, &socklen)) || die("Failed to get local address");
   p->buf = malloc(BUFSIZE);
   p->sock = peersock;
   p->nread = 0;
@@ -297,8 +297,8 @@ int start(struct peer *peer1, struct peer *peer2) {
   connectPeer(peer2);
   prepsocket(peer1->sock);
   prepsocket(peer2->sock);
-  EINPROGRESS != (connect(peer1->sock, (struct sockaddr *) &peer1->remote, SOCKADDRSZ)) || die("Failed to start connect with peer1");
-  EINPROGRESS != (connect(peer2->sock, (struct sockaddr *) &peer2->remote, SOCKADDRSZ)) || die("Failed to start connect with peer2");
+  EINPROGRESS != (connect(peer1->sock, (struct sockaddr *)&peer1->remote, SOCKADDRSZ)) || die("Failed to start connect with peer1");
+  EINPROGRESS != (connect(peer2->sock, (struct sockaddr *)&peer2->remote, SOCKADDRSZ)) || die("Failed to start connect with peer2");
   FLAGS(peer1->sock, __FILE__, __LINE__);
   FLAGS(peer2->sock, __FILE__, __LINE__);
   int res = waitonconnect(peer1->sock, peer2->sock);
@@ -344,7 +344,7 @@ void server(char *s) {
   reuse = 1;
   0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
 
-  0 == (bind(serversock, (struct sockaddr *) &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
+  0 == (bind(serversock, (struct sockaddr *)&hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
   0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
 
