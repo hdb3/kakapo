@@ -466,9 +466,12 @@ struct crf_state {
   struct timespec start;
   struct timespec end;
   int status;
+  int (*pf)(void *, struct bgp_message *);
+  struct peer *p;
+  void *pf_state;
 };
 
-void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *pf_state, struct peer *p) {
+struct crf_state *crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *pf_state, struct peer *p) {
 
   struct bgp_message bm;
   crfs->status = 0;
@@ -492,6 +495,28 @@ void crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *
     }
   };
   gettime(&crfs->end);
+  return crfs;
+};
+
+struct crf_state *crfw(struct crf_state *crfs) {
+  crf(crfs, crfs->pf, crfs->pf_state, crfs->p);
+};
+
+pthread_t crfp(int (*pf)(void *, struct bgp_message *), void *pf_state, struct peer *p) {
+  pthread_t threadid;
+  struct crf_state *crfs = calloc(1, sizeof(struct crf_state));
+  crfs->p = p;
+  crfs->pf = pf;
+  crfs->pf_state = pf_state;
+  pthread_create(&threadid, NULL, (thread_t *)crfw, crfs);
+  return threadid;
+};
+
+struct crf_state crfjoin(pthread_t threadid) {
+  struct crf_state *crfsp;
+  void **retval = (void **)&crfsp;
+  pthread_join(threadid, retval);
+  return *crfsp;
 };
 
 int pf_withdrawn(int *counter, struct bgp_message *bm) {
@@ -515,7 +540,7 @@ int pf_update(struct prefix *pfx, struct bgp_message *bm) {
   return (nlri_member(nlri, *pfx));
 };
 
-void crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
+struct crf_state *crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
   return crf(crfs, (pf_t *)pf_update, pfx, p);
 };
 
@@ -524,12 +549,8 @@ int pf_count(int *counter, struct bgp_message *bm) {
   return (*counter > 0 ? 0 : 1);
 };
 
-void crf_count(int counter, struct crf_state *crfs, struct peer *p) {
-  int counter_start = counter;
-  int counter_end = counter;
-  crf(crfs, (pf_t *)pf_count, &counter_end, p);
-  if (1 != crfs->status)
-    printf("** WARNING - crf_count - counter start: %d counter end: %d\n", counter_start, counter_end);
+pthread_t crf_count(int *counter, struct crf_state *crfs, struct peer *p) {
+  return crfp((pf_t *)pf_count, counter, p);
 };
 
 void *session(void *x) {
@@ -672,9 +693,10 @@ void *crf_canary_test(struct peer *p) {
 void *crf_thread(struct peer *p) {
   struct timespec ts;
   struct crf_state crfs;
+  int count = TABLESIZE;
   fprintf(stderr, "crf_test listener : %s\n", fromHostAddress(p->localip));
   gettime(&ts);
-  crf_count(TABLESIZE, &crfs, p);
+  crf_count(&count, &crfs, p);
   fprintf(stderr, "crf_test listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
 };
 
@@ -692,20 +714,25 @@ void *crf_test(struct peer *p) {
   fprintf(stderr, "crf_test total elapsed time %s\n", showdeltams(ts));
 };
 
+/*
+*/
+
 double single_peer_burst_test(struct peer *p, int count) {
   struct crf_state crfs;
   struct timespec ts_start, ts_end;
   double elapsed;
+  int n = count;
 
-  // fprintf(stderr, "single_peer_burst_test listener start\n");
   gettime(&ts_start);
 
+  pthread_t threadid = crf_count(&n, &crfs, p);
   send_update_block(0, count, p + 1);
-  // fprintf(stderr, "single_peer_burst_test transmit elapsed time %s\n", showdeltams(ts));
-  crf_count(count, &crfs, p);
   gettime(&ts_end);
   elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
-  fprintf(stderr, "single_peer_burst_test(%d) return status=%d elapsed time %f\n", count, crfs.status, elapsed);
+  fprintf(stderr, "single_peer_burst_test(%d) transmit elapsed time %f\n", count, elapsed);
+  crfs = crfjoin(threadid);
+  elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
+  fprintf(stderr, "single_peer_burst_test receive elapsed time %f status %d\n", elapsed, crfs.status);
   return elapsed;
 };
 
@@ -739,6 +766,7 @@ void rx_end(struct peer *p, pthread_t threadid) {
   send_single_update((p + 1), CANARYSEED + __bswap_32((p + 1)->tidx), 32);
   pthread_join(threadid, NULL);
 };
+
 void *conditioning_single_peer(struct peer *p) {
   struct timespec ts;
 
@@ -769,7 +797,7 @@ void *burst_receive_thread(struct burst_receive *br) {
   struct timespec ts;
   struct crf_state crfs;
   gettime(&ts);
-  crf_count(br->count, &crfs, br->p);
+  crf_count(&br->count, &crfs, br->p);
   //fprintf(stderr, "burst_receive listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
 };
 
