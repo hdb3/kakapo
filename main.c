@@ -36,6 +36,7 @@ uint32_t TIMEOUT = 10;
 uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
 uint32_t REPEAT = 5;         // enabler for new testmodes
 
+uint32_t TCPPORT = 179;
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
@@ -74,7 +75,7 @@ void startpeer(struct peer *p, char *s) {
     die("server mode not supported in this version");
 
   int peersock;
-  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remoteip}};
+  struct sockaddr_in peeraddr = {AF_INET, htons(TCPPORT), (struct in_addr){p->remoteip}};
   struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
 
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
@@ -286,6 +287,7 @@ int main(int argc, char *argv[]) {
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
+  getuint32env("TCPPORT", &TCPPORT);
   getuint32env("SHOWRATE", &SHOWRATE);
   getuint32env("HOLDTIME", &HOLDTIME);
   getsenv("LOGFILE", LOGFILE);
@@ -325,6 +327,19 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "crf_test complete\n");
     crf_canary_test(peertable);
     fprintf(stderr, "crf_canary_test complete\n");
+  } else if (0 == strcmp(MODE, "SINGLEONLY")) {
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    summarise("single_only_peer_burst_test", results);
+  } else if (0 == strcmp(MODE, "SINGLE")) {
+    conditioning(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    summarise("single_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "MULTI")) {
     conditioning(peertable);
     for (i = 0; i < REPEAT; i++) {
