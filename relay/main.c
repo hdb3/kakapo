@@ -28,7 +28,8 @@
 char VERSION[] = "1.2.0";
 
 struct peer {
-  int sock, nread, nwrite, nprocessed;
+  int sock;
+  uint64_t nread, nwrite, nprocessed;
   int msg_counts[5];
   struct sockaddr_in remote, local;
   void *buf;
@@ -51,7 +52,7 @@ char *showpeer(char *pn, struct peer *p) {
 void peer_report(struct peer *p) {
   printf("\npeer report\n");
   showpeer("", p);
-  printf("%d/%d/%d bytes read/written/processed\n", p->nread, p->nwrite, p->nprocessed);
+  printf("%ld/%ld/%ld bytes read/written/processed\n", p->nread, p->nwrite, p->nprocessed);
   printf("%d messages\n", *(p->msg_counts));
   printf("%d Opens\n", (p->msg_counts)[1]);
   printf("%d Updates\n", (p->msg_counts)[2]);
@@ -198,7 +199,7 @@ int readaction(struct peer *p, fd_set *set) {
     return 0;
 };
 
-uint8_t *get_byte(struct peer *p, int offset) {
+uint8_t *get_byte(struct peer *p, uint64_t offset) {
   return (p->buf) + ((offset + p->nprocessed) % BUFSIZE);
 };
 
@@ -216,7 +217,7 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
 
 void processaction(struct peer *p) {
   // need at least 19 bytes to have a valid length field and a message type in a message....
-  int available;
+  uint64_t available;
   available = p->nread - p->nprocessed;
   while (18 < available) {
     uint16_t msg_length = (*(get_byte(p, 16)) << 8) + *get_byte(p, 17);
@@ -335,12 +336,21 @@ void prepsocket(int sock) {
 
 void serverstart(int serversock, struct peer *peer1, struct peer *peer2) {
 
+  struct in_addr listener_address = peer1->remote.sin_addr;
+
   printf("server start\n");
   serveraccept(serversock, peer1);
   serveraccept(serversock, peer2);
   prepsocket(peer1->sock);
   prepsocket(peer2->sock);
-  run(peer1, peer2);
+  if (0 == listener_address.s_addr || peer1->remote.sin_addr.s_addr == listener_address.s_addr)
+    // either no explicit listener was given, or it was peer1
+    run(peer1, peer2);
+  else if (peer2->remote.sin_addr.s_addr == listener_address.s_addr)
+    // an explicit listener was given, and it was peer2
+    run(peer2, peer1);
+  else
+    printf("error: the defined listener did not connect\n");
   close(peer1->sock);
   close(peer2->sock);
 };
@@ -390,7 +400,13 @@ void server(char *s) {
   struct peer peer1, peer2;
   int reuse;
 
-  0 < (inet_aton(s, &hostaddr.sin_addr)) || die("failed parsing server listen address");
+  // 0 < (inet_aton(s, &hostaddr.sin_addr)) || die("failed parsing server listen address");
+
+  // allow the server mode to spevify which peer is intended as the target for Update readvertisments
+  // by implication the others are 'receive only', whilst this one 'send only'
+
+  0 != parseAddress(s, &(hostaddr.sin_addr), &(peer1.remote.sin_addr)) ||
+      die("Failed to parse addresses");
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
 
