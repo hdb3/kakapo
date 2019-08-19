@@ -34,26 +34,33 @@
 // wrapper for send which protects against multiple thread writes interleaving output
 // the protection is 'soft' in that it introduces wait until queue empty semantics
 // rather than an explicit semaphore
-//int sendFlag = 0;
-void _send(struct peer *p, const void *buf, size_t count) {
-  txwait(p->sock);
-  if (p->sendFlag != 0)
-    die("send flag reentry fail");
-  else
-    p->sendFlag = 1;
-  (0 < send(p->sock, buf, count, 0)) || die("send fail");
-  txwait(p->sock);
-  p->sendFlag = 0;
-};
 
 // __send: variant od _send which does not use txwait
 void __send(struct peer *p, const void *buf, size_t count) {
+  size_t sent, total_sent;
+  printf("******send: %ld\n", count);
   if (p->sendFlag != 0)
     die("send flag reentry fail");
   else
     p->sendFlag = 1;
-  (0 < send(p->sock, buf, count, 0)) || die("send fail");
+  total_sent = 0;
+  do {
+    sent = send(p->sock, buf + total_sent, count - total_sent, 0);
+    if (sent < 0)
+      die("send fail");
+    total_sent += sent;
+    if (total_sent < count)
+      printf("******total_sent<count: %ld %ld\n", total_sent, count);
+  } while (total_sent < count);
+  printf("******done: %ld\n", count);
   p->sendFlag = 0;
+};
+
+void _send(struct peer *p, const void *buf, size_t count) {
+  int sent;
+  txwait(p->sock);
+  __send(p, buf, count);
+  txwait(p->sock);
 };
 
 unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
@@ -329,7 +336,8 @@ void send_next_update(struct peer *p) {
 };
 
 void send_single_update(struct peer *p, uint32_t ip, uint8_t length) {
-  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, 0}));
+  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
+  usn++;
   _send(p, b.data, b.length);
   free(b.data);
 };
@@ -338,14 +346,6 @@ void send_single_withdraw(struct peer *p, uint32_t ip, uint8_t length) {
   struct bytestring b = update(empty, nlris(ip, length, 1, 0), empty);
   _send(p, b.data, b.length);
   free(b.data);
-};
-
-void advertise_canary(struct peer *p) {
-  send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
-};
-
-void withdraw_canary(struct peer *p) {
-  send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
 };
 
 void send_eor(struct peer *p) {
@@ -709,50 +709,44 @@ double single_peer_burst_test(struct peer *p, int count) {
   return elapsed;
 };
 
-void *canary(struct peer *p) {
-  struct timespec ts;
-  struct crf_state crfs;
-  int i = 1;
-
-  gettime(&ts);
-  while ((p + i)->sock != 0) {
-    advertise_canary(p + i);
-    i++;
-  };
-  int sender_count = i - 1;
-  crf_count(sender_count, &crfs, p);
-
-  i = 1;
-  while (i <= sender_count) {
-    withdraw_canary(p + i);
-    i++;
-  };
-  crf_withdrawn_count(sender_count, &crfs, p);
-  fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
-};
-
 void *strict_canary(struct peer *listener, struct peer *p) {
   struct timespec ts;
   struct crf_state crfs;
   struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32(p->tidx), 32};
 
   gettime(&ts);
-  // fprintf(stderr, "canary from : %s\n", fromHostAddress(p->localip));
   send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
   crf_update(&pfx, &crfs, listener);
 
   send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
   crf_withdrawn_count(1, &crfs, listener);
-
-  // fprintf(stderr, "canary complete: elapsed time %s\n", showdeltams(ts));
 };
 
+void *rx_thread(struct peer *p) {
+  struct crf_state crfs;
+  struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32((p + 1)->tidx), 32};
+  crf_update(&pfx, &crfs, p);
+};
+
+pthread_t rx_start(struct peer *p) {
+  pthread_t threadid;
+
+  pthread_create(&threadid, NULL, (thread_t *)rx_thread, p);
+  return threadid;
+};
+
+void rx_end(struct peer *p, pthread_t threadid) {
+  send_single_update((p + 1), CANARYSEED + __bswap_32((p + 1)->tidx), 32);
+  pthread_join(threadid, NULL);
+};
 void *conditioning_single_peer(struct peer *p) {
   struct timespec ts;
 
+  pthread_t threadid = rx_start(p);
   gettime(&ts);
-  fprintf(stderr, "conditioning from : %s\n", fromHostAddress(p->localip));
+  fprintf(stderr, "conditioning : %s\n", fromHostAddress(p->localip));
   send_update_block(0, TABLESIZE, p);
+  rx_end(p, threadid);
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
 
@@ -811,10 +805,9 @@ void *conditioning(struct peer *p) {
   struct timespec ts;
   struct peer *listener = p;
   gettime(&ts);
+  fprintf(stderr, "conditioning start\n");
   while ((++p)->sock != 0) {
-    fprintf(stderr, "conditioning %s\n", fromHostAddress(p->localip));
-    send_update_block(0, TABLESIZE, p);
-    strict_canary(listener, p);
+    conditioning_single_peer(p);
   };
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
