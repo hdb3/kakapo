@@ -288,9 +288,9 @@ static uint64_t usn = 0;
 struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref) {
 
   assert(length <= TABLESIZE);
-  int i;
+  uint64_t i;
   struct bytestring *vec = malloc(sizeof(struct bytestring) * length);
-  int buflen = 0;
+  uint64_t buflen = 0;
 
   for (i = 0; i < length; i++) {
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, i),

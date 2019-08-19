@@ -9,7 +9,7 @@
 #define _BYTESTRING_H
 
 struct bytestring {
-  uint32_t length;
+  uint64_t length;
   char *data;
 };
 struct bytestring empty;
