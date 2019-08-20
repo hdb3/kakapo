@@ -768,14 +768,14 @@ void rx_end(struct peer *p, pthread_t threadid) {
   pthread_join(threadid, NULL);
 };
 
-void *conditioning_single_peer(struct peer *p) {
+void *conditioning_single_peer(struct peer *target, struct peer *listen) {
   struct timespec ts;
 
-  pthread_t threadid = rx_start(p);
+  pthread_t threadid = rx_start(listen);
   gettime(&ts);
-  fprintf(stderr, "conditioning : %s\n", fromHostAddress(p->localip));
-  send_update_block(0, TABLESIZE, p);
-  rx_end(p, threadid);
+  fprintf(stderr, "conditioning : %s\n", fromHostAddress(target->localip));
+  send_update_block(0, TABLESIZE, target);
+  rx_end(listen, threadid);
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
 
@@ -836,7 +836,7 @@ void *conditioning(struct peer *p) {
   gettime(&ts);
   fprintf(stderr, "conditioning start\n");
   while ((++p)->sock != 0) {
-    conditioning_single_peer(p);
+    conditioning_single_peer(p, listener);
   };
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
