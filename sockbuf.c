@@ -111,7 +111,9 @@ int bgp_peek(struct sockbuf *sb) {
   uint8_t msg_length_hi = *(sb->base + sb->start + 16) << 8;
   uint8_t msg_length_lo = *(sb->base + sb->start + 17);
   uint16_t _msg_length = msg_length_hi + msg_length_lo;
-  uint16_t msg_length = *(sb->base + sb->start + 16) << 8 + *(sb->base + sb->start + 17);
+  uint16_t msg_length = (*(sb->base + sb->start + 16) << 8) + (*(sb->base + sb->start + 17));
+  if (_msg_length != msg_length)
+    printf("_msg_length != msg_length: %d %d (%d:%d(\n", _msg_length, msg_length, msg_length_hi, msg_length_lo);
   assert(_msg_length == msg_length);
   assert(1 == sb->usecount--);
   return (msg_length < sb->count ? 0 : 1);

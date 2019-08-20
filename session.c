@@ -757,8 +757,10 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   struct log_record lr;
   struct peer *sender;
   int sent = 0;
+  int peer_count = 1;
   int received = 0;
   int target;
+  int blocking_factor;
   int RATEBLOCKSIZE = 1000000;
   logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
@@ -768,27 +770,34 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   logbuffer_write(&lb, &lr);
 
   sender = p + 1;
+  while (sender++ != 0)
+    peer_count++;
+  sender = p + 1;
+  fprintf(stderr, "multi_peer_rate_test start, % d peers\n", peer_count);
   do {
     target = window + received - sent;
     if (target > 0 && sent < count) {
-      send_next_update(sender);
-      sent++;
+      blocking_factor = 1 + target / peer_count;
+      send_update_block(blocking_factor, sender);
+      //send_next_update(sender);
+      sent += blocking_factor;
       if ((++sender)->sock == 0)
         sender = p + 1;
       continue;
-    } else {
-      if (bgp_receive(p)) {
-        received++;
-        if (0 == received % RATEBLOCKSIZE) {
-          // ideally this should use a clock value from the read buffer system....
-          clock_gettime(CLOCK_REALTIME, &lr.ts);
-          lr.index = received / RATEBLOCKSIZE;
-          logbuffer_write(&lb, &lr);
-        }
-      } else
-        // bgp_receive() returned an exception
-        break;
-    };
+    } else
+      do {
+        if (bgp_receive(p)) {
+          received++;
+          if (0 == received % RATEBLOCKSIZE) {
+            // ideally this should use a clock value from the read buffer system....
+            clock_gettime(CLOCK_REALTIME, &lr.ts);
+            lr.index = received / RATEBLOCKSIZE;
+            logbuffer_write(&lb, &lr);
+          }
+        } else
+          // bgp_receive() returned an exception
+          break;
+      } while (bgp_peek(&p->sb));
   } while (received < count);
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};
