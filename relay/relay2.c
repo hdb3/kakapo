@@ -73,6 +73,35 @@ int setupIOVECs(struct iovec *vec, void *base, uint64_t start, uint64_t end) {
   };
 };
 
+int write_from(struct peer *p, int sock, int length) {
+  int res;
+  int niovec;
+  struct iovec iovecs[2];
+  niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nwrite + length);
+  res = writev(sock, iovecs, niovec);
+  if (res == length) { // happy path
+    p->nwrite += res;
+    return 1;
+  } else {
+    printf("write error, errno: %d (%d)\n", errno, res);
+    return 0;
+  };
+};
+
+int forward(struct peer *p, int length) {
+  write_from(p, listen_sock, length);
+};
+
+int echo(struct peer *p, int length) {
+  write_from(p, p->sock, length);
+};
+
+int stop(struct peer *p, int length) {
+  p->nwrite += length;
+  running = 0;
+  printf("stopping\n");
+};
+
 int canRead(int fd, uint64_t nread, uint64_t nwrite) {
   int p = (MINREAD < BUFSIZE + nwrite - nread) ? 1 : 0;
   return p;
@@ -136,7 +165,24 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
   (*(p->msg_counts + msg_type))++;
   // notice: if counts are zeroed out at connection time then the Open and Notification counts can be used as flags for state changes
   // an EndOfRIB detector would be simple too, by checking for specific msg_length and msg_type
-  printf("dpi: peer %d, msg_type %d\n", p->peer_index, msg_type);
+  // printf("dpi: peer %d, msg_type %d\n", p->peer_index, msg_type);
+  switch (msg_type) {
+  case 1:
+    printf("dpi: peer %d, msg_type Open\n", p->peer_index);
+    echo(p, msg_length);
+    break;
+  case 2:
+    forward(p, msg_length);
+    break;
+  case 3:
+    printf("dpi: peer %d, msg_type Notification\n", p->peer_index);
+    stop(p, msg_length);
+    break;
+  case 4:
+    printf("dpi: peer %d, msg_type Keepalive\n", p->peer_index);
+    echo(p, msg_length);
+    break;
+  };
 };
 
 void processaction(struct peer *p) {
