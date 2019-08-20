@@ -14,11 +14,17 @@ char *showprefix(struct prefix pfx) {
   return s;
 };
 
+static char nlribuffer[65535];  // over large, but withdraw can make BGP Update at large sizes
+                                // and busting the 4096 limit is allowed in some implmentations
+				// so 2^16 is only safe value
+				// NOTE: single thread only
+				//       replaces a previous malloc based version
+
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
 
   uint8_t chunksize = 1 + (length + 7) / 8;
   int bufsize = chunksize * count;
-  char *buf = malloc(bufsize);
+  char *buf = nlribuffer;
   char *next = buf;
   uint32_t ip = __bswap_32(ipstart);
   uint32_t increment = 1 << (32 - length);

@@ -26,6 +26,10 @@ static inline uint16_t palength(char *pa) {
     return 3 + pa[2];
 };
 
+static char attrbuffer[65535];  // over large......
+				// NOTE: single thread only
+				//       replaces a previous malloc based version
+
 struct bytestring pas2bytestring(char *pa, ...) {
   char *pas[16];
   uint16_t lengths[16];
@@ -52,7 +56,7 @@ struct bytestring pas2bytestring(char *pa, ...) {
     pav = va_arg(ap, char *);
   };
   va_end(ap);
-  char *buf = malloc(length);
+  char *buf = attrbuffer;
   char *next = buf;
   int i;
   for (i = 0; i < pax; i++)
