@@ -37,6 +37,7 @@ void bufferInit(struct sockbuf *sb, int sock, int size, int timeout) {
   sb->rcvcount = 0;
   sb->start = 0;
   sb->count = 0;
+  sb->usecount = 0;
   sb->top = size;
   sb->threshold = size * 3 / 4;
   sb->base = malloc(size);
@@ -51,6 +52,7 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
 
   // this assertion prevents requests which cannot be met because the entire
   // buffer is smaller than the request
+  assert(0 == sb->usecount++);
   assert(rc < sb->top);
 
   // can reset the buffer cursor for free when there is no data in it
@@ -72,7 +74,7 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
     // if zero or worse, die...
     if (sockRead < 0) {
       if (errno == EAGAIN)
-        return 0;
+        continue;
       else {
         perror(0);
         return (char *)-1;
@@ -89,5 +91,28 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
   sb->count = sb->count - rc;
   int tmp = sb->start;
   sb->start = sb->start + rc;
+  assert(1 == sb->usecount--);
   return (sb->base + tmp);
+}
+
+int bgp_peek(struct sockbuf *sb) {
+
+  // look forward in buffer to check if a complete BGP message read would succeed
+
+  // this assertion prevents requests which cannot be met because the entire
+  // buffer is smaller than the request
+  assert(0 == sb->usecount++);
+
+  if (19 > sb->count) {
+    assert(1 == sb->usecount--);
+    return 0;
+  };
+
+  uint8_t msg_length_hi = *(sb->base + sb->start + 16) << 8;
+  uint8_t msg_length_lo = *(sb->base + sb->start + 17);
+  uint16_t _msg_length = msg_length_hi + msg_length_lo;
+  uint16_t msg_length = *(sb->base + sb->start + 16) << 8 + *(sb->base + sb->start + 17);
+  assert(_msg_length == msg_length);
+  assert(1 == sb->usecount--);
+  return (msg_length < sb->count ? 0 : 1);
 }
