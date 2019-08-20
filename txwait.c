@@ -1,4 +1,5 @@
 #include "txwait.h"
+#include <assert.h>
 #include <linux/sockios.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -14,4 +15,5 @@ void txwait(int sock) {
   } while (0 == error && value > 0);
   if (0 != error)
     perror("txwait ioctl problem");
+  assert(0 == error);
 };
