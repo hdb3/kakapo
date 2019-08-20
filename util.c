@@ -1,7 +1,8 @@
 
 // util.c
 
-//#define _GNU_SOURCE
+// ***** NOTE toHex and concat use malloc and may leak memory - use withh caution
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -105,6 +106,7 @@ char *toHex(char *buf, int l) {
   int i;
   char *result;
 
+  // ** DANGER - unreturned memory allocation!!!!
   if (!(result = (char *)malloc(l * 2 + 1)))
     return (NULL);
 
@@ -174,6 +176,7 @@ int timeval_subtract(struct timeval *result, struct timeval *x,
 char *concat(const char *str, ...) {
   va_list ap;
   size_t allocated = 100;
+  // ** DANGER - unreturned memory allocation!!!!
   char *result = (char *)malloc(allocated);
 
   if (result != NULL) {

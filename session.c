@@ -309,6 +309,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     offset = mempcpy(offset, vec[i].data, vec[i].length);
     free(vec[i].data);
   };
+  free(vec);
   return (struct bytestring){buflen, data};
 };
 
