@@ -68,13 +68,10 @@ void *session(void *x);
 void *establish(void *x);
 double single_peer_burst_test(struct peer *p, int count);
 double multi_peer_burst_test(struct peer *p, int count);
-void *multi_peer_rate_test(struct peer *p, int count, int window);
-void *conditioning(struct peer *p);
-void *notify_all(struct peer *p);
-void *strict_canary_all(struct peer *p);
-void *canary(struct peer *p);
-void *crf_test(struct peer *p);
-void *crf_canary_test(struct peer *p);
+void multi_peer_rate_test(struct peer *p, int count, int window);
+void conditioning(struct peer *p);
+void notify_all(struct peer *p);
+void strict_canary_all(struct peer *p);
 
 #define LIMIT 3
 

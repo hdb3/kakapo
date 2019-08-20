@@ -319,11 +319,12 @@ void send_update_block(int length, struct peer *p) {
   // _send(p, keepalive, 19);
   uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / TABLESIZE);
   struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref);
-  _send(p, updates.data, updates.length);
+  __send(p, updates.data, updates.length);
   free(updates.data);
 };
 
-void send_next_update(struct peer *p) {
+void send_next_update(struct peer *p) { send_update_block(1, p); };
+void _send_next_update(struct peer *p) {
   uint32_t localpref = 101 + usn / TABLESIZE;
   struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                empty,
@@ -336,15 +337,18 @@ void send_next_update(struct peer *p) {
   free(b.data);
 };
 
-void send_single_update(struct peer *p, uint32_t ip, uint8_t length) {
-  struct bytestring b = update(nlris(ip, length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
+// void send_single_update(struct peer *p, uint32_t ip, uint8_t length) {
+void send_single_update(struct peer *p, struct prefix *pfx) {
+
+  struct bytestring b = update(nlris(pfx->ip, pfx->length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
   _send(p, b.data, b.length);
   free(b.data);
 };
 
-void send_single_withdraw(struct peer *p, uint32_t ip, uint8_t length) {
-  struct bytestring b = update(empty, nlris(ip, length, 1, 0), empty);
+// void send_single_withdraw(struct peer *p, uint32_t ip, uint8_t length) {
+void send_single_withdraw(struct peer *p, struct prefix *pfx) {
+  struct bytestring b = update(empty, nlris(pfx->ip, pfx->length, 1, 0), empty);
   _send(p, b.data, b.length);
   free(b.data);
 };
@@ -460,7 +464,7 @@ pthread_t crfp(int (*pf)(void *, struct bgp_message *), void *pf_state, struct p
 struct crf_state crfjoin(pthread_t threadid) {
   struct crf_state *crfsp;
   void **retval = (void **)&crfsp;
-  pthread_join(threadid, retval);
+  assert(0 == pthread_join(threadid, retval));
   return *crfsp;
 };
 
@@ -539,49 +543,66 @@ double single_peer_burst_test(struct peer *p, int count) {
   return elapsed;
 };
 
-void *strict_canary(struct peer *listener, struct peer *p) {
-  struct timespec ts;
+static struct prefix _pfx;
+struct prefix *canary_base() {
+  _pfx = (struct prefix){CANARYSEED, 32};
+  return &_pfx;
+};
+
+struct prefix *get_canary_prefix(struct peer *p) {
+  _pfx = (struct prefix){CANARYSEED + __bswap_32(p->tidx), 32};
+  return &_pfx;
+};
+
+void strict_canary(struct peer *listener, struct peer *p) {
   struct crf_state crfs;
-  struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32(p->tidx), 32};
 
-  gettime(&ts);
-  send_single_update(p, CANARYSEED + __bswap_32(p->tidx), 32);
-  crf_update(&pfx, &crfs, listener);
+  send_single_update(p, canary_base());
+  crf_update(canary_base(), &crfs, listener);
 
-  send_single_withdraw(p, CANARYSEED + __bswap_32(p->tidx), 32);
+  send_single_withdraw(p, canary_base());
   crf_withdrawn_count(1, &crfs, listener);
 };
 
-void *rx_thread(struct peer *p) {
-  struct crf_state crfs;
-  struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32((p + 1)->tidx), 32};
-  crf_update(&pfx, &crfs, p);
-};
-
-pthread_t rx_start(struct peer *p) {
+struct rx_data {
+  struct peer *target;
+  struct peer *listener;
   pthread_t threadid;
-
-  pthread_create(&threadid, NULL, (thread_t *)rx_thread, p);
-  return threadid;
 };
 
-void rx_end(struct peer *p, pthread_t threadid) {
-  send_single_update((p + 1), CANARYSEED + __bswap_32((p + 1)->tidx), 32);
-  pthread_join(threadid, NULL);
+void rx_thread(struct rx_data *rxd) {
+  struct crf_state crfs;
+  crf_update(canary_base(), &crfs, rxd->listener);
 };
 
-void *conditioning_single_peer(struct peer *target, struct peer *listen) {
+// (struct peer *target, struct peer *listen) {
+struct rx_data *rx_start(struct peer *target, struct peer *listener) {
+  struct rx_data *rxd = calloc(1, sizeof(struct rx_data));
+
+  rxd->target = target;
+  rxd->listener = listener;
+  rxd->threadid = _pthread_create((void *)rx_thread, rxd);
+  return rxd;
+};
+
+void rx_end(struct rx_data *rxd) {
+  send_single_update(rxd->target, canary_base());
+  _pthread_join(rxd->threadid);
+  free(rxd);
+};
+
+void conditioning_single_peer(struct peer *target, struct peer *listen) {
   struct timespec ts;
 
-  pthread_t threadid = rx_start(listen);
+  struct rx_data *rxd = rx_start(target, listen);
   gettime(&ts);
   fprintf(stderr, "conditioning : %s\n", fromHostAddress(target->localip));
   send_update_block(TABLESIZE, target);
-  rx_end(listen, threadid);
+  rx_end(rxd);
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
 
-void *strict_canary_all(struct peer *p) {
+void strict_canary_all(struct peer *p) {
   struct timespec ts;
   struct peer *listener = p;
   gettime(&ts);
@@ -596,7 +617,7 @@ struct burst_receive {
   int count;
 };
 
-void *burst_receive_thread(struct burst_receive *br) {
+void burst_receive_thread(struct burst_receive *br) {
   struct timespec ts;
   struct crf_state crfs;
   gettime(&ts);
@@ -624,15 +645,14 @@ double multi_peer_burst_test(struct peer *p, int count) {
     };
   } while (sent < count);
   //fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltams(ts));
-  pthread_join(threadid, NULL);
-  //strict_canary_all(p);
+  _pthread_join(threadid);
   gettime(&ts_end);
   elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
   fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f\n", count, elapsed);
   return elapsed;
 };
 
-void *conditioning(struct peer *p) {
+void conditioning(struct peer *p) {
   struct timespec ts;
   struct peer *listener = p;
   gettime(&ts);
@@ -643,7 +663,7 @@ void *conditioning(struct peer *p) {
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
 
-void *notify_all(struct peer *p) {
+void notify_all(struct peer *p) {
   struct timespec ts;
 
   gettime(&ts);
@@ -711,7 +731,7 @@ int logger(struct logbuffer *lb, struct logger_local *llp) {
   return 0;
 };
 
-void *logging_thread(struct logbuffer *lb) {
+void logging_thread(struct logbuffer *lb) {
 
   struct timespec ts_delay, ts_target, ts_entry, ts_exit, ts_now;
   struct logger_local *llp = malloc(sizeof(struct logger_local));
@@ -730,7 +750,7 @@ void *logging_thread(struct logbuffer *lb) {
   };
 };
 
-void *multi_peer_rate_test(struct peer *p, int count, int window) {
+void multi_peer_rate_test(struct peer *p, int count, int window) {
   struct timespec ts;
   pthread_t threadid;
   struct logbuffer lb;
@@ -775,6 +795,6 @@ void *multi_peer_rate_test(struct peer *p, int count, int window) {
   lr.index = -1;
   logbuffer_write(&lb, &lr);
   fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %s\n", count, window, showdeltams(ts));
-  pthread_join(threadid, NULL);
+  _pthread_join(threadid);
   fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltams(ts));
 };
