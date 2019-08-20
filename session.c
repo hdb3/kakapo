@@ -46,7 +46,7 @@ void __send(struct peer *p, const void *buf, size_t count) {
   total_sent = 0;
   do {
     sent = send(p->sock, buf + total_sent, count - total_sent, 0);
-    if (sent < 0)
+    if (sent == -1)
       die("send fail");
     total_sent += sent;
     if (total_sent < count)
