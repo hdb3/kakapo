@@ -10,6 +10,7 @@
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -257,8 +258,12 @@ void summarise(char *s, double *r) {
 
 int main(int argc, char *argv[]) {
 
+  sigset_t set;
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
+  sigemptyset(&set);
+  sigaddset(&set, SIGPIPE);
+  pthread_sigmask(SIG_BLOCK, &set, NULL);
   pid = getpid();
   fprintf(stderr, "kakapo  Version %s (%s) \n", VERSION, BUILDDATE);
   if (1 > argc) {
