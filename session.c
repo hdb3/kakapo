@@ -38,7 +38,7 @@
 // __send: variant od _send which does not use txwait
 void __send(struct peer *p, const void *buf, size_t count) {
   size_t sent, total_sent;
-  printf("******send: %ld\n", count);
+  // printf("******send: %ld\n", count);
   if (p->sendFlag != 0)
     die("send flag reentry fail");
   else
@@ -52,7 +52,7 @@ void __send(struct peer *p, const void *buf, size_t count) {
     if (total_sent < count)
       printf("******total_sent<count: %ld %ld\n", total_sent, count);
   } while (total_sent < count);
-  printf("******done: %ld\n", count);
+  // printf("******done: %ld\n", count);
   p->sendFlag = 0;
 };
 
