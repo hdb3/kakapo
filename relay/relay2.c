@@ -233,8 +233,8 @@ void server(char *s1, char *s2) {
   printf("server start\n");
 
   // 0 == (inet_aton(s1, &hostaddr)) || die("failed parsing server listen address");
-  0 == (inet_aton(s1, &host.sin_addr)) || die("failed parsing server listen address");
-  0 == (inet_aton(s2, &listener_addr)) || die("failed parsing listener peer address");
+  0 != (inet_aton(s1, &host.sin_addr)) || die("failed parsing server listen address");
+  0 != (inet_aton(s2, &listener_addr)) || die("failed parsing listener peer address");
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
 
