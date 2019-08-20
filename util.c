@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "timespec.h"
 #include "util.h"
@@ -218,3 +219,13 @@ char *concat(const char *str, ...) {
 
   return result;
 }
+
+pthread_t _pthread_create( void *(*start_routine) (void *), void *arg) {
+  pthread_t threadid;
+  pthread_create(&threadid, NULL, start_routine, arg);
+  return threadid;
+};
+
+void _pthread_join(pthread_t threadid) {
+  assert (0 == pthread_join(threadid, NULL));
+};

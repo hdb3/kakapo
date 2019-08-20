@@ -2,6 +2,7 @@
 
 #ifndef __UTIL_H
 #define __UTIL_H
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
@@ -31,4 +32,6 @@ int timeval_subtract(struct timeval *result, struct timeval *x,
                      struct timeval *y);
 #define TSZERO ((struct timespec){0, 0})
 char *concat(const char *str, ...);
+pthread_t _pthread_create(void *(*start_routine)(void *), void *arg);
+void _pthread_join(pthread_t threadid);
 #endif
