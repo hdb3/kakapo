@@ -247,7 +247,7 @@ void summarise(char *s, double *r) {
   double min = 0;
   double sum = 0;
 
-  for (i = 0; i < REPEAT; i++) {
+  for (i = 1; i < REPEAT; i++) {
     sum += r[i];
     max = r[i] > max ? r[i] : max;
     min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
@@ -327,12 +327,7 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "connection complete for %d peers\n", argc - 1);
 
-  if (0 == strcmp(MODE, "TEST")) {
-    crf_test(peertable);
-    fprintf(stderr, "crf_test complete\n");
-    crf_canary_test(peertable);
-    fprintf(stderr, "crf_canary_test complete\n");
-  } else if (0 == strcmp(MODE, "SINGLEONLY")) {
+  if (0 == strcmp(MODE, "SINGLEONLY")) {
     for (i = 0; i < REPEAT; i++) {
       strict_canary_all(peertable);
       results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);

@@ -313,7 +313,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   return (struct bytestring){buflen, data};
 };
 
-void send_update_block(int offset, int length, struct peer *p) {
+void send_update_block(int length, struct peer *p) {
 
   // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
   // _send(p, keepalive, 19);
@@ -355,62 +355,6 @@ void send_eor(struct peer *p) {
   _send(p, b.data, b.length);
   // txwait(p->sock);
   free(b.data);
-};
-
-// see documentation at https://docs.google.com/document/d/1CBWFJc1wbeyZ3Q4ilvn-NVAlWV3bzCm1PqP8B56_53Y
-void *sendthread(void *_x) {
-  struct peer *p = (struct peer *)p;
-
-  uint32_t logseq;
-  struct timespec tstart, tend;
-
-  int sendupdates(int seq) {
-
-    if (MAXBURSTCOUNT == 0)
-      return -1;
-
-    int bsn = seq % MAXBURSTCOUNT;
-    int cyclenumber = seq / MAXBURSTCOUNT;
-    if (((CYCLECOUNT > 0) && cyclenumber >= CYCLECOUNT) || (FASTCYCLELIMIT > 0 && logseq > CYCLECOUNT)) {
-      fprintf(stderr, "%d: sendupdates: sending complete\n", p->tidx);
-      return -1;
-    };
-
-    if (0 == seq) {
-      gettime(&tstart);
-      startlog(p->tidx, "N/A", &tstart);
-    };
-
-    if (cyclenumber >= FASTCYCLELIMIT || bsn == 0) {
-      if (0 == cyclenumber && FASTCYCLELIMIT > 0)
-        fprintf(stderr, "%d: FASTMODE START\n", p->tidx);
-      logseq = senderwait();
-      gettime(&tstart);
-    };
-
-    send_update_block(bsn, cyclenumber, p);
-
-    if (cyclenumber >= FASTCYCLELIMIT || bsn == MAXBURSTCOUNT - 1) {
-      gettime(&tend);
-      sndlog(p->tidx, "N/A", logseq, &tstart, &tend);
-      if (FASTCYCLELIMIT == cyclenumber && FASTCYCLELIMIT > 0 && bsn == 0)
-        fprintf(stderr, "%d: FASTMODE END\n", p->tidx);
-    };
-
-    if (bsn == MAXBURSTCOUNT - 1)
-      return CYCLEDELAY;
-    else
-      return 0; // ask to be restarted...
-  };
-  p->sndrunning = 1;
-  timedloopms(SLEEP, sendupdates);
-
-  senderwait();
-
-  send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
-  p->sndrunning = 0;
-  tflag = 1;
-  endlog(NULL); // note: endlog will probably never return!!!! ( calls exit() )
 };
 
 void init(struct peer *p) {
@@ -554,94 +498,6 @@ pthread_t crf_count(int *counter, struct crf_state *crfs, struct peer *p) {
   return crfp((pf_t *)pf_count, counter, p);
 };
 
-void *session(void *x) {
-  struct peer *p = (struct peer *)x;
-
-  struct bgp_message bm;
-  char *errormsg = "unspecified error";
-
-  switch (p->role) {
-  case ROLELISTENER:
-    fprintf(stderr, "%d: session start - role=LISTENER\n", p->tidx);
-    break;
-  case ROLESENDER:
-    fprintf(stderr, "%d: session start - role=SENDER\n", p->tidx);
-    break;
-  default:
-    fprintf(stderr, "%d: session start - role=<unassigned>\n", p->tidx);
-    goto exit;
-  };
-
-  init(p);
-  send_open(p);
-  if (0 != expect_open(p)) {
-    goto exit;
-  }
-
-  pthread_exit(NULL);
-
-  send_keepalive(p);
-  if (0 != expect_keepalive(p))
-    goto exit;
-
-  pthread_t thrd;
-  if (p->role == ROLESENDER) {
-    p->sndrunning = 1;
-    pthread_create(&thrd, NULL, sendthread, p);
-  } else
-    p->slp = initlogrecord(p->tidx, "N/A");
-
-  while (0 == tflag) {
-    if ((0 == p->sndrunning) && (p->role == ROLESENDER)) {
-      errormsg = "sender exited unexpectedly";
-      goto exit;
-    };
-    //    msgtype = getBGPMessage(&(p->sb)); // keepalive or updates from now on
-    getBGPMessage(&bm, &(p->sb)); // keepalive or updates from now on
-    switch (bm.msgtype) {
-    case BGPTIMEOUT: // this is an idle recv timeout event
-      break;
-    case BGPUPDATE: // Update
-      break;
-    case BGPKEEPALIVE: // Keepalive
-                       // trying to send while the send thread is also running is a BAD idea - because (using writev) the
-                       // send here can interleave in the message flow!!!!!
-      if (p->sndrunning == 0) {
-        _send(p, keepalive, 19);
-      };
-      break;
-    case BGPNOTIFICATION: // Notification
-      fprintf(stderr, "%d: session: got Notification\n", p->tidx);
-      errormsg = "got Notification";
-      goto exit;
-    default:
-      if (bm.msgtype < 0) { // all non message events except recv timeout
-        fprintf(stderr, "%d: session: end of stream\n", p->tidx);
-        errormsg = "got end of stream";
-      } else { // unexpected BGP message - unless BGP++ it must be an Open....
-        // report(BGPUNKNOWN, bm.msgtype);
-        errormsg = "got unexpected BGP message";
-      }
-      goto exit;
-    }
-  };
-exit:
-  closelogrecord(p->slp, p->tidx); // closelogrecord is safe in case that initlogrecord was not called...
-  if (1 == p->sndrunning) {        // this guards against calling pthread_cancel on a thread which already exited
-    pthread_cancel(thrd);
-  };
-  if (tflag) {
-    send_notification(p, NOTIFICATION_CEASE, NOTIFICATION_ADMIN_RESET);
-    errormsg = "shutdown requested";
-    fprintf(stderr, "%d: shutdown requested\n", p->tidx);
-  } else
-    tflag = 1; // we still want the other side to close if we are exiting abnormally (maybe have another value of tflag to indicate an error exit?)
-  close(p->sock);
-  fprintf(stderr, "%d: session exit\n", p->tidx);
-  // NB - endlog calls exit()!
-  endlog(errormsg);
-};
-
 void *establish(void *x) {
   struct peer *p = (struct peer *)x;
   struct crf_state crfs;
@@ -664,60 +520,6 @@ exit:
   fprintf(stderr, "establish: abnormal exit\n");
 };
 
-void *crf_canary_thread(struct peer *p) {
-  struct timespec ts;
-  struct crf_state crfs;
-  struct prefix pfx = (struct prefix){CANARYSEED + __bswap_32((p + 1)->tidx), 32};
-  fprintf(stderr, "crf_test listener : %s\n", fromHostAddress(p->localip));
-  gettime(&ts);
-  crf_update(&pfx, &crfs, p);
-  fprintf(stderr, "crf_test listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
-};
-
-void *crf_canary_test(struct peer *p) {
-  struct timespec ts;
-  pthread_t crf_threadid;
-
-  pthread_create(&crf_threadid, NULL, (thread_t *)crf_canary_thread, p);
-
-  fprintf(stderr, "crf_canary_test sender   : %s\n", fromHostAddress((p + 1)->localip));
-  gettime(&ts);
-  send_update_block(0, TABLESIZE, p + 1);
-  fprintf(stderr, "crf_canary_test block transmit elapsed time %s\n", showdeltams(ts));
-  sleep(2);
-  send_single_update((p + 1), CANARYSEED + __bswap_32((p + 1)->tidx), 32);
-  fprintf(stderr, "crf_canary_test canary transmit elapsed time %s\n", showdeltams(ts));
-  pthread_join(crf_threadid, NULL);
-  fprintf(stderr, "crf_canary_test total elapsed time %s\n", showdeltams(ts));
-};
-
-void *crf_thread(struct peer *p) {
-  struct timespec ts;
-  struct crf_state crfs;
-  int count = TABLESIZE;
-  fprintf(stderr, "crf_test listener : %s\n", fromHostAddress(p->localip));
-  gettime(&ts);
-  crf_count(&count, &crfs, p);
-  fprintf(stderr, "crf_test listener return status=%d elapsed time %s\n", crfs.status, showdeltams(ts));
-};
-
-void *crf_test(struct peer *p) {
-  struct timespec ts;
-  pthread_t crf_threadid;
-
-  pthread_create(&crf_threadid, NULL, (thread_t *)crf_thread, p);
-
-  fprintf(stderr, "crf_test sender   : %s\n", fromHostAddress((p + 1)->localip));
-  gettime(&ts);
-  send_update_block(0, TABLESIZE, p + 1);
-  fprintf(stderr, "crf_test transmit elapsed time %s\n", showdeltams(ts));
-  pthread_join(crf_threadid, NULL);
-  fprintf(stderr, "crf_test total elapsed time %s\n", showdeltams(ts));
-};
-
-/*
-*/
-
 double single_peer_burst_test(struct peer *p, int count) {
   struct crf_state crfs;
   struct timespec ts_start, ts_end;
@@ -727,7 +529,7 @@ double single_peer_burst_test(struct peer *p, int count) {
   gettime(&ts_start);
 
   pthread_t threadid = crf_count(&n, &crfs, p);
-  send_update_block(0, count, p + 1);
+  send_update_block(count, p + 1);
   gettime(&ts_end);
   elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
   fprintf(stderr, "single_peer_burst_test(%d) transmit elapsed time %f\n", count, elapsed);
@@ -774,7 +576,7 @@ void *conditioning_single_peer(struct peer *target, struct peer *listen) {
   pthread_t threadid = rx_start(listen);
   gettime(&ts);
   fprintf(stderr, "conditioning : %s\n", fromHostAddress(target->localip));
-  send_update_block(0, TABLESIZE, target);
+  send_update_block(TABLESIZE, target);
   rx_end(listen, threadid);
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltams(ts));
 };
