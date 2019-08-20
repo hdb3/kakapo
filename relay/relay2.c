@@ -1,5 +1,5 @@
 
-/* kakapo-relay - a BGP traffic relay */
+/* kakapo-relay2 - a BGP traffic relay */
 
 #include <arpa/inet.h>
 #include <assert.h>
@@ -7,18 +7,18 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
-#include <unistd.h>
-
-#include <stdint.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
 #include "util.h"
 #define FLAGS(a, b, c)
-//#define FLAGS( a , b , c) flags( a , b, c)
 
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 #define BUFSIZE (1024 * 1024 * 64)
@@ -26,7 +26,7 @@
 #define MAXPEERS 100
 #define MAXPENDING 2 // Max connection requests
 
-char VERSION[] = "1.2.0";
+char VERSION[] = "2.0.0";
 
 struct peer {
   int peer_index, sock;
@@ -89,40 +89,36 @@ int readaction(struct peer *p, int read_flag) {
   int res;
   int niovec;
   struct iovec iovecs[2];
+
   if (read_flag && canRead(p->sock, p->nread, p->nwrite)) {
     niovec = setupIOVECs(iovecs, p->buf, p->nread, p->nwrite + BUFSIZE);
-    FLAGS(p->sock, __FILE__, __LINE__);
     res = readv(p->sock, iovecs, niovec);
-    FLAGS(p->sock, __FILE__, __LINE__);
 
-    if (res > 0) {
-      p->nread += res;
-      processaction(p);
-      return 0;
-    };
-
-    if (errno == EAGAIN) { // nothing available but not an error
+    if (res == -1) { // some kind of error
+      if (errno != EAGAIN) {
+        printf("peer %d: end of stream on fd %d, errno: %d\n", p->peer_index, p->sock, errno);
+        running = 0;
+      } else
+        ;                  // (errno == EAGAIN)
+                           // nothing available but not an error
                            // should not happen as we only read if the select showed read will succceed
                            // **** HOWEVER *******
                            // experience shows that this does occur at the end of sessions
                            // _repeatedly_
                            // so, until resolved, it is best not to log it
-      // printf("unproductive read on stream on fd %d\n", p->sock);
-      return 0;
+    } else if (res == 0) { // normal end-of-stream
+      printf("peer %d: end of stream on fd %d\n", p->peer_index, p->sock);
+      running = 0;
+    } else if (res > 0) {
+      p->nread += res;
+      processaction(p);
+    } else { // impossible to have -ve != -1
+      printf("peer %d: impossible end of stream(%d) on fd %d\n", p->peer_index, res, p->sock);
+      running = 0;
     };
-
-    // all other outcomes are terminal
-    // - and the non-zero return causes the session to exit
-
-    if (res == 0) // normal end-of-stream
-      printf("end of stream on fd %d\n", p->sock);
-    else
-      printf("end of stream on fd %d, errno: %d\n", p->sock, errno);
-
-    return 1;
-
-  } else // this is the case where we cannot read because the buffer is full
-    return 0;
+  } else // this is the (unexpected) case where we cannot read because the buffer is full
+    printf("peer %d: impossible invocation on fd %d\n", p->peer_index, p->sock);
+  return canRead(p->sock, p->nread, p->nwrite);
 };
 
 uint8_t *get_byte(struct peer *p, uint64_t offset) {
@@ -140,6 +136,7 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
   (*(p->msg_counts + msg_type))++;
   // notice: if counts are zeroed out at connection time then the Open and Notification counts can be used as flags for state changes
   // an EndOfRIB detector would be simple too, by checking for specific msg_length and msg_type
+  printf("dpi: peer %d, msg_type %d\n", p->peer_index, msg_type);
 };
 
 void processaction(struct peer *p) {
@@ -185,7 +182,7 @@ int writeaction(struct peer *p, int sock2, fd_set *set) {
   return 0;
 };
 
-void run(struct peer *peer1, struct peer *peer2) {
+void run() {
   int res, n, flag;
   struct peer *p;
   fd_set read_set;
@@ -195,7 +192,9 @@ void run(struct peer *peer1, struct peer *peer2) {
   FD_ZERO(&read_set);
   FD_ZERO(&write_set);
   while (running) {
-    for (n = 0; n < peer_count; p = &peer_table[n++]) {
+    for (n = 0; n < peer_count; n++) {
+      p = peer_table + n;
+      showpeer(p);
       flag = FD_ISSET(p->sock, &read_set);
       if (readaction(p, flag))
         FD_SET(p->sock, &read_set);
@@ -229,6 +228,7 @@ void server(char *s1, char *s2) {
   int reuse;
   struct in_addr listener_addr;
   // struct in_addr hostaddr;
+  pthread_t threadid;
 
   printf("server start\n");
 
@@ -249,7 +249,7 @@ void server(char *s1, char *s2) {
   0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
 
   while (peer_count < MAXPEERS) {
-    p = &peer_table[peer_count++];
+    p = &peer_table[peer_count];
     memset(p, 0, sizeof(struct peer));
     p->peer_index = peer_count;
     memset(&acceptaddr, 0, SOCKADDRSZ);
@@ -272,6 +272,9 @@ void server(char *s1, char *s2) {
     };
     nfds = peersock + 1 > nfds ? peersock + 1 : nfds;
     showpeer(p);
+    peer_count++;
+    if (1 == peer_count)
+      pthread_create(&threadid, NULL, (void *)run, NULL);
   };
 };
 
@@ -285,6 +288,7 @@ void version(char *s) {
 
 int main(int argc, char *argv[]) {
   setlinebuf(stdout);
+  prctl(PR_SET_DUMPABLE, 1);
   if (argc == 2) {
     version(argv[1]);
   } else if (argc == 3)
