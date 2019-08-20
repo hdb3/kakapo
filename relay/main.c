@@ -131,7 +131,7 @@ void showselectflags(char *ctxt, fd_set *rset, fd_set *wset, int fd1, int fd2) {
   printf(" ]\n");
 };
 
-int setupIOVECs(struct iovec *vec, void *base, int start, int end) {
+int setupIOVECs(struct iovec *vec, void *base, uint64_t start, uint64_t end) {
 
   if ((end / BUFSIZE) > (start / BUFSIZE) && (end % BUFSIZE) != 0) {
     vec[0].iov_base = base + (start % BUFSIZE);
@@ -148,17 +148,18 @@ int setupIOVECs(struct iovec *vec, void *base, int start, int end) {
   };
 };
 
-int canRead(int fd, int nread, int nwrite) {
+int canRead(int fd, uint64_t nread, uint64_t nwrite) {
   int p = (MINREAD < BUFSIZE + nwrite - nread) ? 1 : 0;
   return p;
   if (p) {
-    printf("fd%d - CAN READ %d (%d %d)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
+    printf("fd%d - CAN READ %ld (%ld %ld)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
   } else {
-    printf("fd%d - CANNOT READ %d (%d %d)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
+    printf("fd%d - CANNOT READ %ld (%ld %ld)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
   };
   return p;
 };
 
+void processaction(struct peer *p);
 int readaction(struct peer *p, fd_set *set) {
   int res;
   int niovec;
@@ -172,6 +173,7 @@ int readaction(struct peer *p, fd_set *set) {
 
     if (res > 0) {
       p->nread += res;
+      processaction(p);
       return 0;
     };
 
@@ -209,6 +211,7 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
   // for heavy processing it might be better to copy to a contiguous buffer
   // and return immeddiately
   (5 > msg_type) || (1 < msg_type) || die("bad sync");
+  (4097 > msg_length) || (19 < msg_length) || die("bad sync2");
   (*(p->msg_counts))++;
   (*(p->msg_counts + msg_type))++;
   // notice: if counts are zeroed out at connection time then the Open and Notification counts can be used as flags for state changes
@@ -218,6 +221,8 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
 void processaction(struct peer *p) {
   // need at least 19 bytes to have a valid length field and a message type in a message....
   uint64_t available;
+  // uncomment to remove message delineation
+  // p->nprocessed = p->nread;
   available = p->nread - p->nprocessed;
   while (18 < available) {
     uint16_t msg_length = (*(get_byte(p, 16)) << 8) + *get_byte(p, 17);
@@ -258,7 +263,7 @@ int writeaction(struct peer *p, int sock2, fd_set *set) {
 };
 
 int setflags(struct peer *p, int sock2, fd_set *rset, fd_set *wset) {
-  if (0 < p->nread - p->nwrite)
+  if (0 < p->nprocessed - p->nwrite)
     FD_SET(sock2, wset);
   else
     FD_CLR(sock2, wset);
@@ -286,12 +291,8 @@ void run(struct peer *peer1, struct peer *peer2) {
     int res = select(FD_SETSIZE, &rset, &wset, NULL, NULL);
     if (readaction(peer1, &rset))
       break;
-    else
-      processaction(peer1);
     if (readaction(peer2, &rset))
       break;
-    else
-      processaction(peer2);
     if (writeaction(peer1, peer2->sock, &wset))
       break;
     if (writeaction(peer2, peer1->sock, &wset))
@@ -356,7 +357,6 @@ void serverstart(int serversock, struct peer *peer1, struct peer *peer2) {
 };
 
 int start(struct peer *peer1, struct peer *peer2) {
-  int i;
 
   printf("client start\n");
   connectPeer(peer1);
