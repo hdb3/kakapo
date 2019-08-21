@@ -145,8 +145,9 @@ int readaction(struct peer *p, int read_flag) {
       printf("peer %d: impossible end of stream(%d) on fd %d\n", p->peer_index, res, p->sock);
       running = 0;
     };
-  } else // this is the (unexpected) case where we cannot read because the buffer is full
-    printf("peer %d: impossible invocation on fd %d\n", p->peer_index, p->sock);
+  } else // this is either the (unexpected) case where we cannot read because the buffer is full
+         // or more likely simply that read flag is unset and this is our chance to set it again
+    ;    // printf("peer %d: impossible invocation on fd %d\n", p->peer_index, p->sock);
   return canRead(p->sock, p->nread, p->nwrite);
 };
 
@@ -165,21 +166,20 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
   (*(p->msg_counts + msg_type))++;
   // notice: if counts are zeroed out at connection time then the Open and Notification counts can be used as flags for state changes
   // an EndOfRIB detector would be simple too, by checking for specific msg_length and msg_type
-  // printf("dpi: peer %d, msg_type %d\n", p->peer_index, msg_type);
   switch (msg_type) {
   case 1:
-    printf("dpi: peer %d, msg_type Open\n", p->peer_index);
+    printf("peer %d, Open\n", p->peer_index);
     echo(p, msg_length);
     break;
   case 2:
     forward(p, msg_length);
     break;
   case 3:
-    printf("dpi: peer %d, msg_type Notification\n", p->peer_index);
+    printf("peer %d, Notification\n", p->peer_index);
     stop(p, msg_length);
     break;
   case 4:
-    printf("dpi: peer %d, msg_type Keepalive\n", p->peer_index);
+    printf("peer %d, Keepalive\n", p->peer_index);
     echo(p, msg_length);
     break;
   };
@@ -203,31 +203,6 @@ void processaction(struct peer *p) {
   };
 };
 
-int writeaction(struct peer *p, int sock2, fd_set *set) {
-  int res;
-  int niovec;
-  struct iovec iovecs[2];
-  if (0 < p->nprocessed - p->nwrite) {
-    // try write in case we just got read afeteer the last select()
-    // if ( FD_ISSET ( sock2 , set) && (0 < p->nread - p->nwrite) ) {
-    niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nprocessed);
-    FLAGS(sock2, __FILE__, __LINE__);
-    res = writev(sock2, iovecs, niovec);
-    FLAGS(sock2, __FILE__, __LINE__);
-    if (res > 0) {
-      p->nwrite += res;
-    } else if (res == 0) // probably an error!!!!
-      return 1;
-    else if (errno == EAGAIN)
-      ;
-    else {
-      printf("write error, errno: %d\n", errno);
-      return 1;
-    };
-  };
-  return 0;
-};
-
 void run() {
   int res, n, flag;
   struct peer *p;
@@ -240,7 +215,6 @@ void run() {
   while (running) {
     for (n = 0; n < peer_count; n++) {
       p = peer_table + n;
-      showpeer(p);
       flag = FD_ISSET(p->sock, &read_set);
       if (readaction(p, flag))
         FD_SET(p->sock, &read_set);
@@ -269,16 +243,12 @@ void server(char *s1, char *s2) {
   struct peer *p;
   struct sockaddr_in host = {AF_INET, htons(179), (struct in_addr){0}};
   int serversock;
-  //struct sockaddr_in serversocketaddress;
-  // struct peer peer1, peer2;
   int reuse;
   struct in_addr listener_addr;
-  // struct in_addr hostaddr;
   pthread_t threadid;
 
   printf("server start\n");
 
-  // 0 == (inet_aton(s1, &hostaddr)) || die("failed parsing server listen address");
   0 != (inet_aton(s1, &host.sin_addr)) || die("failed parsing server listen address");
   0 != (inet_aton(s2, &listener_addr)) || die("failed parsing listener peer address");
 
@@ -300,9 +270,6 @@ void server(char *s1, char *s2) {
     p->peer_index = peer_count;
     memset(&acceptaddr, 0, SOCKADDRSZ);
     -1 != (peersock = accept(serversock, NULL, NULL)) || die("Failed to accept peer connection");
-    // socklen = SOCKADDRSZ;
-    // 0 < (peersock = accept(serversock, (struct sockaddr *)&acceptaddr, &socklen)) || die("Failed to accept peer connection");
-    // (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
     socklen = SOCKADDRSZ;
     0 == (getpeername(peersock, (struct sockaddr *)&p->remote, &socklen)) || die("Failed to get peer address");
     socklen = SOCKADDRSZ;
