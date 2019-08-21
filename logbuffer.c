@@ -16,6 +16,8 @@ void logbuffer_init(struct logbuffer *lb, int size, int bsize, struct timespec d
   lb->block_size = bsize;
   lb->buffer_size = size;
   lb->duration = duration;
+  lb->received = 0;
+  lb->sent = 0;
 };
 
 void logbuffer_write(struct logbuffer *lb, struct log_record *lr) {

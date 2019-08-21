@@ -16,6 +16,7 @@ struct logbuffer {
   int overrun_count;
   struct log_record *logrecords;
   struct timespec duration;
+  int received, sent;
 };
 
 void logbuffer_init(struct logbuffer *lb, int size, int bsize, struct timespec duration);

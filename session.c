@@ -294,11 +294,11 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   uint64_t buflen = 0;
 
   for (i = 0; i < length; i++) {
-    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, i),
+    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                  empty,
                                  iBGPpath(localip,
                                           localpref,
-                                          (uint32_t[]){i + TEN7, peer_index, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
+                                          (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
     vec[i] = b;
     buflen += b.length;
     usn++;
@@ -677,7 +677,7 @@ void notify_all(struct peer *p) {
 };
 
 //
-// Coniuous mode test support
+// Continuous mode test support
 //
 
 int bgp_receive(struct peer *p) {
@@ -708,6 +708,11 @@ struct logger_local {
 int logger(struct logbuffer *lb, struct logger_local *llp) {
   struct log_record *lrp;
   lrp = logbuffer_read(lb);
+
+  // **** usefull diagnostic!!!!
+  // do not remove!!!!!
+  // printf("sent/received: %d/%d\n", lb->sent, lb->received);
+
   while (NULL != lrp) {
     if (0 == lrp->ts.tv_sec)
       return 1;
@@ -757,9 +762,9 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   struct logbuffer lb;
   struct log_record lr;
   struct peer *sender;
-  int sent = 0;
+  // int sent = 0;
   int peer_count = 1;
-  int received = 0;
+  // int received = 0;
   int target;
   int blocking_factor;
   int RATEBLOCKSIZE = 1000000;
@@ -776,30 +781,30 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   sender = p + 1;
   fprintf(stderr, "multi_peer_rate_test start, % d peers\n", peer_count);
   do {
-    target = window + received - sent;
-    if (target > 0 && sent < count) {
+    target = window + lb.received - lb.sent;
+    if (target > 0 && lb.sent < count) {
       blocking_factor = 1 + target / peer_count;
       send_update_block(blocking_factor, sender);
       //send_next_update(sender);
-      sent += blocking_factor;
+      lb.sent += blocking_factor;
       if ((++sender)->sock == 0)
         sender = p + 1;
       continue;
     } else
       do {
         if (bgp_receive(p)) {
-          received++;
-          if (0 == received % RATEBLOCKSIZE) {
+          lb.received++;
+          if (0 == lb.received % RATEBLOCKSIZE) {
             // ideally this should use a clock value from the read buffer system....
             clock_gettime(CLOCK_REALTIME, &lr.ts);
-            lr.index = received / RATEBLOCKSIZE;
+            lr.index = lb.received / RATEBLOCKSIZE;
             logbuffer_write(&lb, &lr);
           }
         } else
           // bgp_receive() returned an exception
           break;
       } while (bgp_peek(&p->sb));
-  } while (received < count);
+  } while (lb.received < count);
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};
   lr.index = -1;
