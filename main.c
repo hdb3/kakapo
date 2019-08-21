@@ -42,7 +42,7 @@ uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
 uint32_t BLOCKSIZE = 3;
-uint32_t WINDOW = 100;
+uint32_t WINDOW = 1000;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t NEXTHOP;
