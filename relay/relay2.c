@@ -31,7 +31,7 @@ char VERSION[] = "2.0.0";
 
 struct peer {
   int peer_index, sock;
-  uint64_t nread, nwrite, nprocessed;
+  uint64_t nread, nwrite, nprocessed, nwriteable;
   int msg_counts[5];
   struct sockaddr_in remote, local;
   void *buf;
@@ -90,15 +90,22 @@ int write_from(struct peer *p, int sock, int length) {
   };
 };
 
+int flush(struct peer *p) {
+  write_from(p, listen_sock, p->nwriteable);
+  p->nwriteable = 0;
+};
+
 int forward(struct peer *p, int length) {
-  write_from(p, listen_sock, length);
+  p->nwriteable += length;
 };
 
 int echo(struct peer *p, int length) {
+  flush(p);
   write_from(p, p->sock, length);
 };
 
 int stop(struct peer *p, int length) {
+  flush(p);
   p->nwrite += length;
   running = 0;
   printf("stopping\n");
@@ -143,6 +150,7 @@ int readaction(struct peer *p, int read_flag) {
     } else if (res > 0) {
       p->nread += res;
       processaction(p);
+      flush(p);
     } else { // impossible to have -ve != -1
       printf("peer %d: impossible end of stream(%d) on fd %d\n", p->peer_index, res, p->sock);
       running = 0;
@@ -200,8 +208,10 @@ void processaction(struct peer *p) {
       dpi(p, msg_type, msg_length);
       p->nprocessed += msg_length;
       available -= msg_length;
-    } else
+    } else {
+      flush(p);
       break;
+    };
   };
 };
 
