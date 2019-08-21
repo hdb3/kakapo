@@ -362,6 +362,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
     strict_canary_all(peertable);
     conditioning(peertable);
+    strict_canary_all(peertable);
+    sleep(5);
     multi_peer_rate_test(peertable, MAXBURSTCOUNT, WINDOW);
   } else {
 

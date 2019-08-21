@@ -550,7 +550,7 @@ struct prefix *canary_base() {
   return &_pfx;
 };
 
-struct prefix *get_canary_prefix(struct peer *p) {
+struct prefix *canary(struct peer *p) {
   _pfx = (struct prefix){CANARYSEED + __bswap_32(p->tidx), 32};
   return &_pfx;
 };
@@ -558,10 +558,10 @@ struct prefix *get_canary_prefix(struct peer *p) {
 void strict_canary(struct peer *listener, struct peer *p) {
   struct crf_state crfs;
 
-  send_single_update(p, canary_base());
-  crf_update(canary_base(), &crfs, listener);
+  send_single_update(p, canary(p));
+  crf_update(canary(p), &crfs, listener);
 
-  send_single_withdraw(p, canary_base());
+  send_single_withdraw(p, canary(p));
   crf_withdrawn_count(1, &crfs, listener);
 };
 
@@ -573,7 +573,7 @@ struct rx_data {
 
 void rx_thread(struct rx_data *rxd) {
   struct crf_state crfs;
-  crf_update(canary_base(), &crfs, rxd->listener);
+  crf_update(canary(rxd->target), &crfs, rxd->listener);
 };
 
 // (struct peer *target, struct peer *listen) {
@@ -587,7 +587,7 @@ struct rx_data *rx_start(struct peer *target, struct peer *listener) {
 };
 
 void rx_end(struct rx_data *rxd) {
-  send_single_update(rxd->target, canary_base());
+  send_single_update(rxd->target, canary(rxd->target));
   _pthread_join(rxd->threadid);
   free(rxd);
 };
