@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,6 +84,7 @@ int write_from(struct peer *p, int sock, int length) {
     p->nwrite += res;
     return 1;
   } else {
+    running = 0;
     printf("write error, errno: %d (%d)\n", errno, res);
     return 0;
   };
@@ -300,8 +302,12 @@ void version(char *s) {
 };
 
 int main(int argc, char *argv[]) {
-  setlinebuf(stdout);
+  sigset_t set;
+
   prctl(PR_SET_DUMPABLE, 1);
+  sigemptyset(&set);
+  sigaddset(&set, SIGPIPE);
+  pthread_sigmask(SIG_BLOCK, &set, NULL);
   if (argc == 2) {
     version(argv[1]);
   } else if (argc == 3)
