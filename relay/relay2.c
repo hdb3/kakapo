@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -38,8 +39,11 @@ struct peer {
 } peer_table[MAXPEERS];
 int peer_count = 0;
 int nfds = 0;
-int running = 1;
+int running = 0;
 int listen_sock = -1;
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+;
+sem_t semaphore1;
 
 void showpeer(struct peer *p) {
   printf("peer %2d: local: %s ", p->peer_index, inet_ntoa(p->local.sin_addr));
@@ -215,28 +219,46 @@ void processaction(struct peer *p) {
   };
 };
 
+int runseq = 0;
 void run() {
   int res, n, flag;
   struct peer *p;
   fd_set read_set;
   fd_set write_set;
 
-  printf("run\n");
-  FD_ZERO(&read_set);
-  FD_ZERO(&write_set);
-  while (running) {
+  while (1) {
+    0 == (sem_wait(&semaphore1)) || die("semaphore wait fail");
+    printf("run session(%d)\n", ++runseq);
+    FD_ZERO(&read_set);
+    FD_ZERO(&write_set);
+    running = 1;
+    while (running) {
+      for (n = 0; n < peer_count; n++) {
+        p = peer_table + n;
+        flag = FD_ISSET(p->sock, &read_set);
+        if (readaction(p, flag))
+          FD_SET(p->sock, &read_set);
+        else
+          FD_CLR(p->sock, &read_set);
+      };
+      res = select(nfds, &read_set, &write_set, NULL, NULL);
+    };
+
+    // closing down
+    0 == pthread_mutex_lock(&mutex1) || die("Failed to get mutex lock");
+    // for (n = 0; n < peer_count; p = &peer_table[n++]) {
     for (n = 0; n < peer_count; n++) {
       p = peer_table + n;
-      flag = FD_ISSET(p->sock, &read_set);
-      if (readaction(p, flag))
-        FD_SET(p->sock, &read_set);
-      else
-        FD_CLR(p->sock, &read_set);
+      close(p->sock);
+      free(p->buf);
+      peer_report(p);
     };
-    res = select(nfds, &read_set, &write_set, NULL, NULL);
+    nfds = 0;
+    peer_count = 0;
+    listen_sock = -1;
+    printf("run closed session(%d)\n", runseq);
+    0 == pthread_mutex_unlock(&mutex1) || die("Failed to release mutex lock");
   };
-  for (n = 0; n < peer_count; p = &peer_table[n++])
-    peer_report(p);
 };
 
 void setsocketnonblock(int sock) {
@@ -275,31 +297,39 @@ void server(char *s1, char *s2) {
   0 == (bind(serversock, (struct sockaddr *)&host, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
   0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
-
-  while (peer_count < MAXPEERS) {
-    p = &peer_table[peer_count];
-    memset(p, 0, sizeof(struct peer));
-    p->peer_index = peer_count;
+  0 == (sem_init(&semaphore1, 0, 0)) || die("semaphore init fail");
+  pthread_create(&threadid, NULL, (void *)run, NULL);
+  while (1) {
     memset(&acceptaddr, 0, SOCKADDRSZ);
     -1 != (peersock = accept(serversock, NULL, NULL)) || die("Failed to accept peer connection");
-    socklen = SOCKADDRSZ;
-    0 == (getpeername(peersock, (struct sockaddr *)&p->remote, &socklen)) || die("Failed to get peer address");
-    socklen = SOCKADDRSZ;
-    0 == (getsockname(peersock, (struct sockaddr *)&p->local, &socklen)) || die("Failed to get local address");
-    // fcntl(peersock, F_SETFL, O_NONBLOCK);
-    // setsocketnonblock(peersock);
     setsocketnodelay(peersock);
-    p->buf = malloc(BUFSIZE);
-    p->sock = peersock;
-    if (p->remote.sin_addr.s_addr == listener_addr.s_addr) {
-      printf("listener peer connected\n");
-      listen_sock = peersock;
+    0 == pthread_mutex_lock(&mutex1) || die("Failed to get mutex lock");
+    if (peer_count >= MAXPEERS) {
+      close(peersock);
+      printf("session rejected, too many connections (%d)\n", peer_count);
+    } else {
+      p = &peer_table[peer_count];
+      memset(p, 0, sizeof(struct peer));
+      socklen = SOCKADDRSZ;
+      0 == (getpeername(peersock, (struct sockaddr *)&p->remote, &socklen)) || die("Failed to get peer address");
+      socklen = SOCKADDRSZ;
+      0 == (getsockname(peersock, (struct sockaddr *)&p->local, &socklen)) || die("Failed to get local address");
+      // fcntl(peersock, F_SETFL, O_NONBLOCK);
+      // setsocketnonblock(peersock);
+      p->peer_index = peer_count;
+      p->buf = malloc(BUFSIZE);
+      p->sock = peersock;
+      if (p->remote.sin_addr.s_addr == listener_addr.s_addr) {
+        printf("listener peer connected\n");
+        listen_sock = peersock;
+      };
+      nfds = peersock + 1 > nfds ? peersock + 1 : nfds;
+      showpeer(p);
+      peer_count++;
     };
-    nfds = peersock + 1 > nfds ? peersock + 1 : nfds;
-    showpeer(p);
-    peer_count++;
+    0 == pthread_mutex_unlock(&mutex1) || die("Failed to release mutex lock");
     if (1 == peer_count)
-      pthread_create(&threadid, NULL, (void *)run, NULL);
+      0 == (sem_post(&semaphore1)) || die("semaphore post fail");
   };
 };
 
