@@ -276,7 +276,7 @@ int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
     bm->msgtype = *(char *)(header + 18);
     if (0 < bm->pl) {
       bm->payload = bufferedRead(sb, bm->pl);
-      if (0 == bm->payload) {
+      if ((0 == bm->payload) || ((char *)-1 == bm->payload)) {
         fprintf(stderr, "unexpected end of stream after header received\n");
         bm->msgtype = BGPENDOFSTREAM;
       }
@@ -431,19 +431,23 @@ struct crf_state *crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_messa
     getBGPMessage(&bm, &(p->sb));
     if (BGPKEEPALIVE == bm.msgtype)
       continue;
-    if (BGPUPDATE == bm.msgtype) {
+    else if (BGPUPDATE == bm.msgtype) {
       // ignore EOR
       if (bm.pl == 4)
         doeor(bm.payload);
       else
         crfs->status = pf(pf_state, &bm);
       continue;
+    } else if (BGPTIMEOUT == bm.msgtype) {
+      fprintf(stderr, "crf: timeout\n");
+      crfs->status = -2;
     } else {
       fprintf(stderr, "crf: exception exit\n");
       report(BGPUPDATE, bm.msgtype);
       crfs->status = -1;
     }
   };
+  // crfs->end = p->sb.rcvtimestamp; // why does this SIGSEGV ????
   gettime(&crfs->end);
   return crfs;
 };
@@ -531,6 +535,7 @@ double single_peer_burst_test(struct peer *p, int count) {
   double elapsed;
   int n = count;
 
+  memset(&crfs, 0, sizeof(struct crf_state));
   gettime(&ts_start);
 
   pthread_t threadid = crf_count(&n, &crfs, p);
@@ -540,7 +545,12 @@ double single_peer_burst_test(struct peer *p, int count) {
   fprintf(stderr, "single_peer_burst_test(%d) transmit elapsed time %f\n", count, elapsed);
   crfs = crfjoin(threadid);
   elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
-  fprintf(stderr, "single_peer_burst_test receive elapsed time %f status %d\n", elapsed, crfs.status);
+  if (1 == crfs.status)
+    fprintf(stderr, "single_peer_burst_test receive elapsed time %f\n", elapsed);
+  else if (-2 == crfs.status)
+    fprintf(stderr, "single_peer_burst_test receive ** TIMEOUT **  elapsed time %f  dropped %d/%d\n", elapsed, n, count);
+  else
+    fprintf(stderr, "single_peer_burst_test receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d\n", crfs.status, elapsed, n, count);
   return elapsed;
 };
 
@@ -711,7 +721,7 @@ int logger(struct logbuffer *lb, struct logger_local *llp) {
 
   // **** usefull diagnostic!!!!
   // do not remove!!!!!
-  // printf("sent/received: %d/%d\n", lb->sent, lb->received);
+  printf("sent/received: %d/%d\n", lb->sent, lb->received);
 
   while (NULL != lrp) {
     if (0 == lrp->ts.tv_sec)
@@ -762,12 +772,10 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   struct logbuffer lb;
   struct log_record lr;
   struct peer *sender;
-  // int sent = 0;
-  int peer_count = 1;
-  // int received = 0;
   int target;
   int blocking_factor;
   int RATEBLOCKSIZE = 1000000;
+  int MAXBLOCKINGFACTOR = 1000;
   logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
@@ -776,15 +784,12 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   logbuffer_write(&lb, &lr);
 
   sender = p + 1;
-  while (sender++ != 0)
-    peer_count++;
-  sender = p + 1;
   fprintf(stderr, "multi_peer_rate_test start, % d peers\n", peer_count);
   do {
     target = window + lb.received - lb.sent;
     if (target > 0 && lb.sent < count) {
       blocking_factor = 1 + target / peer_count;
-      send_update_block(blocking_factor, sender);
+      send_update_block((blocking_factor > MAXBLOCKINGFACTOR ? MAXBLOCKINGFACTOR : blocking_factor), sender);
       //send_next_update(sender);
       lb.sent += blocking_factor;
       if ((++sender)->sock == 0)

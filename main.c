@@ -23,12 +23,16 @@
 #include "kakapo.h"
 #include "sockbuf.h"
 #include "stats.h"
-//#include "util.h"
 
 #define MAXPENDING 5 // Max connection requests
 
 sem_t semrxtx;
 struct timespec txts;
+struct peer *peertable = NULL;
+struct peer *listener = NULL;
+struct peer *senders = NULL;
+int peer_count = 0;
+int sender_count = 0;
 
 int pid;
 int tflag = 0;      // the global termination flag - when != 0, exit gracefully
@@ -252,7 +256,7 @@ void summarise(char *s, double *r) {
     max = r[i] > max ? r[i] : max;
     min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
   };
-  double mean = sum / ((double)REPEAT);
+  double mean = sum / ((double)REPEAT - 1);
   fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
 };
 
@@ -303,13 +307,14 @@ int main(int argc, char *argv[]) {
 
   // startstatsrunner();
 
-  struct peer *peertable;
+  // struct peer *peertable;
   int i, argn;
   struct peer *p;
   double *results = malloc(REPEAT * sizeof(double));
   double *results2 = malloc(REPEAT * sizeof(double));
 
   peertable = calloc(argc, sizeof(struct peer));
+  peer_count = argc - 1;
   for (argn = 1; argn <= argc - 1; argn++) {
     p = peertable + argn - 1;
     p->tidx = argn;
@@ -363,7 +368,7 @@ int main(int argc, char *argv[]) {
     strict_canary_all(peertable);
     conditioning(peertable);
     strict_canary_all(peertable);
-    sleep(5);
+    sleep(1);
     multi_peer_rate_test(peertable, MAXBURSTCOUNT, WINDOW);
   } else {
 

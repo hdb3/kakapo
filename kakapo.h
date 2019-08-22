@@ -63,6 +63,11 @@ struct peer {
   struct sockbuf sb;
   slp_t slp;
 };
+extern struct peer *peertable;
+extern struct peer *listener;
+extern struct peer *senders;
+extern int peer_count;
+extern int sender_count;
 
 void *session(void *x);
 void *establish(void *x);
