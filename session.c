@@ -447,8 +447,9 @@ struct crf_state *crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_messa
       crfs->status = -1;
     }
   };
-  // crfs->end = p->sb.rcvtimestamp; // why does this SIGSEGV ????
-  gettime(&crfs->end);
+  // gettime(&crfs->end);
+  // printf("crf tdelta: %f\n",timespec_to_double(timespec_sub(crfs->end, p->sb.rcvtimestamp)));
+  crfs->end = p->sb.rcvtimestamp; // why _DID_ this SIGSEGV ????
   return crfs;
 };
 
@@ -766,7 +767,7 @@ void logging_thread(struct logbuffer *lb) {
   };
 };
 
-void multi_peer_rate_test(struct peer *p, int count, int window) {
+void rate_test(int nsenders, int count, int window) {
   struct timespec ts;
   pthread_t threadid;
   struct logbuffer lb;
@@ -776,6 +777,8 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   int blocking_factor;
   int RATEBLOCKSIZE = 1000000;
   int MAXBLOCKINGFACTOR = 1000;
+
+  assert(nsenders > 0 && nsenders <= sender_count);
   logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
@@ -783,21 +786,21 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   lr.index = 0;
   logbuffer_write(&lb, &lr);
 
-  sender = p + 1;
-  fprintf(stderr, "multi_peer_rate_test start, % d peers\n", peer_count);
+  fprintf(stderr, "rate_test start, % d sending peers\n", nsenders);
+  sender = senders;
   do {
     target = window + lb.received - lb.sent;
     if (target > 0 && lb.sent < count) {
       blocking_factor = 1 + target / peer_count;
-      send_update_block((blocking_factor > MAXBLOCKINGFACTOR ? MAXBLOCKINGFACTOR : blocking_factor), sender);
-      //send_next_update(sender);
+      send_update_block((blocking_factor > MAXBLOCKINGFACTOR ? MAXBLOCKINGFACTOR : blocking_factor), sender++);
       lb.sent += blocking_factor;
-      if ((++sender)->sock == 0)
-        sender = p + 1;
+      if (sender = senders + nsenders)
+        sender = senders;
+      // keep sending until the window is full
       continue;
     } else
       do {
-        if (bgp_receive(p)) {
+        if (bgp_receive(listener)) {
           lb.received++;
           if (0 == lb.received % RATEBLOCKSIZE) {
             // ideally this should use a clock value from the read buffer system....
@@ -808,7 +811,8 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
         } else
           // bgp_receive() returned an exception
           break;
-      } while (bgp_peek(&p->sb));
+        // keep reading while the current read buffer is not exhausted
+      } while (bgp_peek(&listener->sb));
   } while (lb.received < count);
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};
@@ -817,4 +821,12 @@ void multi_peer_rate_test(struct peer *p, int count, int window) {
   fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %s\n", count, window, showdeltams(ts));
   _pthread_join(threadid);
   fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltams(ts));
+};
+
+void multi_peer_rate_test(int count, int window) {
+  rate_test(sender_count, count, window);
+};
+
+void single_peer_rate_test(int count, int window) {
+  rate_test(1, count, window);
 };

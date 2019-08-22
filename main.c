@@ -313,8 +313,12 @@ int main(int argc, char *argv[]) {
   double *results = malloc(REPEAT * sizeof(double));
   double *results2 = malloc(REPEAT * sizeof(double));
 
-  peertable = calloc(argc, sizeof(struct peer));
   peer_count = argc - 1;
+  sender_count = peer_count - 1;
+  assert(sender_count > 0);
+  peertable = calloc(argc, sizeof(struct peer));
+  listener = peertable;
+  senders = peertable + 1;
   for (argn = 1; argn <= argc - 1; argn++) {
     p = peertable + argn - 1;
     p->tidx = argn;
@@ -369,7 +373,15 @@ int main(int argc, char *argv[]) {
     conditioning(peertable);
     strict_canary_all(peertable);
     sleep(1);
-    multi_peer_rate_test(peertable, MAXBURSTCOUNT, WINDOW);
+    multi_peer_rate_test(MAXBURSTCOUNT, WINDOW);
+  } else if (0 == strcmp(MODE, "SINGLERATE")) {
+    fprintf(stderr, "single peer rate test mode\n");
+    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
+    strict_canary_all(peertable);
+    conditioning(peertable);
+    strict_canary_all(peertable);
+    sleep(1);
+    single_peer_rate_test(MAXBURSTCOUNT, WINDOW);
   } else {
 
     fprintf(stderr, "default test mode, take a guess.....\n");
