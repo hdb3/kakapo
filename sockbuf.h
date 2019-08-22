@@ -7,6 +7,7 @@ struct sockbuf {
   struct timespec rcvtimestamp;
   int rcvcount;
   int usecount;
+  int sberrno;
   unsigned int start, count, top, threshold;
   char *base;
 };

@@ -38,6 +38,7 @@ void bufferInit(struct sockbuf *sb, int sock, int size, int timeout) {
   sb->start = 0;
   sb->count = 0;
   sb->usecount = 0;
+  sb->sberrno = 0;
   sb->top = size;
   sb->threshold = size * 3 / 4;
   sb->base = malloc(size);
@@ -73,15 +74,31 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
     FLAGS(sb->sock, __FILE__, __LINE__);
     // if zero or worse, die...
     if (sockRead < 0) {
-      if (errno == EAGAIN)
+      if (errno == EINTR)
         continue;
-      else {
-        perror(0);
+      else if (errno == EAGAIN) { // this is the TIMEOUT event
+                                  // allow a caller to gracefully continue
+                                  // buffer integrity is unaffected
+                                  // and last productive read timestamp is untouched
+        assert(1 == sb->usecount--);
+        return NULL;
+      } else {
+        sb->sberrno = errno;
+        perror("sockRead < 0");
+        assert(1 == sb->usecount--);
         return (char *)-1;
       }
-    } else if (sockRead == 0)
+    } else if (sockRead == 0) {
+      // this is the 'normal' end-of-stream
+      // not a network exception, even if it is a protocol exception
+      // however since 'NULL' value is used to represent a timeout
+      // there is no simple differetila return value available
+      // use a zero errno in the sockbuf last error
+      sb->sberrno = 0;
+      fprintf(stderr, "peer disconnected\n");
+      assert(1 == sb->usecount--);
       return (char *)-1;
-    else {
+    } else {
       gettime(&sb->rcvtimestamp);
       sb->count = sb->count + sockRead;
     }
