@@ -8,17 +8,17 @@
 #include <stdint.h>
 #include <stdio.h>
 
+static char *s;
 char *showprefix(struct prefix pfx) {
-  char *s;
   int tmp = asprintf(&s, "%s/%d", fromHostAddress(pfx.ip), pfx.length);
   return s;
 };
 
-static char nlribuffer[65535];  // over large, but withdraw can make BGP Update at large sizes
-                                // and busting the 4096 limit is allowed in some implmentations
-				// so 2^16 is only safe value
-				// NOTE: single thread only
-				//       replaces a previous malloc based version
+static char nlribuffer[65535]; // over large, but withdraw can make BGP Update at large sizes
+                               // and busting the 4096 limit is allowed in some implmentations
+                               // so 2^16 is only safe value
+                               // NOTE: single thread only
+                               //       replaces a previous malloc based version
 
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
 

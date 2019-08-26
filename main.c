@@ -72,6 +72,13 @@ char CONTINUOUS[] = "CONTINUOUS";
 
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
+// probably should be in a library rather than main....
+static char *_s;
+char *show_peer(struct peer *p) {
+  int tmp = asprintf(&_s, "peer %d %d:%s", p->tidx, p->as, inet_ntoa((struct in_addr){p->localip}));
+  return _s;
+};
+
 void startpeer(struct peer *p, char *s) {
 
   parseargument(p, s);
@@ -95,7 +102,7 @@ void startpeer(struct peer *p, char *s) {
   p->sock = peersock;
 
   // fprintf(stderr, "connected for %s\n", s);
-  pthread_create(&(p->thrd), NULL, establish, p);
+  p->thrd = _pthread_create((void *)establish, p);
   // fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
 };
 
@@ -308,7 +315,7 @@ int main(int argc, char *argv[]) {
   // startstatsrunner();
 
   // struct peer *peertable;
-  int i, argn;
+  int i;
   struct peer *p;
   double *results = malloc(REPEAT * sizeof(double));
   double *results2 = malloc(REPEAT * sizeof(double));
@@ -319,86 +326,87 @@ int main(int argc, char *argv[]) {
   peertable = calloc(argc, sizeof(struct peer));
   listener = peertable;
   senders = peertable + 1;
-  for (argn = 1; argn <= argc - 1; argn++) {
-    p = peertable + argn - 1;
-    p->tidx = argn;
-    if (argn == 1)
+
+  for (i = 0; i < peer_count; i++) {
+    p = peertable + i;
+    if (i == 0)
       p->role = ROLELISTENER;
     else
       p->role = ROLESENDER;
-    startpeer(p, argv[argn]);
+    p->tidx = i;
+    startpeer(p, argv[i + 1]);
   };
 
-  fprintf(stderr, "connection initiated for %d peers\n", argc - 1);
+  fprintf(stderr, "connection initiated for %d peers\n", peer_count);
 
-  for (argn = 0; argn < argc - 1; argn++)
-    0 == pthread_join((peertable + argn)->thrd, NULL) || die("pthread join fail");
+  for (i = 0; i < peer_count; i++)
+    0 == pthread_join((peertable + i)->thrd, NULL) || die("pthread join fail");
 
-  fprintf(stderr, "connection complete for %d peers\n", argc - 1);
+  fprintf(stderr, "connection complete for %d peers\n", peer_count);
 
   if (0 == strcmp(MODE, "SINGLEONLY")) {
     for (i = 0; i < REPEAT; i++) {
-      strict_canary_all(peertable);
-      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+      canary_all();
+      results[i] = single_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("single_only_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "SINGLE")) {
-    conditioning(peertable);
+    conditioning();
     for (i = 0; i < REPEAT; i++) {
-      strict_canary_all(peertable);
-      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+      canary_all();
+      results[i] = single_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("single_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "MULTI")) {
-    conditioning(peertable);
+    conditioning();
     for (i = 0; i < REPEAT; i++) {
-      strict_canary_all(peertable);
-      results[i] = multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+      canary_all();
+      results[i] = multi_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("multi_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "BOTH")) {
-    conditioning(peertable);
+    conditioning();
     for (i = 0; i < REPEAT; i++) {
-      strict_canary_all(peertable);
-      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
-      strict_canary_all(peertable);
-      results2[i] = multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+      canary_all();
+      results[i] = single_peer_burst_test(MAXBURSTCOUNT);
+      canary_all();
+      results2[i] = multi_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("single_peer_burst_test", results);
     summarise("multi_peer_burst_test", results2);
   } else if (0 == strcmp(MODE, "RATE")) {
     fprintf(stderr, "rate test mode\n");
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
-    strict_canary_all(peertable);
-    conditioning(peertable);
-    strict_canary_all(peertable);
+    canary_all();
+    conditioning();
+    canary_all();
     sleep(1);
     multi_peer_rate_test(MAXBURSTCOUNT, WINDOW);
   } else if (0 == strcmp(MODE, "SINGLERATE")) {
     fprintf(stderr, "single peer rate test mode\n");
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
-    strict_canary_all(peertable);
-    conditioning(peertable);
-    strict_canary_all(peertable);
+    canary_all();
+    conditioning();
+    canary_all();
     sleep(1);
     single_peer_rate_test(MAXBURSTCOUNT, WINDOW);
   } else {
 
     fprintf(stderr, "default test mode, take a guess.....\n");
-    strict_canary_all(peertable);
+    canary_all();
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
-    conditioning(peertable);
+    conditioning();
     for (i = 0; i < REPEAT; i++) {
-      strict_canary_all(peertable);
-      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+      canary_all();
+      results[i] = single_peer_burst_test(MAXBURSTCOUNT);
     };
-    strict_canary_all(peertable);
+    canary_all();
     summarise("single_peer_burst_test", results);
     fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
   }
 
-  notify_all(peertable);
+  notify_all();
   fprintf(stderr, "notification complete for %d peers\n", argc - 1);
   fprintf(stderr, "kakapo exit\n");
   exit(0);

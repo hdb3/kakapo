@@ -63,21 +63,24 @@ struct peer {
   struct sockbuf sb;
   slp_t slp;
 };
+
+char *show_peer(struct peer *p);
+
 extern struct peer *peertable;
 extern struct peer *listener;
 extern struct peer *senders;
 extern int peer_count;
 extern int sender_count;
 
-void *session(void *x);
-void *establish(void *x);
-double single_peer_burst_test(struct peer *p, int count);
-double multi_peer_burst_test(struct peer *p, int count);
+void session(void *x);
+void establish(void *x);
+double single_peer_burst_test(int count);
+double multi_peer_burst_test(int count);
 void multi_peer_rate_test(int count, int window);
 void single_peer_rate_test(int count, int window);
-void conditioning(struct peer *p);
-void notify_all(struct peer *p);
-void strict_canary_all(struct peer *p);
+void conditioning();
+void notify_all();
+void canary_all();
 
 #define LIMIT 3
 
