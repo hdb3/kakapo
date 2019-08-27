@@ -13,12 +13,28 @@ char *showprefix(struct prefix pfx) {
   int tmp = asprintf(&s, "%s/%d", fromHostAddress(pfx.ip), pfx.length);
   return s;
 };
+int cmp_prefix(struct prefix *pfxa , struct prefix *pfxb) {
+   return (pfxa->ip == pfxb->ip) && (pfxa->length == pfxb->length);
+};
 
 static char nlribuffer[65535]; // over large, but withdraw can make BGP Update at large sizes
                                // and busting the 4096 limit is allowed in some implmentations
                                // so 2^16 is only safe value
                                // NOTE: single thread only
                                //       replaces a previous malloc based version
+
+static struct prefix prefix_list[32768]; // over large to match the logic used to size nlribuffer
+                                         // used as the return value when a prefix list is assembled by get_prefix_list
+                                         // In every case th eused space will correspond to GROUPSIZE entries unless another use emerges
+
+struct prefix *get_prefix_list(uint32_t ipstart, uint8_t length, int count, int seq) {
+  uint32_t i;
+  uint32_t increment = 1 << (32 - length);
+  for (i = 0; i < count; i++) {
+    prefix_list[i] = (struct prefix){ipstart + i * increment, length};
+  };
+  return prefix_list;
+};
 
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
 
