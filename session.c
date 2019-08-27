@@ -298,7 +298,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                  empty,
                                  iBGPpath(localip,
-                                          localpref,
+                                          localpref+usn/TABLESIZE,
                                           (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
     vec[i] = b;
     buflen += b.length;
