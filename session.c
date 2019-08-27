@@ -671,22 +671,23 @@ void notify_all() {
 // Continuous mode test support
 //
 
-int bgp_receive(struct peer *p) {
-  struct bgp_message bm;
+static struct bgp_message _bm;
+
+struct bgp_message *bgp_receive(struct peer *p) {
 
   while (1) {
-    getBGPMessage(&bm, &(p->sb));
-    if (BGPKEEPALIVE == bm.msgtype)
+    getBGPMessage(&_bm, &(p->sb));
+    if (BGPKEEPALIVE == _bm.msgtype)
       continue;
-    if (BGPUPDATE == bm.msgtype) {
+    if (BGPUPDATE == _bm.msgtype) {
       // ignore EOR
-      if (bm.pl == 4)
+      if (_bm.pl == 4)
         continue;
       else
-        return 1;
+        return &(_bm);
     } else {
-      report(BGPUPDATE, bm.msgtype);
-      return 0;
+      report(BGPUPDATE, _bm.msgtype);
+      return NULL;
     }
   }
 };
@@ -784,7 +785,9 @@ void rate_test(int nsenders, int count, int window) {
           lb.received++;
           if (0 == lb.received % RATEBLOCKSIZE) {
             // ideally this should use a clock value from the read buffer system....
-            clock_gettime(CLOCK_REALTIME, &lr.ts);
+            // clock_gettime(CLOCK_REALTIME, &lr.ts);
+            lr.ts = listener->sb.rcvtimestamp;
+
             lr.index = lb.received / RATEBLOCKSIZE;
             logbuffer_write(&lb, &lr);
           }
