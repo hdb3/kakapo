@@ -57,8 +57,9 @@ char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
 uint32_t CANARYSEED;
 char sCANARYSEED[] = "192.168.255.0";
-uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
-uint32_t CYCLEDELAY = 5; // seconds
+uint32_t CYCLECOUNT = 1;  // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
+uint32_t CYCLEDELAY = 5;  // seconds
+uint32_t REPEATDELAY = 5; // seconds
 uint32_t HOLDTIME = 10000;
 
 char LOGFILE[128] = "stats.csv";
@@ -303,6 +304,7 @@ int main(int argc, char *argv[]) {
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
+  getuint32env("REPEATDELAY", &CYCLEDELAY);
   getuint32env("TCPPORT", &TCPPORT);
   getuint32env("SHOWRATE", &SHOWRATE);
   getuint32env("HOLDTIME", &HOLDTIME);
@@ -347,6 +349,8 @@ int main(int argc, char *argv[]) {
   if (0 == strcmp(MODE, "SINGLEONLY")) {
     for (i = 0; i < REPEAT; i++) {
       canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("single_only_peer_burst_test", results);
@@ -354,6 +358,8 @@ int main(int argc, char *argv[]) {
     conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("single_peer_burst_test", results);
@@ -361,6 +367,8 @@ int main(int argc, char *argv[]) {
     conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
       results[i] = multi_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("multi_peer_burst_test", results);
@@ -368,8 +376,11 @@ int main(int argc, char *argv[]) {
     conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
       canary_all();
+      sleep(REPEATDELAY);
       results2[i] = multi_peer_burst_test(MAXBURSTCOUNT);
     };
     summarise("single_peer_burst_test", results);
@@ -399,6 +410,8 @@ int main(int argc, char *argv[]) {
     conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
     };
     canary_all();

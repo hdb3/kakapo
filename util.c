@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,7 +16,6 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <time.h>
-#include <pthread.h>
 
 #include "timespec.h"
 #include "util.h"
@@ -40,12 +40,13 @@ char *showtime(struct timespec *ts) {
   return s;
 };
 
-char *showdeltams(struct timespec ts) {
+char *showdeltats(struct timespec ts) {
   struct timespec now;
   char *s;
   gettime(&now);
-  int elapsed_ms = timespec_to_ms(timespec_sub(now, ts));
-  int tmp = asprintf(&s, "%03d", elapsed_ms);
+  double elapsed = timespec_to_double(timespec_sub(now, ts));
+  // int elapsed_ms = timespec_to_ms(timespec_sub(now, ts));
+  int tmp = asprintf(&s, "%01f", elapsed);
   return s;
 };
 
@@ -220,12 +221,12 @@ char *concat(const char *str, ...) {
   return result;
 }
 
-pthread_t _pthread_create( void *(*start_routine) (void *), void *arg) {
+pthread_t _pthread_create(void *(*start_routine)(void *), void *arg) {
   pthread_t threadid;
   pthread_create(&threadid, NULL, start_routine, arg);
   return threadid;
 };
 
 void _pthread_join(pthread_t threadid) {
-  assert (0 == pthread_join(threadid, NULL));
+  assert(0 == pthread_join(threadid, NULL));
 };
