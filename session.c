@@ -415,13 +415,11 @@ struct crf_state {
   struct timespec end;
   int status;
   pf_t *pf;
-  // int (*pf)(void *, struct bgp_message *);
   struct peer *p;
   void *pf_state;
 };
 
 struct crf_state *crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct peer *p) {
-  // struct crf_state *crf(struct crf_state *crfs, int (*pf)(void *, struct bgp_message *), void *pf_state, struct peer *p) {
 
   struct bgp_message bm;
   crfs->status = 0;
@@ -447,31 +445,8 @@ struct crf_state *crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct 
       crfs->status = -1;
     }
   };
-  // gettime(&crfs->end);
-  // printf("crf tdelta: %f\n",timespec_to_double(timespec_sub(crfs->end, p->sb.rcvtimestamp)));
   crfs->end = p->sb.rcvtimestamp; // why _DID_ this SIGSEGV ????
   return crfs;
-};
-
-struct crf_state *crfw(struct crf_state *crfs) {
-  crf(crfs, crfs->pf, crfs->pf_state, crfs->p);
-};
-
-pthread_t crfp(int (*pf)(void *, struct bgp_message *), void *pf_state, struct peer *p) {
-  pthread_t threadid;
-  struct crf_state *crfs = calloc(1, sizeof(struct crf_state));
-  crfs->p = p;
-  crfs->pf = pf;
-  crfs->pf_state = pf_state;
-  pthread_create(&threadid, NULL, (thread_t *)crfw, crfs);
-  return threadid;
-};
-
-struct crf_state crfjoin(pthread_t threadid) {
-  struct crf_state *crfsp;
-  void **retval = (void **)&crfsp;
-  assert(0 == pthread_join(threadid, retval));
-  return *crfsp;
 };
 
 int pf_withdrawn(int *counter, struct bgp_message *bm) {
@@ -504,8 +479,17 @@ int pf_count(int *counter, struct bgp_message *bm) {
   return (*counter > 0 ? 0 : 1);
 };
 
+void *crfw(struct crf_state *crfs) {
+  crf(crfs, crfs->pf, crfs->pf_state, crfs->p);
+};
+
 pthread_t crf_count(int *counter, struct crf_state *crfs, struct peer *p) {
-  return crfp((pf_t *)pf_count, counter, p);
+  pthread_t threadid;
+  crfs->p = p;
+  crfs->pf = (void *)pf_count;
+  crfs->pf_state = counter;
+  pthread_create(&threadid, NULL, (void *)crfw, crfs);
+  return threadid;
 };
 
 void establish(void *x) {
@@ -545,7 +529,8 @@ double single_peer_burst_test(int count) {
   gettime(&tx_end);
   tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
   fprintf(stderr, "single_peer_burst_test(%d) transmit elapsed time %f\n", count, tx_elapsed);
-  crfs = crfjoin(threadid);
+  // pthread_join(threadid,NULL);
+  _pthread_join(threadid);
   rx_elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
   if (1 == crfs.status)
     fprintf(stderr, "single_peer_burst_test receive elapsed time %f\n", rx_elapsed);
