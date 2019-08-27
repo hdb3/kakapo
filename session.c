@@ -813,3 +813,79 @@ void multi_peer_rate_test(int count, int window) {
 void single_peer_rate_test(int count, int window) {
   rate_test(1, count, window);
 };
+
+// ******* functional test extensions
+
+void func_test(int nsenders, int count) {
+  struct timespec ts;
+  pthread_t threadid;
+  struct logbuffer lb;
+  struct log_record lr;
+  struct peer *sender;
+  // int target;
+  int RATEBLOCKSIZE = 1000000;
+  int MAXBLOCKINGFACTOR = 1000;
+  int blocking_factor;
+  // uint64_t usnl;
+  struct bgp_message *bm;
+  struct prefix *next_prefix;
+
+  assert(nsenders > 0 && nsenders <= sender_count);
+  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
+  pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
+  gettime(&ts);
+  clock_gettime(CLOCK_REALTIME, &lr.ts);
+  lr.index = 0;
+  logbuffer_write(&lb, &lr);
+
+  fprintf(stderr, "func_test start, % d sending peers\n", nsenders);
+  sender = senders;
+  while (lb.received < count) {
+    next_prefix = get_prefix_list(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE);
+    send_update_block(1, sender++);
+    lb.sent++;
+    if (sender = senders + nsenders)
+      sender = senders;
+    bm = bgp_receive(listener);
+    if (bm) {
+      struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
+      struct bytestring nlri = get_nlri(msg);
+      struct prefix pfx = get_prefix_nlri(nlri.data);
+
+      if (cmp_prefix(next_prefix, &pfx)) {
+        lb.received++;
+        if (0 == lb.received % RATEBLOCKSIZE) {
+          // clock_gettime(CLOCK_REALTIME, &lr.ts);
+          lr.ts = listener->sb.rcvtimestamp;
+          lr.index = lb.received / RATEBLOCKSIZE;
+          logbuffer_write(&lb, &lr);
+        }
+      } else {
+        // exception comparing expect/got
+        fprintf(stderr, "exception in func_test, expecting %s", showprefix(*next_prefix));
+        fprintf(stderr, " , got %s, index %d\n", showprefix(pfx), count);
+        break;
+      }
+    } else {
+      // bgp_receive() returned an exception
+      fprintf(stderr, "bgp_receive() returned an exception, expecting %s\n", showprefix(*next_prefix));
+      break;
+    }
+    count++;
+    // fprintf(stderr, "func_test iteration % d\n", count);
+  };
+  // let the logger thread know it should exit.
+  lr.ts = (struct timespec){0, 0};
+  lr.index = -1;
+  logbuffer_write(&lb, &lr);
+  _pthread_join(threadid);
+  fprintf(stderr, "func_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
+};
+
+void multi_peer_func_test(int count) {
+  func_test(sender_count, count);
+};
+
+void single_peer_func_test(int count) {
+  func_test(1, count);
+};

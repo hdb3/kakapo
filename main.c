@@ -401,6 +401,14 @@ int main(int argc, char *argv[]) {
     canary_all();
     sleep(1);
     single_peer_rate_test(MAXBURSTCOUNT, WINDOW);
+  } else if (0 == strcmp(MODE, "FUNCTEST")) {
+    fprintf(stderr, "single peer functional test mode\n");
+    // fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
+    canary_all();
+    conditioning();
+    canary_all();
+    sleep(1);
+    single_peer_func_test(MAXBURSTCOUNT);
   } else {
 
     fprintf(stderr, "default test mode, take a guess.....\n");

@@ -13,8 +13,8 @@ char *showprefix(struct prefix pfx) {
   int tmp = asprintf(&s, "%s/%d", fromHostAddress(pfx.ip), pfx.length);
   return s;
 };
-int cmp_prefix(struct prefix *pfxa , struct prefix *pfxb) {
-   return (pfxa->ip == pfxb->ip) && (pfxa->length == pfxb->length);
+int cmp_prefix(struct prefix *pfxa, struct prefix *pfxb) {
+  return (pfxa->ip == pfxb->ip) && (pfxa->length == pfxb->length);
 };
 
 static char nlribuffer[65535]; // over large, but withdraw can make BGP Update at large sizes
@@ -29,9 +29,10 @@ static struct prefix prefix_list[32768]; // over large to match the logic used t
 
 struct prefix *get_prefix_list(uint32_t ipstart, uint8_t length, int count, int seq) {
   uint32_t i;
+  uint32_t ip = __bswap_32(ipstart);
   uint32_t increment = 1 << (32 - length);
   for (i = 0; i < count; i++) {
-    prefix_list[i] = (struct prefix){ipstart + i * increment, length};
+    prefix_list[i] = (struct prefix){__bswap_32(ip + (seq + i) * increment), length};
   };
   return prefix_list;
 };
