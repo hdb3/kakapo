@@ -44,7 +44,7 @@ void zeropeer(struct peer *p) {
     ;
 };
 
-char *showpeer(char *pn, struct peer *p) {
+void showpeer(char *pn, struct peer *p) {
   printf("peer: %s local: %s ", pn, inet_ntoa(p->local.sin_addr));
   printf("remote: %s\n", inet_ntoa(p->remote.sin_addr));
 };
