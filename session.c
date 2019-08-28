@@ -298,7 +298,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                  empty,
                                  iBGPpath(localip,
-                                          localpref+usn/TABLESIZE,
+                                          localpref + usn / TABLESIZE,
                                           (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
     vec[i] = b;
     buflen += b.length;
@@ -527,19 +527,23 @@ double single_peer_burst_test(int count) {
   send_update_block(count, senders);
   txwait(senders->sock);
   gettime(&tx_end);
-  tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
-  fprintf(stderr, "single_peer_burst_test(%d) transmit elapsed time %f\n", count, tx_elapsed);
   // pthread_join(threadid,NULL);
   _pthread_join(threadid);
+
+  tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
   rx_elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
-  if (1 == crfs.status)
-    fprintf(stderr, "single_peer_burst_test receive elapsed time %f\n", rx_elapsed);
-  else if (-2 == crfs.status)
-    fprintf(stderr, "single_peer_burst_test receive ** TIMEOUT **  elapsed time %f  dropped %d/%d\n", rx_elapsed, n, count);
-  else
-    fprintf(stderr, "single_peer_burst_test receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d\n", crfs.status, rx_elapsed, n, count);
   elapsed = timespec_to_double(timespec_sub(crfs.end, tx_start));
-  fprintf(stderr, "single_peer_burst_test total elapsed time %f\n", elapsed);
+
+  fprintf(stderr, "single_peer_burst_test total elapsed time %f count %d", elapsed, count);
+  fprintf(stderr, " (transmit %f)", tx_elapsed);
+
+  if (1 == crfs.status)
+    fprintf(stderr, " (receive %f)\n", rx_elapsed);
+  else if (-2 == crfs.status)
+    fprintf(stderr, " (receive ** TIMEOUT **  elapsed time %f  dropped %d/%d)\n", rx_elapsed, n, count);
+  else
+    fprintf(stderr, " ( receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d)\n", crfs.status, rx_elapsed, n, count);
+
   return elapsed;
 };
 
