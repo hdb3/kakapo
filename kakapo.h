@@ -39,6 +39,8 @@ extern uint32_t CYCLECOUNT;
 extern uint32_t CYCLEDELAY;
 extern uint32_t REPEATDELAY;
 extern uint32_t HOLDTIME;
+extern uint32_t RATEBLOCKSIZE;
+extern uint32_t MAXBLOCKINGFACTOR;
 extern char *MODE;
 
 void startlog(uint32_t tid, char *tids, struct timespec *start);
@@ -84,6 +86,7 @@ void single_peer_func_test(int count);
 void conditioning();
 void notify_all();
 void canary_all();
+void keepalive_all();
 
 #define LIMIT 3
 

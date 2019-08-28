@@ -287,24 +287,40 @@ int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
 
 static uint64_t usn = 0;
 #define TEN7 10000000
+static void *_build_update_block_buf = NULL;
+static size_t _build_update_block_siz = 0;
+
 struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref) {
 
   assert(length <= TABLESIZE);
   uint64_t i;
   struct bytestring *vec = malloc(sizeof(struct bytestring) * length);
   uint64_t buflen = 0;
+  char *data;
 
   for (i = 0; i < length; i++) {
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                  empty,
                                  iBGPpath(localip,
-                                          localpref+usn/TABLESIZE,
+                                          localpref + usn / TABLESIZE,
                                           (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
     vec[i] = b;
     buflen += b.length;
     usn++;
   };
-  char *data = malloc(buflen);
+
+  if (_build_update_block_siz >= buflen)
+    data = _build_update_block_buf;
+  else {
+    if (NULL == _build_update_block_buf)
+      data = malloc(buflen);
+    else
+      data = realloc(_build_update_block_buf, buflen);
+    _build_update_block_buf = data;
+    _build_update_block_siz = buflen;
+  };
+  assert(NULL != data);
+
   char *offset = data;
 
   for (i = 0; i < length; i++) {
@@ -317,15 +333,14 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
 
 void send_update_block(int length, struct peer *p) {
 
-  // it appears the bgpd (openBGP) wants keepalives even if it is getting Updates!!!
-  // _send(p, keepalive, 19);
   uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / TABLESIZE);
   struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref);
   __send(p, updates.data, updates.length);
-  free(updates.data);
 };
 
-void send_next_update(struct peer *p) { send_update_block(1, p); };
+void send_next_update(struct peer *p) {
+  send_update_block(1, p);
+};
 void _send_next_update(struct peer *p) {
   uint32_t localpref = 101 + usn / TABLESIZE;
   struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
@@ -334,7 +349,6 @@ void _send_next_update(struct peer *p) {
                                         localpref,
                                         (uint32_t[]){TEN7 + usn % TABLESIZE, p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
-  // printf("send_next_update for peer %d %s %d\n",p->tidx,fromHostAddress(p->localip),p->sock);
   __send(p, b.data, b.length);
   free(b.data);
 };
@@ -419,7 +433,7 @@ struct crf_state {
   void *pf_state;
 };
 
-struct crf_state *crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct peer *p) {
+void crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct peer *p) {
 
   struct bgp_message bm;
   crfs->status = 0;
@@ -446,7 +460,6 @@ struct crf_state *crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct 
     }
   };
   crfs->end = p->sb.rcvtimestamp; // why _DID_ this SIGSEGV ????
-  return crfs;
 };
 
 int pf_withdrawn(int *counter, struct bgp_message *bm) {
@@ -470,8 +483,8 @@ int pf_update(struct prefix *pfx, struct bgp_message *bm) {
   return (nlri_member(nlri, *pfx));
 };
 
-struct crf_state *crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
-  return crf(crfs, (pf_t *)pf_update, pfx, p);
+void crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
+  crf(crfs, (pf_t *)pf_update, pfx, p);
 };
 
 int pf_count(int *counter, struct bgp_message *bm) {
@@ -527,19 +540,22 @@ double single_peer_burst_test(int count) {
   send_update_block(count, senders);
   txwait(senders->sock);
   gettime(&tx_end);
-  tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
-  fprintf(stderr, "single_peer_burst_test(%d) transmit elapsed time %f\n", count, tx_elapsed);
-  // pthread_join(threadid,NULL);
   _pthread_join(threadid);
+
+  tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
   rx_elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
-  if (1 == crfs.status)
-    fprintf(stderr, "single_peer_burst_test receive elapsed time %f\n", rx_elapsed);
-  else if (-2 == crfs.status)
-    fprintf(stderr, "single_peer_burst_test receive ** TIMEOUT **  elapsed time %f  dropped %d/%d\n", rx_elapsed, n, count);
-  else
-    fprintf(stderr, "single_peer_burst_test receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d\n", crfs.status, rx_elapsed, n, count);
   elapsed = timespec_to_double(timespec_sub(crfs.end, tx_start));
-  fprintf(stderr, "single_peer_burst_test total elapsed time %f\n", elapsed);
+
+  fprintf(stderr, "single_peer_burst_test total elapsed time %f count %d", elapsed, count);
+  fprintf(stderr, " (transmit %f)", tx_elapsed);
+
+  if (1 == crfs.status)
+    fprintf(stderr, " (receive %f)\n", rx_elapsed);
+  else if (-2 == crfs.status)
+    fprintf(stderr, " (receive ** TIMEOUT **  elapsed time %f  dropped %d/%d)\n", rx_elapsed, n, count);
+  else
+    fprintf(stderr, " ( receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d)\n", crfs.status, rx_elapsed, n, count);
+
   return elapsed;
 };
 
@@ -561,8 +577,11 @@ void canary(struct peer *p) {
   send_single_update(p, canary_peer(p));
   crf_update(canary_peer(p), &crfs, listener);
 
-  send_single_withdraw(p, canary_peer(p));
-  crf_withdrawn_count(1, &crfs, listener);
+  // removed because:
+  //   a) not essential because now every fresh update is different and hence will propagate
+  //   b) becuase hbgp is wrongly not prpagating the withdraws (wrong, obviously!!)
+  // send_single_withdraw(p, canary_peer(p));
+  // crf_withdrawn_count(1, &crfs, listener);
 };
 
 struct rx_data {
@@ -602,6 +621,13 @@ void conditioning_single_peer(struct peer *target) {
   fprintf(stderr, "conditioning complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
 };
 
+void keepalive_all() {
+  int i;
+  for (i = 0; i < peer_count; i++)
+    send_keepalive(peertable + i);
+  fprintf(stderr, "keepalive_all complete\n");
+};
+
 void canary_all() {
   struct timespec ts;
   int i;
@@ -611,29 +637,18 @@ void canary_all() {
   fprintf(stderr, "canary_all complete: elapsed time %s\n", showdeltats(ts));
 };
 
-struct burst_receive {
-  struct peer *p;
-  int count;
-};
-
-void burst_receive_thread(struct burst_receive *br) {
-  struct timespec ts;
-  struct crf_state crfs;
-  gettime(&ts);
-  crf_count(&br->count, &crfs, br->p);
-  //fprintf(stderr, "burst_receive listener return status=%d elapsed time %s\n", crfs.status, showdeltats(ts));
-};
-
 double multi_peer_burst_test(int count) {
+  struct crf_state crfs;
+  memset(&crfs, 0, sizeof(struct crf_state));
   struct timespec ts_start, ts_end;
   double elapsed;
   pthread_t threadid;
-  struct burst_receive br = {peertable, count};
   struct peer *sender;
   int sent = 0;
   int i = 0;
   //fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
-  pthread_create(&threadid, NULL, (thread_t *)burst_receive_thread, &br);
+  int n = count;
+  threadid = crf_count(&n, &crfs, listener);
   gettime(&ts_start);
   while (sent < count) {
     send_next_update(senders + i);
@@ -703,13 +718,13 @@ int logger(struct logbuffer *lb, struct logger_local *llp) {
 
   // **** usefull diagnostic!!!!
   // do not remove!!!!!
-  printf("sent/received: %d/%d\n", lb->sent, lb->received);
+  printf("sent/received: %d/%d\r", lb->sent, lb->received);
+  fflush(stdout);
 
   while (NULL != lrp) {
     if (0 == lrp->ts.tv_sec)
       return 1;
     else {
-      // printf("index=%d ts=%f\n", lrp->index, timespec_to_double(lrp->ts));
       if (0 == lrp->index) { // first entry
         llp->first_lr = *lrp;
         llp->last_lr = *lrp;
@@ -756,8 +771,6 @@ void rate_test(int nsenders, int count, int window) {
   struct peer *sender;
   int target;
   int blocking_factor;
-  int RATEBLOCKSIZE = 1000000;
-  int MAXBLOCKINGFACTOR = 1000;
 
   assert(nsenders > 0 && nsenders <= sender_count);
   logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
@@ -784,8 +797,6 @@ void rate_test(int nsenders, int count, int window) {
         if (bgp_receive(listener)) {
           lb.received++;
           if (0 == lb.received % RATEBLOCKSIZE) {
-            // ideally this should use a clock value from the read buffer system....
-            // clock_gettime(CLOCK_REALTIME, &lr.ts);
             lr.ts = listener->sb.rcvtimestamp;
 
             lr.index = lb.received / RATEBLOCKSIZE;
@@ -822,11 +833,6 @@ void func_test(int nsenders, int count) {
   struct logbuffer lb;
   struct log_record lr;
   struct peer *sender;
-  // int target;
-  int RATEBLOCKSIZE = 1000000;
-  int MAXBLOCKINGFACTOR = 1000;
-  int blocking_factor;
-  // uint64_t usnl;
   struct bgp_message *bm;
   struct prefix *next_prefix;
 
@@ -855,7 +861,6 @@ void func_test(int nsenders, int count) {
       if (cmp_prefix(next_prefix, &pfx)) {
         lb.received++;
         if (0 == lb.received % RATEBLOCKSIZE) {
-          // clock_gettime(CLOCK_REALTIME, &lr.ts);
           lr.ts = listener->sb.rcvtimestamp;
           lr.index = lb.received / RATEBLOCKSIZE;
           logbuffer_write(&lb, &lr);
