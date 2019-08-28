@@ -39,6 +39,8 @@ extern uint32_t CYCLECOUNT;
 extern uint32_t CYCLEDELAY;
 extern uint32_t REPEATDELAY;
 extern uint32_t HOLDTIME;
+extern uint32_t RATEBLOCKSIZE;
+extern uint32_t MAXBLOCKINGFACTOR;
 extern char *MODE;
 
 void startlog(uint32_t tid, char *tids, struct timespec *start);

@@ -707,7 +707,8 @@ int logger(struct logbuffer *lb, struct logger_local *llp) {
 
   // **** usefull diagnostic!!!!
   // do not remove!!!!!
-  printf("sent/received: %d/%d\n", lb->sent, lb->received);
+  printf("sent/received: %d/%d\r", lb->sent, lb->received);
+  fflush(stdout);
 
   while (NULL != lrp) {
     if (0 == lrp->ts.tv_sec)
@@ -760,8 +761,6 @@ void rate_test(int nsenders, int count, int window) {
   struct peer *sender;
   int target;
   int blocking_factor;
-  int RATEBLOCKSIZE = 1000000;
-  int MAXBLOCKINGFACTOR = 1000;
 
   assert(nsenders > 0 && nsenders <= sender_count);
   logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
@@ -826,11 +825,6 @@ void func_test(int nsenders, int count) {
   struct logbuffer lb;
   struct log_record lr;
   struct peer *sender;
-  // int target;
-  int RATEBLOCKSIZE = 1000000;
-  int MAXBLOCKINGFACTOR = 1000;
-  int blocking_factor;
-  // uint64_t usnl;
   struct bgp_message *bm;
   struct prefix *next_prefix;
 

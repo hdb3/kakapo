@@ -35,7 +35,9 @@ int peer_count = 0;
 int sender_count = 0;
 
 int pid;
-int tflag = 0;      // the global termination flag - when != 0, exit gracefully
+int tflag = 0; // the global termination flag - when != 0, exit gracefully
+uint32_t RATEBLOCKSIZE = 1000000;
+uint32_t MAXBLOCKINGFACTOR = 1000;
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
 uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
@@ -291,6 +293,8 @@ int main(int argc, char *argv[]) {
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
   getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
+  getuint32env("RATEBLOCKSIZE", &RATEBLOCKSIZE);
+  getuint32env("MAXBLOCKINGFACTOR", &MAXBLOCKINGFACTOR);
   getuint32env("REPEAT", &REPEAT);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
