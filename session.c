@@ -781,6 +781,7 @@ void rate_test(int nsenders, int count, int window) {
   logbuffer_write(&lb, &lr);
 
   fprintf(stderr, "rate_test start, % d sending peers\n", nsenders);
+  keepalive_all(); // absent a separate keep alive thread we need to take this precaution
   sender = senders;
   do {
     target = window + lb.received - lb.sent;
