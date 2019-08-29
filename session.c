@@ -668,8 +668,10 @@ void conditioning() {
   struct timespec ts;
   gettime(&ts);
   fprintf(stderr, "conditioning start\n");
-  for (i = 0; i < sender_count; i++)
+  for (i = 0; i < sender_count; i++) {
     conditioning_single_peer(senders + i);
+    keepalive_all(); // protect against keepalive timeot failure in large configs
+  };
   fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltats(ts));
 };
 
