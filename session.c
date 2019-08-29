@@ -46,9 +46,9 @@ void __send(struct peer *p, const void *buf, size_t count) {
   total_sent = 0;
   do {
     sent = send(p->sock, buf + total_sent, count - total_sent, 0);
-    assert(sent != -1);
     if (sent == -1)
-      die("send fail");
+      perror("send fail");
+    assert(sent != -1);
     total_sent += sent;
     if (total_sent < count)
       printf("******total_sent<count: %ld %ld\n", total_sent, count);
@@ -801,6 +801,8 @@ void rate_test(int nsenders, int count, int window) {
 
             lr.index = lb.received / RATEBLOCKSIZE;
             logbuffer_write(&lb, &lr);
+            keepalive_all(); // absent a separate keep alive thread we need to take this precaution
+                             // in case of long running rate tests
           }
         } else
           // bgp_receive() returned an exception
