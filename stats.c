@@ -1,6 +1,8 @@
 
 /* kakapo-session - a BGP traffic source and sink */
 
+#define _GNU_SOURCE
+
 #include "stats.h"
 
 #include "kakapo.h"

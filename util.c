@@ -1,6 +1,7 @@
 
 // util.c
 
+//#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -14,6 +15,7 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "timespec.h"
 #include "util.h"
 
 int die(char *mess) {
@@ -31,7 +33,17 @@ void gettime(struct timespec *ts) {
 char *showtime(struct timespec *ts) {
   static char s[128];
   ctime_r(&ts->tv_sec, s);
+  // the following removes the terminating linefeed charcater!
   s[strlen(s) - 1] = 0;
+  return s;
+};
+
+char *showdeltams(struct timespec ts) {
+  struct timespec now;
+  char *s;
+  gettime(&now);
+  int elapsed_ms = timespec_to_ms(timespec_sub(now, ts));
+  int tmp = asprintf(&s, "%03d", elapsed_ms);
   return s;
 };
 

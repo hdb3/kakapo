@@ -1,6 +1,7 @@
 
 /* kakapo - a BGP traffic source and sink */
 
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -19,11 +20,9 @@
 #include <unistd.h>
 
 #include "kakapo.h"
-#include "parsearg.h"
-#include "session.h"
 #include "sockbuf.h"
 #include "stats.h"
-#include "util.h"
+//#include "util.h"
 
 #define MAXPENDING 5 // Max connection requests
 
@@ -31,17 +30,18 @@ sem_t semrxtx;
 struct timespec txts;
 
 int pid;
-int tflag = 0; // the global termination flag - when != 0, exit gracefully
-int tidx = 0;
-pthread_mutex_t mutex_tidx = PTHREAD_MUTEX_INITIALIZER;
+int tflag = 0;      // the global termination flag - when != 0, exit gracefully
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
 uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
+uint32_t REPEAT = 5;         // enabler for new testmodes
 
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
 uint32_t BLOCKSIZE = 3;
+uint32_t WINDOW = 100;
+uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t NEXTHOP;
 char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
@@ -49,103 +49,48 @@ char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
 uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
-uint32_t CYCLECOUNT = 1;         // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
-uint32_t CYCLEDELAY = 5;         // seconds
-uint32_t HOLDTIME = 600;
+uint32_t CANARYSEED;
+char sCANARYSEED[] = "192.168.255.0";
+uint32_t CYCLECOUNT = 1; // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
+uint32_t CYCLEDELAY = 5; // seconds
+uint32_t HOLDTIME = 10000;
 
 char LOGFILE[128] = "stats.csv";
 char LOGPATH[128] = "localhost";
 char LOGTEXT[1024] = "";
-char ROLE[128] = "DUALMODE"; // only LISTENER and SENDER have any effect
-char LISTENER[] = "LISTENER";
-char SENDER[] = "SENDER";
-int isListener() { return strncmp(LISTENER, ROLE, 9); };
-int isSender() { return strncmp(SENDER, ROLE, 7); };
+char *MODE;
+char sMODE[128] = "BURST"; // only LISTENER and SENDER have any effect
+char BURST[] = "BURST";
+char DYNAMIC[] = "DYNAMIC";
+char CONTINUOUS[] = "CONTINUOUS";
+
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
-void startsession(int sock, int as) {
+void startpeer(struct peer *p, char *s) {
 
-  struct sessiondata *sd;
-  pthread_mutex_lock(&mutex_tidx);
-  sd = malloc(sizeof(struct sessiondata));
-  *sd = (struct sessiondata){sock, tidx++, as};
-  if (0 == isListener()) {
-    sd->role = ROLELISTENER;
-    fprintf(stderr, "%d: ROLE=LISTENER FROM ENVIRONMENT\n", pid);
-  } else if (0 == isSender()) {
-    sd->role = ROLESENDER;
-    fprintf(stderr, "%d: ROLE=SENDER FROM ENVIRONMENT\n", pid);
-  } else if (1 == tidx)
-    sd->role = ROLELISTENER;
-  else if (2 == tidx)
-    sd->role = ROLESENDER;
-  else {
-    // only ever spawn two threads....
-    pthread_mutex_unlock(&mutex_tidx);
-    return; // don't really care about unlock, this is not a happy path...
-  };
-  pthread_t thrd;
-  pthread_create(&thrd, NULL, session, sd);
-  pthread_mutex_unlock(&mutex_tidx);
-};
+  parseargument(p, s);
 
-//void client(struct peer *p) {
-void *clientthread(void *_p) {
-  struct peer *p = (struct peer *)_p;
+  if (0 == p->remoteip) // servers have a zero 'remote' address
+    die("server mode not supported in this version");
+
   int peersock;
-  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remote}};
-  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->local}};
+  struct sockaddr_in peeraddr = {AF_INET, htons(179), (struct in_addr){p->remoteip}};
+  struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
 
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
 
-  0 == bind(peersock, &myaddr, SOCKADDRSZ) ||
+  0 == bind(peersock, (const struct sockaddr *)&myaddr, SOCKADDRSZ) ||
       die("Failed to bind local address");
 
-  0 == (connect(peersock, &peeraddr, SOCKADDRSZ)) ||
+  0 == (connect(peersock, (const struct sockaddr *)&peeraddr, SOCKADDRSZ)) ||
       die("Failed to connect with peer");
 
-  startsession(peersock, p->as);
-};
+  p->sock = peersock;
 
-//void * serverthread (struct peer *p) {
-void *serverthread(void *_p) {
-  struct peer *p = (struct peer *)_p;
-  struct sockaddr_in acceptaddr;
-  int peersock;
-  socklen_t socklen;
-  long int serversock;
-  int reuse = 1;
-  struct sockaddr_in hostaddr = {AF_INET, htons(179), (struct in_addr){p->local}};
-
-  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
-
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
-
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
-
-  fprintf(stderr, "binding to %s\n", fromHostAddress(p->local));
-
-  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
-
-  0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
-
-  while (1) {
-    memset(&acceptaddr, 0, SOCKADDRSZ);
-    socklen = SOCKADDRSZ;
-    0 < (peersock = accept((long int)serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
-    (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
-    startsession(peersock, p->as);
-  }
-};
-
-void peer(char *s) {
-  struct peer *p = parseargument(s);
-  pthread_t thrd;
-  if (0 == p->remote) // servers have a zero 'remote' address
-    pthread_create(&thrd, NULL, serverthread, (void *)p);
-  else
-    pthread_create(&thrd, NULL, clientthread, (void *)p);
+  // fprintf(stderr, "connected for %s\n", s);
+  pthread_create(&(p->thrd), NULL, establish, p);
+  // fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
 };
 
 // NOTE - the target string must be actual static memory large enough...
@@ -153,7 +98,7 @@ void getsenv(char *name, char *tgt) {
   char *s;
   if (s = getenv(name)) {
     strcpy(tgt, s);
-    fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, s);
+    fprintf(stderr, "read %s from environment: %s\n", name, s);
   };
 };
 
@@ -161,7 +106,7 @@ void gethostaddress(char *name, uint32_t *tgt) {
   char *s;
   if ((s = getenv(name)) && (1 == sscanf(s, "%s", s))) {
     *tgt = toHostAddress(s);
-    fprintf(stderr, "%d: read %s from environment: %s\n", pid, name, fromHostAddress(*tgt));
+    fprintf(stderr, "read %s from environment: %s\n", name, fromHostAddress(*tgt));
   };
 };
 
@@ -170,7 +115,7 @@ void getuint32env(char *name, uint32_t *tgt) {
   uint32_t n;
   if ((s = getenv(name)) && (1 == sscanf(s, "%d", &n))) {
     *tgt = n;
-    fprintf(stderr, "%d: read %s from environment: %d\n", pid, name, n);
+    fprintf(stderr, "read %s from environment: %d\n", name, n);
   };
 };
 
@@ -179,7 +124,7 @@ void getllienv(char *name, long long int *tgt) {
   long long int n;
   if ((s = getenv(name)) && (1 == sscanf(s, "%lld", &n))) {
     *tgt = n;
-    fprintf(stderr, "%d: read %s from environment: %lld\n", pid, name, n);
+    fprintf(stderr, "read %s from environment: %lld\n", name, n);
   };
 };
 
@@ -294,13 +239,27 @@ uint32_t senderwait() {
   return rcvseq;
 };
 
+void summarise(char *s, double *r) {
+  int i;
+  double max = 0;
+  double min = 0;
+  double sum = 0;
+
+  for (i = 0; i < REPEAT; i++) {
+    sum += r[i];
+    max = r[i] > max ? r[i] : max;
+    min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
+  };
+  double mean = sum / ((double)REPEAT);
+  fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
+};
+
 int main(int argc, char *argv[]) {
 
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
   pid = getpid();
-  fprintf(stderr, "%d: kakapo\n", pid);
-  fprintf(stderr, "%d: kakapo  Version %s (%s) \n", pid, VERSION, BUILDDATE);
+  fprintf(stderr, "kakapo  Version %s (%s) \n", VERSION, BUILDDATE);
   if (1 > argc) {
     fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
     fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
@@ -308,16 +267,21 @@ int main(int argc, char *argv[]) {
   }
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
-  NEXTHOP = toHostAddress(sNEXTHOP);       /// must initliase here because cant do it in the declaration
-  SEEDPREFIX = toHostAddress(sSEEDPREFIX); /// cant initilase like this ;-(
+  NEXTHOP = toHostAddress(sNEXTHOP); /// must initliase here because cant do it in the declaration
+  SEEDPREFIX = toHostAddress(sSEEDPREFIX);
+  CANARYSEED = toHostAddress(sCANARYSEED);
   getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
   getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
+  getuint32env("REPEAT", &REPEAT);
   getuint32env("IDLETHR", &IDLETHR);
   gethostaddress("SEEDPREFIX", &SEEDPREFIX);
+  gethostaddress("CANARYSEED", &CANARYSEED);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
   getuint32env("BLOCKSIZE", &BLOCKSIZE);
+  getuint32env("WINDOW", &WINDOW);
+  getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
@@ -327,15 +291,81 @@ int main(int argc, char *argv[]) {
   getsenv("LOGFILE", LOGFILE);
   getsenv("LOGPATH", LOGPATH);
   getsenv("LOGTEXT", LOGTEXT);
-  getsenv("ROLE", ROLE);
+  MODE = sMODE;
+  getsenv("MODE", MODE);
 
-  startstatsrunner();
-  int argn;
-  for (argn = 1; argn <= argc - 1; argn++)
-    peer(argv[argn]);
-  while (0 == tflag)
-    sleep(1);
-  sleep(5);
-  fprintf(stderr, "%d: kakapo exit\n", pid);
+  // startstatsrunner();
+
+  struct peer *peertable;
+  int i, argn;
+  struct peer *p;
+  double *results = malloc(REPEAT * sizeof(double));
+  double *results2 = malloc(REPEAT * sizeof(double));
+
+  peertable = calloc(argc, sizeof(struct peer));
+  for (argn = 1; argn <= argc - 1; argn++) {
+    p = peertable + argn - 1;
+    p->tidx = argn;
+    if (argn == 1)
+      p->role = ROLELISTENER;
+    else
+      p->role = ROLESENDER;
+    startpeer(p, argv[argn]);
+  };
+
+  fprintf(stderr, "connection initiated for %d peers\n", argc - 1);
+
+  for (argn = 0; argn < argc - 1; argn++)
+    0 == pthread_join((peertable + argn)->thrd, NULL) || die("pthread join fail");
+
+  fprintf(stderr, "connection complete for %d peers\n", argc - 1);
+
+  if (0 == strcmp(MODE, "TEST")) {
+    crf_test(peertable);
+    fprintf(stderr, "crf_test complete\n");
+    crf_canary_test(peertable);
+    fprintf(stderr, "crf_canary_test complete\n");
+  } else if (0 == strcmp(MODE, "MULTI")) {
+    conditioning(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    summarise("multi_peer_burst_test", results);
+  } else if (0 == strcmp(MODE, "BOTH")) {
+    conditioning(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+      strict_canary_all(peertable);
+      results2[i] = multi_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    summarise("single_peer_burst_test", results);
+    summarise("multi_peer_burst_test", results2);
+  } else if (0 == strcmp(MODE, "RATE")) {
+    fprintf(stderr, "rate test mode\n");
+    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
+    strict_canary_all(peertable);
+    conditioning(peertable);
+    multi_peer_rate_test(peertable, MAXBURSTCOUNT, WINDOW);
+  } else {
+
+    fprintf(stderr, "default test mode, take a guess.....\n");
+    strict_canary_all(peertable);
+    fprintf(stderr, "canary complete for %d peers\n", argc - 1);
+
+    conditioning(peertable);
+    for (i = 0; i < REPEAT; i++) {
+      strict_canary_all(peertable);
+      results[i] = single_peer_burst_test(peertable, MAXBURSTCOUNT);
+    };
+    strict_canary_all(peertable);
+    summarise("single_peer_burst_test", results);
+    fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
+  }
+
+  notify_all(peertable);
+  fprintf(stderr, "notification complete for %d peers\n", argc - 1);
+  fprintf(stderr, "kakapo exit\n");
   exit(0);
 }

@@ -1,4 +1,6 @@
 
+#ifndef __STATS_H
+#define __STATS_H
 #include "libutil.h"
 #include <pthread.h>
 #include <stdint.h>
@@ -32,3 +34,4 @@ void updatelogrecord(slp_t slp, int nlri, int withdrawn, struct timespec *ts);
 slp_t initlogrecord(int tid, char *tids);
 void closelogrecord(slp_t slp, int tid);
 void startstatsrunner();
+#endif

@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include "update.h"
 #include "bytestring.h"
+#include "pathattributes.h"
 #include <assert.h>
 #include <byteswap.h>
 #include <stdarg.h>
@@ -39,8 +41,8 @@ struct bytestring update(struct bytestring nlri, struct bytestring withdrawn,
   return (struct bytestring){messagelength, buf};
 };
 
-struct bytestring iBGPpath(uint32_t nexthop, uint32_t *asn) {
-  return pas2bytestring(paOrigin, paLocalPref, paNextHop(nexthop),
+struct bytestring iBGPpath(uint32_t nexthop, uint32_t localpref, uint32_t *asn) {
+  return pas2bytestring(paOrigin, paLocalPref(localpref), paNextHop(nexthop),
                         paASPATH(asn), NULL);
 };
 
