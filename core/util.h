@@ -11,6 +11,7 @@ typedef long long int inttime;
 int die(char *mess);
 void gettime(struct timespec *ts);
 char *showtime(struct timespec *ts);
+double getdeltats(struct timespec ts);
 char *showdeltats(struct timespec ts);
 char *shownow();
 char *fromHostAddress(uint32_t ip);

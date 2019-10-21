@@ -1,3 +1,7 @@
+core/kakapo
+core/logbuffer-test
+*.xxx
+*.log
 # Prerequisites
 *.d
 

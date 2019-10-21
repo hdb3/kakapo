@@ -40,6 +40,20 @@ char *showtime(struct timespec *ts) {
   return s;
 };
 
+double getdeltats(struct timespec ts) {
+  struct timespec now;
+  char *s;
+  gettime(&now);
+  return timespec_to_double(timespec_sub(now, ts));
+};
+
+char *showdeltats(struct timespec ts) {
+  char *s;
+  int tmp = asprintf(&s, "%01f", getdeltats(ts));
+  return s;
+};
+
+/*
 char *showdeltats(struct timespec ts) {
   struct timespec now;
   char *s;
@@ -49,7 +63,7 @@ char *showdeltats(struct timespec ts) {
   int tmp = asprintf(&s, "%01f", elapsed);
   return s;
 };
-
+*/
 char *shownow() {
   struct timespec ts;
   gettime(&ts);

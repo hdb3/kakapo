@@ -36,6 +36,8 @@ int sender_count = 0;
 
 int pid;
 int tflag = 0; // the global termination flag - when != 0, exit gracefully
+double conditioning_duration = 0.0;
+
 uint32_t RATEBLOCKSIZE = 1000000;
 uint32_t MAXBLOCKINGFACTOR = 1000;
 uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
@@ -255,6 +257,8 @@ uint32_t senderwait() {
   return rcvseq;
 };
 
+FILE *loglocal = NULL;
+
 void summarise(char *s, double *r) {
   int i;
   double max = 0;
@@ -268,10 +272,15 @@ void summarise(char *s, double *r) {
   };
   double mean = sum / ((double)REPEAT - 1);
   fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
+  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %d %d %d %d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT);
 };
 
 int main(int argc, char *argv[]) {
 
+  int loglocalcheck = access("kakapo.log", F_OK); 
+  0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
+  if (-1 == loglocalcheck) // write a header line in an empty file
+    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT\n");
   sigset_t set;
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
@@ -360,7 +369,7 @@ int main(int argc, char *argv[]) {
     };
     summarise("single_only_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "SINGLE")) {
-    conditioning();
+    conditioning_duration = conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
       sleep(REPEATDELAY);
@@ -370,7 +379,7 @@ int main(int argc, char *argv[]) {
     };
     summarise("single_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "MULTI")) {
-    conditioning();
+    conditioning_duration = conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
       sleep(REPEATDELAY);
@@ -380,7 +389,7 @@ int main(int argc, char *argv[]) {
     };
     summarise("multi_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "BOTH")) {
-    conditioning();
+    conditioning_duration = conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
       sleep(REPEATDELAY);
@@ -397,7 +406,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "rate test mode\n");
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
     canary_all();
-    conditioning();
+    conditioning_duration = conditioning();
     canary_all();
     sleep(1);
     multi_peer_rate_test(MAXBURSTCOUNT, WINDOW);
@@ -405,7 +414,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "single peer rate test mode\n");
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
     canary_all();
-    conditioning();
+    conditioning_duration = conditioning();
     canary_all();
     sleep(1);
     single_peer_rate_test(MAXBURSTCOUNT, WINDOW);
@@ -413,7 +422,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "single peer functional test mode\n");
     // fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
     canary_all();
-    conditioning();
+    conditioning_duration = conditioning();
     canary_all();
     sleep(1);
     single_peer_func_test(MAXBURSTCOUNT);
@@ -423,7 +432,7 @@ int main(int argc, char *argv[]) {
     canary_all();
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
-    conditioning();
+    conditioning_duration = conditioning();
     for (i = 0; i < REPEAT; i++) {
       canary_all();
       sleep(REPEATDELAY);

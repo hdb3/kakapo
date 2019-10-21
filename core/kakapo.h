@@ -83,7 +83,7 @@ void multi_peer_rate_test(int count, int window);
 void single_peer_rate_test(int count, int window);
 void multi_peer_func_test(int count);
 void single_peer_func_test(int count);
-void conditioning();
+double conditioning();
 void notify_all();
 void canary_all();
 void keepalive_all();

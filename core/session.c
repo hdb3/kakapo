@@ -657,22 +657,26 @@ double multi_peer_burst_test(int count) {
   };
   //fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltats(ts));
   _pthread_join(threadid);
+// TODO use getdeltats() like conditioning does...
   gettime(&ts_end);
   elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
   fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f\n", count, elapsed);
   return elapsed;
 };
 
-void conditioning() {
+double conditioning() {
   int i;
   struct timespec ts;
+  double elapsed;
   gettime(&ts);
   fprintf(stderr, "conditioning start\n");
   for (i = 0; i < sender_count; i++) {
     conditioning_single_peer(senders + i);
     keepalive_all(); // protect against keepalive timeot failure in large configs
   };
-  fprintf(stderr, "conditioning complete: elapsed time %s\n", showdeltats(ts));
+  elapsed = getdeltats(ts);
+  fprintf(stderr, "conditioning complete: elapsed time %f\n", elapsed);
+  return elapsed;
 };
 
 void notify_all() {
