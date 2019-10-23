@@ -769,8 +769,9 @@ void logging_thread(struct logbuffer *lb) {
   };
 };
 
-void rate_test(int nsenders, int count, int window) {
+int rate_test(int nsenders, int count, int window) {
   struct timespec ts;
+  double elapsed;
   pthread_t threadid;
   struct logbuffer lb;
   struct log_record lr;
@@ -821,17 +822,19 @@ void rate_test(int nsenders, int count, int window) {
   lr.ts = (struct timespec){0, 0};
   lr.index = -1;
   logbuffer_write(&lb, &lr);
-  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %s\n", count, window, showdeltats(ts));
+  elapsed = getdeltats(ts);
+  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", count, window, elapsed,count/elapsed);
   _pthread_join(threadid);
   fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
+  return (int) (count/elapsed);
 };
 
-void multi_peer_rate_test(int count, int window) {
-  rate_test(sender_count, count, window);
+int multi_peer_rate_test(int count, int window) {
+  return rate_test(sender_count, count, window);
 };
 
-void single_peer_rate_test(int count, int window) {
-  rate_test(1, count, window);
+int single_peer_rate_test(int count, int window) {
+  return rate_test(1, count, window);
 };
 
 // ******* functional test extensions

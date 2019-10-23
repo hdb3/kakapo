@@ -53,6 +53,7 @@ uint32_t BLOCKSIZE = 3;
 uint32_t WINDOW = 1000;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
+uint32_t RATECOUNT = 500000;
 uint32_t NEXTHOP;
 char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
                                  // initilase like this ;-(
@@ -258,6 +259,8 @@ uint32_t senderwait() {
 };
 
 FILE *loglocal = NULL;
+int multi_rate = 0;
+int single_rate = 0;
 
 void summarise(char *s, double *r) {
   int i;
@@ -272,7 +275,7 @@ void summarise(char *s, double *r) {
   };
   double mean = sum / ((double)REPEAT - 1);
   fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
-  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %d %d %d %d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT);
+  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %d %d %d %d %d %d %d% d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate,multi_rate);
 };
 
 int main(int argc, char *argv[]) {
@@ -280,7 +283,7 @@ int main(int argc, char *argv[]) {
   int loglocalcheck = access("kakapo.log", F_OK); 
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
   if (-1 == loglocalcheck) // write a header line in an empty file
-    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT\n");
+    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT WINDOW RATECOUNT SINGLERATE MULTIRATE\n");
   sigset_t set;
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
@@ -314,6 +317,7 @@ int main(int argc, char *argv[]) {
   getuint32env("WINDOW", &WINDOW);
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
+  getuint32env("RATECOUNT", &RATECOUNT);
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
@@ -378,6 +382,18 @@ int main(int argc, char *argv[]) {
       keepalive_all();
     };
     summarise("single_peer_burst_test", results);
+  } else if (0 == strcmp(MODE, "PAM")) {
+    conditioning_duration = conditioning();
+    for (i = 0; i < REPEAT; i++) {
+      canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
+      results[i] = single_peer_burst_test(MAXBURSTCOUNT);
+      keepalive_all();
+    };
+    single_rate=single_peer_rate_test(RATECOUNT, WINDOW);
+    multi_rate=multi_peer_rate_test(RATECOUNT, WINDOW);
+    summarise("PAM", results);
   } else if (0 == strcmp(MODE, "MULTI")) {
     conditioning_duration = conditioning();
     for (i = 0; i < REPEAT; i++) {
@@ -404,20 +420,20 @@ int main(int argc, char *argv[]) {
     summarise("multi_peer_burst_test", results2);
   } else if (0 == strcmp(MODE, "RATE")) {
     fprintf(stderr, "rate test mode\n");
-    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
+    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", RATECOUNT, WINDOW);
     canary_all();
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
-    multi_peer_rate_test(MAXBURSTCOUNT, WINDOW);
+    multi_peer_rate_test(RATECOUNT, WINDOW);
   } else if (0 == strcmp(MODE, "SINGLERATE")) {
     fprintf(stderr, "single peer rate test mode\n");
-    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
+    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", RATECOUNT, WINDOW);
     canary_all();
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
-    single_peer_rate_test(MAXBURSTCOUNT, WINDOW);
+    single_peer_rate_test(RATECOUNT, WINDOW);
   } else if (0 == strcmp(MODE, "FUNCTEST")) {
     fprintf(stderr, "single peer functional test mode\n");
     // fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
