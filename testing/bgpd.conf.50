@@ -1,0 +1,68 @@
+
+ASN="64504"
+LOCAL="172.18.0.13"
+AS $ASN
+router-id $LOCAL
+listen on $LOCAL
+holdtime 10000
+socket "/var/run/bgpd.sock"
+
+group "ibgp" {
+	remote-as $ASN
+	local-address $LOCAL
+	passive
+	neighbor 172.18.0.20
+	neighbor 172.18.0.21
+	neighbor 172.18.0.22
+	neighbor 172.18.0.23
+	neighbor 172.18.0.24
+	neighbor 172.18.0.25
+	neighbor 172.18.0.26
+	neighbor 172.18.0.27
+	neighbor 172.18.0.28
+	neighbor 172.18.0.29
+	neighbor 172.18.0.30
+	neighbor 172.18.0.31
+	neighbor 172.18.0.32
+	neighbor 172.18.0.33
+	neighbor 172.18.0.34
+	neighbor 172.18.0.35
+	neighbor 172.18.0.36
+	neighbor 172.18.0.37
+	neighbor 172.18.0.38
+	neighbor 172.18.0.39
+	neighbor 172.18.0.40
+	neighbor 172.18.0.41
+	neighbor 172.18.0.42
+	neighbor 172.18.0.43
+	neighbor 172.18.0.44
+	neighbor 172.18.0.45
+	neighbor 172.18.0.46
+	neighbor 172.18.0.47
+	neighbor 172.18.0.48
+	neighbor 172.18.0.49
+	neighbor 172.18.0.50
+	neighbor 172.18.0.51
+	neighbor 172.18.0.52
+	neighbor 172.18.0.53
+	neighbor 172.18.0.54
+	neighbor 172.18.0.55
+	neighbor 172.18.0.56
+	neighbor 172.18.0.57
+	neighbor 172.18.0.58
+	neighbor 172.18.0.59
+}
+
+group "ebgp" {
+	local-address $LOCAL
+	passive
+	neighbor 172.18.0.19 {
+		remote-as 64505
+	}
+}
+
+allow to ebgp
+# allow from ebgp
+
+allow from ibgp
+# allow to ibgp

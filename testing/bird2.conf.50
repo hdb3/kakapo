@@ -2,29 +2,32 @@ log stderr all;
 log "/var/log/bird.log" all;
 router id 172.18.0.13;
 
-listen bgp address 172.18.0.13;
-
 protocol device {
 }
 
 protocol kernel {
-	      disabled;
+	ipv4;
+	disabled;
 }
 
 template bgp {
-	local as 64504;
-	source address 172.18.0.13;
-        multihop;
-        import all;
-	export none;
+	ipv4 {
+		import all;
+		export none;
+        };
+        local as 64504;
+        source address 172.18.0.13;
         passive;
+        multihop;
         hold time 10000;
+	strict bind;
 }
 
-
 protocol bgp peer19 from bgp1 {
-	import none;
-	export all;
+	ipv4 {
+		import none;
+		export all;
+        };
         neighbor 172.18.0.19 as 64505;
 }
 

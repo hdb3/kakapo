@@ -19,12 +19,14 @@ MAXBURSTCOUNT=50000
 #RANGE="5"
 #REPEAT=2
 #
-BIRD="/home/nic/src/kagu/bird/bird-1.6.6/bird -d -c /home/nic/src/kagu/bird/bird.conf.50"
-BIRD2="/home/nic/src/kagu/bird2/bird-2.0.4/bird -d -c /home/nic/src/kagu/bird2/bird.conf.50"
-OPENBGPD="/home/nic/src/kagu/bgpd/openbgpd-6.5p0/bgpd -d -f /home/nic/src/kagu/bgpd/bgpd.conf.50"
-FRR="/usr/lib/frr/bgpd -S -l 172.18.0.13 -n --log stdout -f  /home/nic/src/kagu/frr/bgpd.conf.50"
-HBGP="/home/nic/src/kagu/hbgp/hbgp /home/nic/src/kakapo-newrelay/relay/bgp.conf"
-RELAY="/home/nic/src/kakapo-newrelay/relay/relay2 172.18.0.13 172.18.0.19"
+CONFDIR="~/src/kakapo/testing"
+BINDIR="~/src/kagu/build"
+BIRD="$BINDIR/bird-1.6.6/bird -d -c $CONFDIR/bird.conf.50"
+BIRD2="$BINDIR/bird-2.0.4/bird -d -c $CONFDIR/bird2.conf.50"
+OPENBGPD="$BINDIR/openbgpd-6.5p0/bgpd -d -f $CONFDIR/bgpd.conf.50"
+FRR="$BINDIR/frr -S -l 172.18.0.13 -n --log stdout -f  $CONFDIR/frr.conf.50"
+HBGP="$BINDIR/hbgp $CONFDIR/bgp.conf"
+RELAY="~/src/kakapo/relay/relay2 172.18.0.13 172.18.0.19"
 for n in `seq 1 $REPEAT` 
 do
 for PLATFORM in $PLATFORMS
