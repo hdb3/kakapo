@@ -25,17 +25,39 @@
 #define MINREAD 4096
 #define MAXPENDING 2 // Max connection requests
 
-char VERSION[] = "1.1.5";
+char VERSION[] = "1.2.0";
 
 struct peer {
-  int sock, nread, nwrite;
+  int sock;
+  uint64_t nread, nwrite, nprocessed;
+  int msg_counts[5];
   struct sockaddr_in remote, local;
   void *buf;
 };
 
-char *showpeer(char *pn, struct peer *p) {
+void zeropeer(struct peer *p) {
+  int i;
+  p->nread = 0;
+  p->nwrite = 0;
+  p->nprocessed = 0;
+  for (i = 0; i < 5; p->msg_counts[i++] = 0)
+    ;
+};
+
+void showpeer(char *pn, struct peer *p) {
   printf("peer: %s local: %s ", pn, inet_ntoa(p->local.sin_addr));
   printf("remote: %s\n", inet_ntoa(p->remote.sin_addr));
+};
+
+void peer_report(struct peer *p) {
+  printf("\npeer report\n");
+  showpeer("", p);
+  printf("%ld/%ld/%ld bytes read/written/processed\n", p->nread, p->nwrite, p->nprocessed);
+  printf("%d messages\n", *(p->msg_counts));
+  printf("%d Opens\n", (p->msg_counts)[1]);
+  printf("%d Updates\n", (p->msg_counts)[2]);
+  printf("%d Notifications\n", (p->msg_counts)[3]);
+  printf("%d Keepalives\n", (p->msg_counts)[4]);
 };
 
 void initPeer(char *s, struct peer *p) {
@@ -53,10 +75,8 @@ void connectPeer(struct peer *p) {
   0 < (p->sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
       die("Failed to create socket");
 
-  0 == bind(p->sock, &(p->local), SOCKADDRSZ) ||
+  0 == bind(p->sock, (struct sockaddr *)&(p->local), SOCKADDRSZ) ||
       die("Failed to bind local address");
-  p->nread = 0;
-  p->nwrite = 0;
 };
 
 int waitonconnect(int fd1, int fd2) {
@@ -111,7 +131,7 @@ void showselectflags(char *ctxt, fd_set *rset, fd_set *wset, int fd1, int fd2) {
   printf(" ]\n");
 };
 
-int setupIOVECs(struct iovec *vec, void *base, int start, int end) {
+int setupIOVECs(struct iovec *vec, void *base, uint64_t start, uint64_t end) {
 
   if ((end / BUFSIZE) > (start / BUFSIZE) && (end % BUFSIZE) != 0) {
     vec[0].iov_base = base + (start % BUFSIZE);
@@ -128,17 +148,18 @@ int setupIOVECs(struct iovec *vec, void *base, int start, int end) {
   };
 };
 
-int canRead(int fd, int nread, int nwrite) {
+int canRead(int fd, uint64_t nread, uint64_t nwrite) {
   int p = (MINREAD < BUFSIZE + nwrite - nread) ? 1 : 0;
   return p;
   if (p) {
-    printf("fd%d - CAN READ %d (%d %d)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
+    printf("fd%d - CAN READ %ld (%ld %ld)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
   } else {
-    printf("fd%d - CANNOT READ %d (%d %d)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
+    printf("fd%d - CANNOT READ %ld (%ld %ld)\n", fd, BUFSIZE + nwrite - nread, nread, nwrite);
   };
   return p;
 };
 
+void processaction(struct peer *p);
 int readaction(struct peer *p, fd_set *set) {
   int res;
   int niovec;
@@ -152,6 +173,7 @@ int readaction(struct peer *p, fd_set *set) {
 
     if (res > 0) {
       p->nread += res;
+      processaction(p);
       return 0;
     };
 
@@ -170,7 +192,7 @@ int readaction(struct peer *p, fd_set *set) {
 
     if (res == 0) // normal end-of-stream
       printf("end of stream on fd %d\n", p->sock);
-    else 
+    else
       printf("end of stream on fd %d, errno: %d\n", p->sock, errno);
 
     return 1;
@@ -179,15 +201,50 @@ int readaction(struct peer *p, fd_set *set) {
     return 0;
 };
 
+uint8_t *get_byte(struct peer *p, uint64_t offset) {
+  return (p->buf) + ((offset + p->nprocessed) % BUFSIZE);
+};
+
+void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
+  // this function is the opportunity to do as much or as little mangling as you might need
+  // but it is inline with IO so best not take too long.....
+  // for heavy processing it might be better to copy to a contiguous buffer
+  // and return immeddiately
+  (5 > msg_type) || (1 < msg_type) || die("bad sync");
+  (4097 > msg_length) || (19 < msg_length) || die("bad sync2");
+  (*(p->msg_counts))++;
+  (*(p->msg_counts + msg_type))++;
+  // notice: if counts are zeroed out at connection time then the Open and Notification counts can be used as flags for state changes
+  // an EndOfRIB detector would be simple too, by checking for specific msg_length and msg_type
+};
+
+void processaction(struct peer *p) {
+  // need at least 19 bytes to have a valid length field and a message type in a message....
+  uint64_t available;
+  // uncomment to remove message delineation
+  // p->nprocessed = p->nread;
+  available = p->nread - p->nprocessed;
+  while (18 < available) {
+    uint16_t msg_length = (*(get_byte(p, 16)) << 8) + *get_byte(p, 17);
+    uint8_t msg_type = *get_byte(p, 18);
+    if (msg_length <= available) {
+      dpi(p, msg_type, msg_length);
+      p->nprocessed += msg_length;
+      available -= msg_length;
+    } else
+      break;
+  };
+};
+
 // probapaly TODO remove the flags entirely from the actions
 int writeaction(struct peer *p, int sock2, fd_set *set) {
   int res;
   int niovec;
   struct iovec iovecs[2];
-  if (0 < p->nread - p->nwrite) {
+  if (0 < p->nprocessed - p->nwrite) {
     // try write in case we just got read afeteer the last select()
     // if ( FD_ISSET ( sock2 , set) && (0 < p->nread - p->nwrite) ) {
-    niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nread);
+    niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nprocessed);
     FLAGS(sock2, __FILE__, __LINE__);
     res = writev(sock2, iovecs, niovec);
     FLAGS(sock2, __FILE__, __LINE__);
@@ -206,7 +263,7 @@ int writeaction(struct peer *p, int sock2, fd_set *set) {
 };
 
 int setflags(struct peer *p, int sock2, fd_set *rset, fd_set *wset) {
-  if (0 < p->nread - p->nwrite)
+  if (0 < p->nprocessed - p->nwrite)
     FD_SET(sock2, wset);
   else
     FD_CLR(sock2, wset);
@@ -221,7 +278,8 @@ void run(struct peer *peer1, struct peer *peer2) {
   printf("run\n");
   showpeer("peer1", peer1);
   showpeer("peer2", peer2);
-  //printf("fd1=%d fd2=%d\n", peer1->sock, peer2->sock);
+  zeropeer(peer1);
+  zeropeer(peer2);
   fd_set rset, wset;
   FD_ZERO(&rset);
   FD_SET(peer1->sock, &rset);
@@ -242,6 +300,8 @@ void run(struct peer *peer1, struct peer *peer2) {
     setflags(peer1, peer2->sock, &rset, &wset);
     setflags(peer2, peer1->sock, &rset, &wset);
   };
+  peer_report(peer1);
+  peer_report(peer2);
 };
 
 void setsocketnonblock(int sock) {
@@ -259,16 +319,14 @@ void serveraccept(int serversock, struct peer *p) {
   socklen_t socklen;
   memset(&acceptaddr, 0, SOCKADDRSZ);
   socklen = SOCKADDRSZ;
-  0 < (peersock = accept(serversock, &acceptaddr, &socklen)) || die("Failed to accept peer connection");
+  0 < (peersock = accept(serversock, (struct sockaddr *)&acceptaddr, &socklen)) || die("Failed to accept peer connection");
   (SOCKADDRSZ == socklen && AF_INET == acceptaddr.sin_family) || die("bad sockaddr");
   socklen = SOCKADDRSZ;
-  0 == (getpeername(peersock, &p->remote, &socklen)) || die("Failed to get peer address");
+  0 == (getpeername(peersock, (struct sockaddr *)&p->remote, &socklen)) || die("Failed to get peer address");
   socklen = SOCKADDRSZ;
-  0 == (getsockname(peersock, &p->local, &socklen)) || die("Failed to get local address");
+  0 == (getsockname(peersock, (struct sockaddr *)&p->local, &socklen)) || die("Failed to get local address");
   p->buf = malloc(BUFSIZE);
   p->sock = peersock;
-  p->nread = 0;
-  p->nwrite = 0;
 };
 
 void prepsocket(int sock) {
@@ -279,26 +337,34 @@ void prepsocket(int sock) {
 
 void serverstart(int serversock, struct peer *peer1, struct peer *peer2) {
 
+  struct in_addr listener_address = peer1->remote.sin_addr;
+
   printf("server start\n");
   serveraccept(serversock, peer1);
   serveraccept(serversock, peer2);
   prepsocket(peer1->sock);
   prepsocket(peer2->sock);
-  run(peer1, peer2);
+  if (0 == listener_address.s_addr || peer1->remote.sin_addr.s_addr == listener_address.s_addr)
+    // either no explicit listener was given, or it was peer1
+    run(peer1, peer2);
+  else if (peer2->remote.sin_addr.s_addr == listener_address.s_addr)
+    // an explicit listener was given, and it was peer2
+    run(peer2, peer1);
+  else
+    printf("error: the defined listener did not connect\n");
   close(peer1->sock);
   close(peer2->sock);
 };
 
 int start(struct peer *peer1, struct peer *peer2) {
-  int i;
 
   printf("client start\n");
   connectPeer(peer1);
   connectPeer(peer2);
   prepsocket(peer1->sock);
   prepsocket(peer2->sock);
-  EINPROGRESS != (connect(peer1->sock, &peer1->remote, SOCKADDRSZ)) || die("Failed to start connect with peer1");
-  EINPROGRESS != (connect(peer2->sock, &peer2->remote, SOCKADDRSZ)) || die("Failed to start connect with peer2");
+  EINPROGRESS != (connect(peer1->sock, (struct sockaddr *)&peer1->remote, SOCKADDRSZ)) || die("Failed to start connect with peer1");
+  EINPROGRESS != (connect(peer2->sock, (struct sockaddr *)&peer2->remote, SOCKADDRSZ)) || die("Failed to start connect with peer2");
   FLAGS(peer1->sock, __FILE__, __LINE__);
   FLAGS(peer2->sock, __FILE__, __LINE__);
   int res = waitonconnect(peer1->sock, peer2->sock);
@@ -334,7 +400,13 @@ void server(char *s) {
   struct peer peer1, peer2;
   int reuse;
 
-  0 < (inet_aton(s, &hostaddr.sin_addr)) || die("failed parsing server listen address");
+  // 0 < (inet_aton(s, &hostaddr.sin_addr)) || die("failed parsing server listen address");
+
+  // allow the server mode to spevify which peer is intended as the target for Update readvertisments
+  // by implication the others are 'receive only', whilst this one 'send only'
+
+  0 != parseAddress(s, &(hostaddr.sin_addr), &(peer1.remote.sin_addr)) ||
+      die("Failed to parse addresses");
 
   0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
 
@@ -344,7 +416,7 @@ void server(char *s) {
   reuse = 1;
   0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
 
-  0 == (bind(serversock, &hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
+  0 == (bind(serversock, (struct sockaddr *)&hostaddr, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
   0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
 
