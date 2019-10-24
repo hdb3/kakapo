@@ -839,7 +839,7 @@ terminate:
 
   // obselete // fprintf(stderr, "multi_peer_rate_test :internal variables: _elapsed %f, _count %d, rate %f\n", _elapsed, _count, _count/_elapsed);
   // fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
-  return (int) (_count/_elapsed);
+  return (int) (_count/elapsed);
 };
 
 int multi_peer_rate_test(int count, int window) {
