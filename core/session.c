@@ -814,19 +814,32 @@ int rate_test(int nsenders, int count, int window) {
           }
         } else
           // bgp_receive() returned an exception
-          break;
+          goto terminate;
+          // break;
         // keep reading while the current read buffer is not exhausted
       } while (bgp_peek(&listener->sb));
   } while (lb.received < count);
+terminate:
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};
   lr.index = -1;
   logbuffer_write(&lb, &lr);
-  elapsed = getdeltats(ts);
-  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", count, window, elapsed,count/elapsed);
   _pthread_join(threadid);
-  fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
-  return (int) (count/elapsed);
+
+  // this is the elapsed time if there was no exception
+  // elapsed = getdeltats(ts);
+  // fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", count, window, elapsed,count/elapsed);
+  // return (int) (count/elapsed);
+
+  // this is the elapsed time even if there was an exception
+  // based on the last succesful receive
+  elapsed = timespec_to_double(timespec_sub(listener->sb.rcvtimestamp, ts));
+  int _count = lb.received;
+  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", _count, window, elapsed, _count/elapsed);
+
+  // obselete // fprintf(stderr, "multi_peer_rate_test :internal variables: _elapsed %f, _count %d, rate %f\n", _elapsed, _count, _count/_elapsed);
+  // fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
+  return (int) (_count/_elapsed);
 };
 
 int multi_peer_rate_test(int count, int window) {
