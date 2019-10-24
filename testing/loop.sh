@@ -1,52 +1,76 @@
 #
-PLATFORMS="BIRD BIRD2 FRR HBGP RELAY"
-#PLATFORMS="BIRD BIRD2 FRR OPENBGPD HBGP RELAY"
-RANGE="5 10 20 30 40"
-REPEAT=20
+PLATFORMS=${PLATFORMS:-"BIRD BIRD2 FRR OPENBGPD HBGP RELAY"}
+RANGE=${RANGE:-"5 10 20 30 40"}
+REPEAT=${REPEAT:-5}
+TIMEOUT=${TIMEOUT:-30}
+TABLESIZE=${TABLESIZE:-160000}
+
+# : ${var1:=foo}
+: ${MAXBURSTCOUNT:=50000}
+: ${GROUPSIZE:=5}
 #
 #
-RATECOUNT=1000000
-WINDOW=5000
-MODE=PAM
-REPEAT=5
-REPEATDELAY=1
-TIMEOUT=30
-TABLESIZE=160000
-MODE=PAM
-GROUPSIZE=5
-MAXBURSTCOUNT=50000
+
+## these are kakapo control variable - must be exported for kakapo process to inherit them
+export RATECOUNT=1000000
+export WINDOW=5000
+export MODE=PAM
+export REPEAT
+export REPEATDELAY=1
+export TIMEOUT
+export TABLESIZE
+export MODE=PAM
+export GROUPSIZE
+export MAXBURSTCOUNT
+
 #
-#RANGE="5"
-#REPEAT=2
+LOOPCOUNT=${LOOPCOUNT:-1}
 #
-CONFDIR="~/src/kakapo/testing"
-BINDIR="~/src/kagu/build"
-BIRD="$BINDIR/bird-1.6.6/bird -d -c $CONFDIR/bird.conf.50"
-BIRD2="$BINDIR/bird-2.0.4/bird -d -c $CONFDIR/bird2.conf.50"
-OPENBGPD="$BINDIR/openbgpd-6.5p0/bgpd -d -f $CONFDIR/bgpd.conf.50"
-FRR="$BINDIR/frr -S -l 172.18.0.13 -n --log stdout -f  $CONFDIR/frr.conf.50"
-HBGP="$BINDIR/hbgp $CONFDIR/bgp.conf"
-RELAY="~/src/kakapo/relay/relay2 172.18.0.13 172.18.0.19"
-for n in `seq 1 $REPEAT` 
-do
-for PLATFORM in $PLATFORMS
+# some default locations - overiide in the environmanet if needed
+# in particular, CONFSUBDIR allows to use other configuration files
+CONFDIR=${CONFDIR=:-"$HOME/src/kakapo/testing"}
+CONFSUBDIR=${CONFSUBDIR:-"simple"}
+BINDIR=${BINDIR:-"$HOME/src/kagu/build"}
+KAKAPODIR=${KAKAPODIR:-"$HOME/src/kakapo/"}
+#
+FULLCONFDIR="${CONFDIR}/$CONFSUBDIR"
+echo "configs in $FULLCONFDIR, binaries in $BINDIR, relay2 in $RELAYDIR"
+# CONFDIR="~/src/kakapo/testing"
+# BINDIR="~/src/kagu/build"
+BIRD="$BINDIR/bird -d -c $FULLCONFDIR/bird.conf"
+BIRD2="$BINDIR/bird2 -d -c $FULLCONFDIR/bird2.conf"
+OPENBGPD="$BINDIR/bgpd -d -f $FULLCONFDIR/bgpd.conf"
+FRR="$BINDIR/frr -S -l 172.18.0.13 -n --log stdout -f  $FULLCONFDIR/frr.conf"
+HBGP="$BINDIR/hbgp $FULLCONFDIR/bgp.conf"
+RELAY="$KAKAPODIR/relay/relay2 172.18.0.13 172.18.0.19"
+export KAKAPO="$KAKAPODIR/core/kakapo"
+for n in `seq 1 $LOOPCOUNT` 
   do
-  for m in $RANGE
-    do
-      # for n in `seq 1 $REPEAT` 
-      #   do
+    for PLATFORM in $PLATFORMS
+      do
+        for m in $RANGE
+          do
           CONFIG=${m}peers.sh
-          LOGTEXT="$PLATFORM/$CONFIG"
+          export LOGTEXT="$PLATFORM/$CONFSUBDIR/$CONFIG"
           BIN=${!PLATFORM}
-          TESTBIN="bash -xe /home/nic/src/kakapo-newcore/testing/${m}peers.sh"
-          echo "run: $REPEAT config: $CONFIG platform: $PLATFORM binary: $BIN testbin: $TESTBIN"
+          TESTBIN="bash -xe $CONFDIR/${m}peers.sh"
+          echo "run: $n/$m"
+          echo "config: $CONFIG"
+          echo "platform: $PLATFORM"
+          echo "binary: $BIN"
+          echo "testbin: $TESTBIN"
           echo "ip netns exec target $BIN & PID=\$!"
-          ip netns exec target $BIN & PID=$!
-          sleep 5 
-          echo "ip netns exec kakapo $TESTBIN" 
-          ip netns exec kakapo $TESTBIN
-          kill $PID 
-          wait
+          if [ -z $DRYRUN ]
+          then
+            ip netns exec target $BIN & PID=$!
+            sleep 5 
+            ip netns exec kakapo $TESTBIN
+            kill $PID 
+            wait
+          else
+            echo "ip netns exec target $BIN"
+            echo "ip netns exec kakapo $TESTBIN" 
+          fi
         done
     done
   done

@@ -4,11 +4,16 @@ import System.Environment(getArgs)
 main = do
     args <- getArgs
     let peerCount = if null args then 5 else read (head args) :: Int
-    putStrLn $ unlines header
-    putStrLn $ unlines $ peer monitor_as monitor_ip
-    putStrLn $ unlines $ peers local_as start_ip peerCount
+        filterFlag = 2 > length args
+    putStrLns header
+    if filterFlag then putStrLns routeMap else return ()
+    putStrLns sectionBGP
+    putStrLns $ peer False monitor_as monitor_ip
+    putStrLns $ peers filterFlag local_as start_ip peerCount
+    putStrLns trailer
 
---peerCount = 20
+putStrLns s = putStrLn $ unlines s
+
 local_ip = 13
 monitor_ip = 19
 monitor_as = "64505"
@@ -19,18 +24,28 @@ addr n = base_address ++ show n
 
 header = [ "! auto generated configuration file for FRR"
          , "password zebra"
-         , "bgp as-path access-list al1 deny _1_2_"
-         , "route-map rm1 permit 10"
-         , "  match as-path al1"
-         , "router bgp " ++ local_as
-         , "bgp router-id " ++ addr local_ip
          ]
 
-peerLine as ip s = unwords [ "neighbor ", addr ip, s ]
-peer as ip = map (peerLine as ip) [ "remote-as " ++ as
-                                  , "update-source " ++ addr local_ip
-                                  , "solo"
-                                  , "route-map rm1 in"
-                                  ]
+routeMap = [ "bgp as-path access-list al1 deny _1_2_"
+           , "route-map rm1 permit 10"
+           , "  match as-path al1"
+           ]
 
-peers as start n = concatMap (peer as) [start .. start + n] 
+sectionBGP = [ "router bgp " ++ local_as
+             , "bgp router-id " ++ addr local_ip
+             ]
+
+trailer = ["line vty"
+          , " exec-timeout 0 0"
+          , " no login"
+          ]
+
+peerLine as ip s = unwords [ " neighbor ", addr ip, s ]
+peer rm as ip = "" : ( map (peerLine as ip) ( [ " remote-as " ++ as
+                                            , " update-source " ++ addr local_ip
+                                            , " solo"
+                                            ] ++ [" route-map rm1 in" | rm]))
+                                            -- ( if rm then [" route-map rm1 in" ] else []))
+
+
+peers rm as start n = concatMap (peer rm as) [start .. start + n -1] 
