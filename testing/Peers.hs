@@ -1,5 +1,6 @@
 module Main where
 import System.Environment(getArgs)
+import Data.List(intercalate)
 
 {-
 $KAKAPO 172.18.0.13,172.18.19,64505 \
@@ -9,10 +10,9 @@ $KAKAPO 172.18.0.13,172.18.19,64505 \
 main = do
     args <- getArgs
     let peerCount = read (head args) :: Int
-    putStrLns header
-    putStrLns $ peers filterFlag local_as start_ip peerCount
+    putStr header
+    putStrLn $ peers local_as local_ip start_ip peerCount
 
-putStrLns s = putStrLn $ unlines s
 
 local_ip = 13
 monitor_ip = 19
@@ -21,18 +21,12 @@ start_ip = 20
 local_as = "64504"
 base_address = "172.18.0."
 addr n = base_address ++ show n
+uncommas = intercalate ","
 
 --header =  "$KAKAPO 172.18.0.13,172.18.19,64505"
-header =  "$KAKAPO " ++ addr local_ip ++ "," ++ addr monitor_ip ++ "," ++ monitor_as
-         
+header =  "$KAKAPO " ++ addr local_ip ++ "," ++ addr monitor_ip ++ "," ++ monitor_as ++ " "
 
 
-peerLine as ip s = unwords [ " neighbor ", addr ip, s ]
-peer rm as ip = "" : ( map (peerLine as ip) ( [ " remote-as " ++ as
-                                            , " update-source " ++ addr local_ip
-                                            , " solo"
-                                            ] ++ [" route-map rm1 in" | rm]))
-                                            -- ( if rm then [" route-map rm1 in" ] else []))
+peer as local_ip remote_ip = uncommas [ addr local_ip , addr remote_ip , as ]
 
-
-peers rm as start n = concatMap (peer rm as) [start .. start + n -1] 
+peers as local_ip start n = unwords $ map (peer as local_ip) [start .. start + n -1]
