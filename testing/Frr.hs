@@ -1,12 +1,15 @@
+{-#  LANGUAGE QuasiQuotes  #-}
 module Main where
 import System.Environment(getArgs)
+import Text.RawString.QQ -- raw-strings-qq
 
 main = do
     args <- getArgs
     let peerCount = if null args then 5 else read (head args) :: Int
         filterFlag = 2 > length args
     putStrLns header
-    if filterFlag then putStrLns routeMap else return ()
+    if filterFlag then putStrLn routeMap2 else return ()
+    -- if filterFlag then putStrLns routeMap1 else return ()
     putStrLns sectionBGP
     putStrLns $ peer False monitor_as monitor_ip
     putStrLns $ peers filterFlag local_as start_ip peerCount
@@ -26,10 +29,24 @@ header = [ "! auto generated configuration file for FRR"
          , "password zebra"
          ]
 
-routeMap = [ "bgp as-path access-list al1 deny _1_2_"
-           , "route-map rm1 permit 10"
-           , "  match as-path al1"
-           ]
+routeMap1 = [ "bgp as-path access-list al1 deny _1_2_"
+            , "route-map rm1 permit 10"
+            , "  match as-path al1"
+            ]
+
+routeMap2 = [r|
+bgp as-path access-list al1 permit ^99_98_97_96$
+bgp as-path access-list al1 permit _99_98_97_96_
+bgp as-path access-list al1 permit _99_98_([0..9]*)_97_96_
+bgp as-path access-list al2 permit _([0..9]*)_
+bgp as-path access-list al3 permit _([0..9]*)_
+route-map rm1 deny 10
+  match as-path al1
+route-map rm1 permit 20
+  match as-path al2
+route-map rm1 deny 30
+  match as-path al3
+route-map rm1 permit 99|]
 
 sectionBGP = [ "router bgp " ++ local_as
              , "bgp router-id " ++ addr local_ip
