@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
@@ -264,18 +265,24 @@ int single_rate = 0;
 
 void summarise(char *s, double *r) {
   int i;
+  double count = REPEAT - 1;
   double max = 0;
   double min = 0;
   double sum = 0;
+  double sqsum = 0;
 
   for (i = 1; i < REPEAT; i++) {
     sum += r[i];
+    sqsum += r[i]*r[i];
     max = r[i] > max ? r[i] : max;
     min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
   };
-  double mean = sum / ((double)REPEAT - 1);
+  double mean = sum / count;
+  double sd = sqrt ( (count * sqsum) - (sum * sum) ) / count;
+  double rsd   = sd / mean;
+
   fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
-  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %d %d %d %d %d %d %d% d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate,multi_rate);
+  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d% d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate,multi_rate);
 };
 
 int main(int argc, char *argv[]) {
@@ -283,7 +290,7 @@ int main(int argc, char *argv[]) {
   int loglocalcheck = access("kakapo.log", F_OK); 
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
   if (-1 == loglocalcheck) // write a header line in an empty file
-    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT WINDOW RATECOUNT SINGLERATE MULTIRATE\n");
+    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT WINDOW RATECOUNT SINGLERATE MULTIRATE\n");
   sigset_t set;
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
