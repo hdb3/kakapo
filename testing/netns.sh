@@ -8,7 +8,7 @@ ip netns exec target ip li set up dev $IFT
 ip netns exec kakapo ip li set up dev $IFK
 
 ip netns exec target ip addr add 172.18.0.13/24 dev $IFT
-for n in `seq 19 60`
+for n in `seq 19 70`
   do
     ip netns exec kakapo ip addr add 172.18.0.${n}/24 dev $IFK
     ip netns exec target fping -r 20 -u 172.18.0.${n}
