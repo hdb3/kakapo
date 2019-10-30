@@ -3,7 +3,7 @@
 ## script control
 
 : ${PLATFORMS:="BIRD BIRD2 FRR OPENBGPD HBGP RELAY GOBGP"}
-: ${RANGE:="5 10 20 30 40"}
+: ${RANGE:="01 05 10 15 20 25 30 35 40 45 50"}
 : ${LOOPCOUNT:=1}
 : ${SRC:="/home/nic/src"}
 
@@ -11,20 +11,11 @@
 # some default locations - override in the environment if needed
 # in particular, CONFSUBDIR allows to use other configuration files
 
-: ${CONFSUBDIR:="simple"}
+: ${CONFSUBDIRS:="simple filters"}
 : ${BINDIR:="$SRC/kagu/build"}
 : ${KAKAPODIR:="$SRC/kakapo/"}
 : ${CONFDIR:="$KAKAPODIR/testing"}
 #
-FULLCONFDIR="${CONFDIR}/$CONFSUBDIR"
-
-BIRD="$BINDIR/bird -d -c $FULLCONFDIR/bird.conf"
-BIRD2="$BINDIR/bird2 -d -c $FULLCONFDIR/bird2.conf"
-OPENBGPD="$BINDIR/bgpd -d -f $FULLCONFDIR/bgpd.conf"
-GOBGP="$BINDIR/gobgpd -f $FULLCONFDIR/gobgpd.conf"
-FRR="$BINDIR/frr -S -l 172.18.0.13 -n --log stdout -f  $FULLCONFDIR/frr.conf"
-HBGP="$BINDIR/hbgp $FULLCONFDIR/bgp.conf"
-RELAY="$KAKAPODIR/relay/relay2 172.18.0.13 172.18.0.19"
 
 ## these are kakapo control variables - must be exported for kakapo process to inherit them
 
@@ -52,11 +43,22 @@ VARS=$DIR/vars
 
 #
 
-echo "configs in $FULLCONFDIR, binaries in $BINDIR, relay2 in $( dirname $RELAY )"
+echo "configs in $CONFDIR, binaries in $BINDIR, relay2 in $( dirname $RELAY )"
 echo "kakapo is $KAKAPO"
 
 for n in `seq 1 $LOOPCOUNT` 
   do
+     for CONFSUBDIR in $CONFSUBDIRS
+       do
+         FULLCONFDIR="${CONFDIR}/$CONFSUBDIR"
+
+         BIRD="$BINDIR/bird -d -c $FULLCONFDIR/bird.conf"
+         BIRD2="$BINDIR/bird2 -d -c $FULLCONFDIR/bird2.conf"
+         OPENBGPD="$BINDIR/bgpd -d -f $FULLCONFDIR/bgpd.conf"
+         GOBGP="$BINDIR/gobgpd -f $FULLCONFDIR/gobgpd.conf"
+         FRR="$BINDIR/frr -S -l 172.18.0.13 -n --log stdout -f  $FULLCONFDIR/frr.conf"
+         HBGP="$BINDIR/hbgp $FULLCONFDIR/bgp.conf"
+         RELAY="$KAKAPODIR/relay/relay2 172.18.0.13 172.18.0.19"
     for PLATFORM in $PLATFORMS
       do
         BIN=${!PLATFORM}
@@ -86,5 +88,6 @@ for n in `seq 1 $LOOPCOUNT`
             echo "$KENV ip netns exec kakapo $KAKAPO $KPEERS"
           fi
         done
+    done
     done
   done
