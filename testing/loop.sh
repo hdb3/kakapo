@@ -2,7 +2,7 @@
 #
 ## script control
 
-: ${PLATFORMS:="BIRD BIRD2 FRR OPENBGPD HBGP RELAY"}
+: ${PLATFORMS:="BIRD BIRD2 FRR OPENBGPD HBGP RELAY GOBGP"}
 : ${RANGE:="5 10 20 30 40"}
 : ${LOOPCOUNT:=1}
 : ${SRC:="/home/nic/src"}
@@ -21,6 +21,7 @@ FULLCONFDIR="${CONFDIR}/$CONFSUBDIR"
 BIRD="$BINDIR/bird -d -c $FULLCONFDIR/bird.conf"
 BIRD2="$BINDIR/bird2 -d -c $FULLCONFDIR/bird2.conf"
 OPENBGPD="$BINDIR/bgpd -d -f $FULLCONFDIR/bgpd.conf"
+GOBGP="$BINDIR/gobgpd -f $FULLCONFDIR/gobgpd.conf"
 FRR="$BINDIR/frr -S -l 172.18.0.13 -n --log stdout -f  $FULLCONFDIR/frr.conf"
 HBGP="$BINDIR/hbgp $FULLCONFDIR/bgp.conf"
 RELAY="$KAKAPODIR/relay/relay2 172.18.0.13 172.18.0.19"
