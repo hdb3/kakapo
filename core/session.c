@@ -18,6 +18,7 @@
 #include <sys/ioctl.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -62,6 +63,32 @@ void _send(struct peer *p, const void *buf, size_t count) {
   txwait(p->sock);
   __send(p, buf, count);
   txwait(p->sock);
+};
+
+void send_from_file(struct peer *p, char* fname) {
+struct stat statbuf;
+  if (p->sendFlag != 0)
+    die("send flag reentry fail");
+  else
+    p->sendFlag = 1;
+fprintf(stderr, "send_from_file using %s, in working directory %s\n",fname,get_current_dir_name());
+int fd = open(fname,0);
+  if (fd == -1) {
+    die("open file fail");
+  };
+  assert(fstat(fd,&statbuf) != -1);
+  long to_send = statbuf.st_size;
+  long sent = 0;
+  fprintf(stderr, "opened %s, filesize is %ld\n",fname,to_send);
+  while (to_send>0){
+    sent = sendfile(p->sock, fd, 0, to_send);
+    if (-1 == sent)
+      die("trouble in sendfile");
+    else
+      to_send -= sent;
+  };
+  assert (0==to_send);
+  p->sendFlag = 0;
 };
 
 unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
@@ -610,6 +637,17 @@ void rx_end(struct rx_data *rxd) {
   free(rxd);
 };
 
+void sendfile_single_peer(struct peer *target, char* fname) {
+  struct timespec ts;
+
+  struct rx_data *rxd = rx_start(target, listener);
+  gettime(&ts);
+  fprintf(stderr, "sendfile:          %s\n", show_peer(target));
+  send_from_file(target, fname);
+  rx_end(rxd);
+  fprintf(stderr, "sendfile complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
+};
+
 void conditioning_single_peer(struct peer *target) {
   struct timespec ts;
 
@@ -661,6 +699,18 @@ double multi_peer_burst_test(int count) {
   gettime(&ts_end);
   elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
   fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f\n", count, elapsed);
+  return elapsed;
+};
+
+double file_test(char* fname) {
+  int i;
+  struct timespec ts;
+  double elapsed;
+  gettime(&ts);
+  sendfile_single_peer(senders,fname);
+  fprintf(stderr, "file_test start\n");
+  elapsed = getdeltats(ts);
+  fprintf(stderr, "file_test complete: elapsed time %f\n", elapsed);
   return elapsed;
 };
 

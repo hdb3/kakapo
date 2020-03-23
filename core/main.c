@@ -72,6 +72,7 @@ char LOGFILE[128] = "stats.csv";
 char LOGPATH[128] = "localhost";
 char LOGTEXT[1024] = "";
 char *MODE;
+char SENDFILENAME[128] = "updates.raw";
 char sMODE[128] = "BURST"; // only LISTENER and SENDER have any effect
 char BURST[] = "BURST";
 char DYNAMIC[] = "DYNAMIC";
@@ -337,6 +338,7 @@ int main(int argc, char *argv[]) {
   getsenv("LOGTEXT", LOGTEXT);
   MODE = sMODE;
   getsenv("MODE", MODE);
+  getsenv("SENDFILENAME", SENDFILENAME);
 
   // startstatsrunner();
 
@@ -388,7 +390,18 @@ int main(int argc, char *argv[]) {
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
       keepalive_all();
     };
+    sleep(REPEATDELAY);
+    canary_all();
     summarise("single_peer_burst_test", results);
+  } else if (0 == strcmp(MODE, "FILE")) {
+    for (i = 0; i < REPEAT; i++) {
+      canary_all();
+      sleep(REPEATDELAY);
+      fprintf(stderr, "cycle %d\n", i);
+      results[i] = file_test(SENDFILENAME);
+      keepalive_all();
+    };
+    summarise("file_test", results);
   } else if (0 == strcmp(MODE, "PAM")) {
     conditioning_duration = conditioning();
     for (i = 0; i < REPEAT; i++) {

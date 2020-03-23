@@ -43,6 +43,7 @@ extern uint32_t HOLDTIME;
 extern uint32_t RATEBLOCKSIZE;
 extern uint32_t MAXBLOCKINGFACTOR;
 extern char *MODE;
+extern char SENDFILENAME[];
 
 void startlog(uint32_t tid, char *tids, struct timespec *start);
 void endlog(char *s);
@@ -79,6 +80,7 @@ extern int sender_count;
 void session(void *x);
 void establish(void *x);
 double single_peer_burst_test(int count);
+double file_test(char* fname);
 double multi_peer_burst_test(int count);
 int multi_peer_rate_test(int count, int window);
 int single_peer_rate_test(int count, int window);
