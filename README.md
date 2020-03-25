@@ -1,5 +1,6 @@
 # kakapo
-BGP flood tool - source and sink
+BGP flood tool - source and sink.
+
 A minimalistic 'C' tool which is capable of establishing BGP peer sessions and subsequently simultaneously generating and accepting very large numbers of Update messages.
 ## Description
 BGP update messages may be sourced from pre encoded binary files which allows complete flexibility in choice of payload and BGP capability options, or generated synthetically.  Synthetic streams can be flexibly defined in terms of prefix count per path, total number of prefixes and paths, and can repeat cycle with path variations to ensure that generated updates continue to be forwarded by recipient even when prefixes are reused.
