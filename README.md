@@ -12,7 +12,7 @@ Bulk message transmission is accomplished using a single _sendfile_ system call,
 Message reception is done in two ways: the default uses libc FILE buffering which is more than fast enough for most purposes (10M updates in 0.7 seconds).  This option parses BGP messages sufficiently to count them and potentially to respond differently to specific message types or content.  A compile time option provides the capability of simply dumping all input once the initial BGP handshake is complete.  This option cannot count BGP messages: it enables a 10M Update burst to be consumed in ~0.2 seconds)
 ## Usage
 _kakapo_ operates as an active BGP speaker only.  kakapo command line has this format:
-kakapo <peer IP address>,<local IP address>,<local AS number> <peer IP address>,<local IP address>,<local AS number> [<peer IP address>,<local IP address>,<local AS number>]
+kakapo \<peer IP address>,\<local IP address>,\<local AS number> \<peer IP address>,\<local IP address>,\<local AS number> [\<peer IP address>,\<local IP address>,\<local AS number>]
   The first defined peer session is the traffic sink/monitor, subsequent peer definitions will source Update traffic. 
 
 ## Implementation
