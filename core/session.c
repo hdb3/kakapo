@@ -546,7 +546,7 @@ void establish(void *x) {
   if (0 != expect_keepalive(p))
     goto exit;
 
-  send_eor(p);
+  // send_eor(p);
 
   pthread_exit(NULL);
 
@@ -642,10 +642,10 @@ void sendfile_single_peer(struct peer *target, char* fname) {
 
   struct rx_data *rxd = rx_start(target, listener);
   gettime(&ts);
-  fprintf(stderr, "sendfile:          %s\n", show_peer(target));
+  // fprintf(stderr, "sendfile:          %s\n", show_peer(target));
   send_from_file(target, fname);
   rx_end(rxd);
-  fprintf(stderr, "sendfile complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
+  // fprintf(stderr, "sendfile complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
 };
 
 void conditioning_single_peer(struct peer *target) {
@@ -655,6 +655,7 @@ void conditioning_single_peer(struct peer *target) {
   gettime(&ts);
   fprintf(stderr, "conditioning:          %s\n", show_peer(target));
   send_update_block(TABLESIZE, target);
+  send_eor(target);
   rx_end(rxd);
   fprintf(stderr, "conditioning complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
 };
@@ -707,8 +708,10 @@ double file_test(char* fname) {
   struct timespec ts;
   double elapsed;
   gettime(&ts);
-  sendfile_single_peer(senders,fname);
   fprintf(stderr, "file_test start\n");
+  sendfile_single_peer(senders,fname);
+  send_eor(senders);
+  canary(senders);
   elapsed = getdeltats(ts);
   fprintf(stderr, "file_test complete: elapsed time %f\n", elapsed);
   return elapsed;

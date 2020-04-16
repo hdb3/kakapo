@@ -18,6 +18,7 @@
 
 extern int pid;
 extern int tflag;
+extern uint32_t PEERMAXRETRIES;
 extern uint32_t TCPPORT;
 extern uint32_t SHOWRATE;
 extern uint32_t SLEEP;

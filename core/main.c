@@ -47,6 +47,7 @@ uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
 uint32_t REPEAT = 5;         // enabler for new testmodes
 
 uint32_t TCPPORT = 179;
+uint32_t PEERMAXRETRIES = -1; // retry forever
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
@@ -95,6 +96,7 @@ void startpeer(struct peer *p, char *s) {
     die("server mode not supported in this version");
 
   int peersock;
+  int retries = 0;
   struct sockaddr_in peeraddr = {AF_INET, htons(TCPPORT), (struct in_addr){p->remoteip}};
   struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
 
@@ -104,8 +106,16 @@ void startpeer(struct peer *p, char *s) {
   0 == bind(peersock, (const struct sockaddr *)&myaddr, SOCKADDRSZ) ||
       die("Failed to bind local address");
 
-  0 == (connect(peersock, (const struct sockaddr *)&peeraddr, SOCKADDRSZ)) ||
+  while(1) {
+    if (0 == (connect(peersock, (const struct sockaddr *)&peeraddr, SOCKADDRSZ)))
+      break;
+    else if (retries++ == PEERMAXRETRIES)
       die("Failed to connect with peer");
+    else {
+      fprintf(stderr, "retrying connection\n");
+      sleep(5);
+    }; 
+  };
 
   p->sock = peersock;
 
@@ -326,6 +336,7 @@ int main(int argc, char *argv[]) {
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
+  getuint32env("PEERMAXRETRIES", &PEERMAXRETRIES);
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
@@ -394,12 +405,12 @@ int main(int argc, char *argv[]) {
     canary_all();
     summarise("single_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "FILE")) {
-    for (i = 0; i < REPEAT; i++) {
-      canary_all();
+    conditioning_duration = file_test(SENDFILENAME);
+    for (i = 1; i < REPEAT; i++) {
+      keepalive_all();
       sleep(REPEATDELAY);
       fprintf(stderr, "cycle %d\n", i);
       results[i] = file_test(SENDFILENAME);
-      keepalive_all();
     };
     summarise("file_test", results);
   } else if (0 == strcmp(MODE, "PAM")) {
