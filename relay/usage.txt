@@ -1,0 +1,10 @@
+# Usage
+'relay2' is the current supported system.
+
+The operational principle is a two way relay between ports, in practiice usually two.
+This allows seprated end points to establish BGP sessions as long as their OPEN messages are mutually acceptable.
+
+Both parameters are IP addresses.  The first is a 'listen' address to use for binding the server.  Use '0.0.0.0' to listen on more than one port.
+The second is the remote address for the special peer designated as 'listener'.
+
+Relay starts forwarding messages as soon as the listener peer connection is established. (?????) 
