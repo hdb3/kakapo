@@ -1,6 +1,4 @@
 cabal-version:       2.4
--- TODO - stackize (remove versions), and
--- introduce common deps
 
 name:                ingest
 version:             0.1.0.0
@@ -11,37 +9,35 @@ maintainer:          nic@hdb3.net
 copyright:           Nicholas Hart
 category:            Network
 
+common base
+  other-extensions:    OverloadedStrings
+  default-language:    Haskell2010
+  build-depends:       base , text , containers , gnuplot , hashable , directory , extra , filepath , unix, attoparsec
+
 executable ingest
+  import:              base
   main-is:             Analysis.hs
   other-modules:       GPlot Mean QFields Sections Stages Paths
   other-extensions:    OverloadedStrings, TupleSections, RecordWildCards, DeriveGeneric
-  build-depends:       base ^>=4.12.0, text ^>=1.2.3, containers ^>=0.6.0, gnuplot ^>=0.5.6, hashable ^>=1.2.7, directory ^>= 1.3.3, extra ^>= 1.6.15, filepath ^>= 1.4.2, unix ^>= 2.7.2
-  default-language:    Haskell2010
-
+  
 executable kparse
+  import:              base
   main-is:             KParse.hs
   other-modules:       KakapoData
-  other-extensions:    OverloadedStrings
-  build-depends:       base ^>=4.12.0, text ^>=1.2.3, attoparsec ^>=0.13.2
-  default-language:    Haskell2010
 
 executable genparse
+  import:              base
   main-is:             GenParser.hs
   other-modules:       GenParse, Paths, Summary
-  other-extensions:    OverloadedStrings
-  build-depends:       base ^>=4.12.0, text ^>=1.2.3, attoparsec ^>=0.13.2, extra ^>=1.6.15 , directory ^>=1.3.3, unix ^>=2.7.2, filepath ^>=1.4.2, containers ^>=0.6.0
-  default-language:    Haskell2010
 
 executable summarise
+  import:              base
   main-is:             Summarise.hs
   other-modules:       Constraints, Graph, Mean, GenParse, Paths, Summary, CompareText
-  other-extensions:    OverloadedStrings
-  build-depends:       base ^>=4.12.0, text ^>=1.2.3, attoparsec ^>=0.13.2, extra ^>=1.6.15 , directory ^>=1.3.3, unix ^>=2.7.2, filepath ^>=1.4.2, containers ^>=0.6.0
-  default-language:    Haskell2010
 
 executable z
+  import:              base
   main-is:             Z.hs
   other-modules:       Graph, Mean, Constraints, GenParse, Paths, Summary, CompareText,AddMeta
-  other-extensions:    OverloadedStrings
-  build-depends:       base , text , attoparsec , extra , directory , unix , filepath , containers , process
-  default-language:    Haskell2010
+  build-depends:       process
+
