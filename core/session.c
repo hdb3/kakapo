@@ -328,7 +328,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   for (i = 0; i < length; i++) {
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                  empty,
-                                 iBGPpath(localip,
+                                 eBGPpath(localip,
                                           localpref + usn / TABLESIZE,
                                           (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
     vec[i] = b;
@@ -372,7 +372,7 @@ void _send_next_update(struct peer *p) {
   uint32_t localpref = 101 + usn / TABLESIZE;
   struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                empty,
-                               iBGPpath(p->localip,
+                               eBGPpath(p->localip,
                                         localpref,
                                         (uint32_t[]){TEN7 + usn % TABLESIZE, p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
@@ -382,7 +382,7 @@ void _send_next_update(struct peer *p) {
 
 void send_single_update(struct peer *p, struct prefix *pfx) {
 
-  struct bytestring b = update(nlris(pfx->ip, pfx->length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
+  struct bytestring b = update(nlris(pfx->ip, pfx->length, 1, 0), empty, eBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
   _send(p, b.data, b.length);
   free(b.data);
