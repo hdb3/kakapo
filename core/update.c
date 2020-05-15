@@ -46,7 +46,7 @@ struct bytestring iBGPpath(uint32_t nexthop, uint32_t localpref, uint32_t *asn) 
                         paASPATH(asn), NULL);
 };
 
-struct bytestring eBGPpath(uint32_t nexthop, uint32_t *asn) {
-  return pas2bytestring(paOrigin, paMED, paNextHop(nexthop), paASPATH(asn),
+struct bytestring eBGPpath(uint32_t nexthop, uint32_t med, uint32_t *asn) {
+  return pas2bytestring(paOrigin, paMED(med), paNextHop(nexthop), paASPATH(asn),
                         NULL);
 };

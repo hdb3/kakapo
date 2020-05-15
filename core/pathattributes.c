@@ -69,7 +69,12 @@ struct bytestring pa2bytestring(char *pa) {
 };
 
 char paOrigin[] = {Transitive, ORIGIN, 1, INCOMPLETE};
-char paMED[] = {Optional, MULTI_EXIT_DISC, 4, 0, 0, 0, 100};
+// char paMED[] = {Optional, MULTI_EXIT_DISC, 4, 0, 0, 0, 100};
+char *paMED(uint32_t med) {
+  static char b[] = {Optional, MULTI_EXIT_DISC, 4, 0, 0, 0, 0};
+  *((uint32_t *)(b + 3)) = __bswap_32(med);
+  return b;
+};
 
 char *paLocalPref(uint32_t localpref) {
   static char b[] = {Transitive, LOCAL_PREF, 4, 0, 0, 0, 0};
