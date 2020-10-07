@@ -1,8 +1,10 @@
+
+
 # kakapo
 
 _kakapo_ is a test suite for BGP performance.
 
-The main component is kakapo-core, which prvides the executalbel binary 'kakapo'.
+The main component is kakapo-core, which provides the executalble binary 'kakapo'.
 The simplest invocation of kakapo-core is of the form:
 
 _kakapo 192.168.0.1 192.168.0.1_

@@ -1,3 +1,7 @@
+# PLEASE NOTE THIS README IS INCOMPLETE
+# KAKAPO can generate synthetic route traffic or use MRT data sources
+
+
 # kakapo
 BGP flood tool - source and sink
 A minimalistic 'C' tool which is capable of establishing BGP peer sessions and subsequently generating or accepting very large numbers of Update messages.
