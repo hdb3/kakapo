@@ -66,6 +66,7 @@ struct peer {
   uint32_t remoteip;
   uint32_t localip;
   uint32_t as;
+  uint16_t port;
   struct sockbuf sb;
   slp_t slp;
 };
@@ -91,8 +92,6 @@ double conditioning();
 void notify_all();
 void canary_all();
 void keepalive_all();
-
-#define LIMIT 3
 
 void parseargument(struct peer *p, char *s);
 char *displaypeer(struct peer *p);

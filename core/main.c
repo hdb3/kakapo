@@ -97,7 +97,13 @@ void startpeer(struct peer *p, char *s) {
 
   int peersock;
   int retries = 0;
-  struct sockaddr_in peeraddr = {AF_INET, htons(TCPPORT), (struct in_addr){p->remoteip}};
+  uint16_t port;
+  if (0 == p->port)
+    port = TCPPORT;
+  else
+    port = p->port;
+  fprintf(stderr, "connecting to %s:%hd (%hd) (%hd)\n", inet_ntoa((struct in_addr){p->remoteip}), htons(port), port, p->port);
+  struct sockaddr_in peeraddr = {AF_INET, htons(port), (struct in_addr){p->remoteip}};
   struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
 
   0 < (peersock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) ||
@@ -106,7 +112,7 @@ void startpeer(struct peer *p, char *s) {
   0 == bind(peersock, (const struct sockaddr *)&myaddr, SOCKADDRSZ) ||
       die("Failed to bind local address");
 
-  while(1) {
+  while (1) {
     if (0 == (connect(peersock, (const struct sockaddr *)&peeraddr, SOCKADDRSZ)))
       break;
     else if (retries++ == PEERMAXRETRIES)
@@ -310,8 +316,9 @@ int main(int argc, char *argv[]) {
   pthread_sigmask(SIG_BLOCK, &set, NULL);
   pid = getpid();
   fprintf(stderr, "kakapo  Version %s (%s) \n", VERSION, BUILDDATE);
-  if (1 > argc) {
-    fprintf(stderr, "USAGE: kakapo {IP address[,IP address} [{IP address[,IP address}]\n");
+  if (3 > argc) {
+    fprintf(stderr, "USAGE: kakapo <IP address>[,<IP address>] <IP address>[,<IP address>] [<IP address>[,<IP address>]\n");
+    fprintf(stderr, "       note the minimum number of peers is two, of which the first is a listener and all others are senders\n");
     fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
     exit(1);
   }
