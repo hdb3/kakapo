@@ -89,14 +89,17 @@ int write_from(struct peer *p, int sock, int length) {
     return 1;
   } else {
     running = 0;
-    printf("write error, errno: %d (%d)\n", errno, res);
+    printf("write error, errno: %d (%d)(%s)\n", errno, res, strerror(errno));
     return 0;
   };
 };
 
 int flush(struct peer *p) {
-  write_from(p, listen_sock, p->nwriteable);
-  p->nwriteable = 0;
+  if (p->nwriteable > 0) {
+    if (listen_sock != -1)
+      write_from(p, listen_sock, p->nwriteable);
+    p->nwriteable = 0;
+  }
 };
 
 int forward(struct peer *p, int length) {
@@ -154,7 +157,8 @@ int readaction(struct peer *p, int read_flag) {
     } else if (res > 0) {
       p->nread += res;
       processaction(p);
-      flush(p);
+      // TDOD this looks like duplication....
+      // flush(p);
     } else { // impossible to have -ve != -1
       printf("peer %d: impossible end of stream(%d) on fd %d\n", p->peer_index, res, p->sock);
       running = 0;
@@ -206,6 +210,7 @@ void processaction(struct peer *p) {
   // p->nprocessed = p->nread;
   available = p->nread - p->nprocessed;
   while (18 < available) {
+    // TDOD could/should check for MARKER here....
     uint16_t msg_length = (*(get_byte(p, 16)) << 8) + *get_byte(p, 17);
     uint8_t msg_type = *get_byte(p, 18);
     if (msg_length <= available) {
@@ -213,10 +218,11 @@ void processaction(struct peer *p) {
       p->nprocessed += msg_length;
       available -= msg_length;
     } else {
-      flush(p);
+
       break;
     };
   };
+  flush(p);
 };
 
 int runseq = 0;
@@ -242,6 +248,11 @@ void run() {
           FD_CLR(p->sock, &read_set);
       };
       res = select(nfds, &read_set, &write_set, NULL, NULL);
+      if (-1 == res) {
+        printf("select error, errno: %d (%s)\n", errno, strerror(errno));
+      } else if (0 == res) {
+        printf("select timeout\n");
+      }
     };
 
     // closing down
@@ -344,10 +355,13 @@ void version(char *s) {
 int main(int argc, char *argv[]) {
   sigset_t set;
 
+
+  setlinebuf(stdout);
   prctl(PR_SET_DUMPABLE, 1);
   sigemptyset(&set);
   sigaddset(&set, SIGPIPE);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
+
   if (argc == 2) {
     version(argv[1]);
   } else if (argc == 3)
