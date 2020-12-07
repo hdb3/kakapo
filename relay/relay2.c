@@ -231,6 +231,7 @@ void run() {
   struct peer *p;
   fd_set read_set;
   fd_set write_set;
+  struct timeval tv = {0, 200000}; // 200mS
 
   while (1) {
     0 == (sem_wait(&semaphore1)) || die("semaphore wait fail");
@@ -247,11 +248,11 @@ void run() {
         else
           FD_CLR(p->sock, &read_set);
       };
-      res = select(nfds, &read_set, &write_set, NULL, NULL);
+      res = select(nfds, &read_set, &write_set, NULL, &tv);
       if (-1 == res) {
         printf("select error, errno: %d (%s)\n", errno, strerror(errno));
       } else if (0 == res) {
-        printf("select timeout\n");
+        // printf("select timeout\n");
       }
     };
 
@@ -354,7 +355,6 @@ void version(char *s) {
 
 int main(int argc, char *argv[]) {
   sigset_t set;
-
 
   setlinebuf(stdout);
   prctl(PR_SET_DUMPABLE, 1);
