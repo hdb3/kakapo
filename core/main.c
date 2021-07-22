@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
   gethostaddress("NEXTHOP", &NEXTHOP);
   getuint32env("CYCLECOUNT", &CYCLECOUNT);
   getuint32env("CYCLEDELAY", &CYCLEDELAY);
-  getuint32env("REPEATDELAY", &CYCLEDELAY);
+  getuint32env("REPEATDELAY", &REPEATDELAY);
   getuint32env("TCPPORT", &TCPPORT);
   getuint32env("SHOWRATE", &SHOWRATE);
   getuint32env("HOLDTIME", &HOLDTIME);
