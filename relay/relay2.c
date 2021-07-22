@@ -146,7 +146,7 @@ int readaction(struct peer *p, int read_flag) {
       } else
         ;                  // (errno == EAGAIN)
                            // nothing available but not an error
-                           // should not happen as we only read if the select showed read will succceed
+                           // should not happen as we only read if the pselect showed read will succceed
                            // **** HOWEVER *******
                            // experience shows that this does occur at the end of sessions
                            // _repeatedly_
@@ -190,6 +190,7 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
     echo(p, msg_length);
     break;
   case 2:
+    // printf("peer %d, Update\n", p->peer_index);
     forward(p, msg_length);
     break;
   case 3:
@@ -231,7 +232,8 @@ void run() {
   struct peer *p;
   fd_set read_set;
   fd_set write_set;
-  struct timeval tv = {0, 200000}; // 200mS
+  sigset_t sigmask;
+  struct timespec ts = {0, 200000000}; // 200mS
 
   while (1) {
     0 == (sem_wait(&semaphore1)) || die("semaphore wait fail");
@@ -248,11 +250,11 @@ void run() {
         else
           FD_CLR(p->sock, &read_set);
       };
-      res = select(nfds, &read_set, &write_set, NULL, &tv);
+      res = pselect(nfds, &read_set, &write_set, NULL, &ts, &sigmask);
       if (-1 == res) {
-        printf("select error, errno: %d (%s)\n", errno, strerror(errno));
+        printf("pselect error, errno: %d (%s)\n", errno, strerror(errno));
       } else if (0 == res) {
-        // printf("select timeout\n");
+        // printf("pselect timeout\n");
       }
     };
 
