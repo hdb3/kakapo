@@ -392,11 +392,8 @@ int main(int argc, char *argv[]) {
 
   if (0 == strcmp(MODE, "SINGLEONLY")) {
     for (i = 0; i < REPEAT; i++) {
-      canary_all();
-      sleep(REPEATDELAY);
       fprintf(stderr, "cycle %d\n", i);
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
-      keepalive_all();
     };
     summarise("single_only_peer_burst_test", results);
   } else if (0 == strcmp(MODE, "SINGLE")) {
