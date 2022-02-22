@@ -82,16 +82,19 @@ int write_from(struct peer *p, int sock, int length) {
   int res;
   int niovec;
   struct iovec iovecs[2];
-  niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nwrite + length);
-  res = writev(sock, iovecs, niovec);
-  if (res == length) { // happy path
-    p->nwrite += res;
-    return 1;
-  } else {
-    running = 0;
-    printf("write error, errno: %d (%d)(%s)\n", errno, res, strerror(errno));
-    return 0;
-  };
+  while (length>0) {
+    niovec = setupIOVECs(iovecs, p->buf, p->nwrite, p->nwrite + length);
+    res = writev(sock, iovecs, niovec);
+    if (res == -1) {
+      running = 0;
+      printf("write error, errno: %d (%d)(%s)\n", errno, res, strerror(errno));
+      return 0;
+    } else {
+      p->nwrite += res;
+      length -= res;
+    }
+  }
+  return 1;
 };
 
 int flush(struct peer *p) {
