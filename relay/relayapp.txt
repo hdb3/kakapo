@@ -1,0 +1,5 @@
+uasge for relayapp
+relayapp:
+   bash -xe build.sh && ./relayapp 127.0.0.2
+kakapo load source:
+   GROUPSIZE=1 MAXBURSTCOUNT=1 TABLESIZE=1 REPEAT=10 MODE=SINGLEONLY ./kakapo 127.0.0.10,127.0.0.2 127.0.0.10,127.0.0.3
