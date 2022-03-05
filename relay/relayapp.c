@@ -8,24 +8,7 @@
   Note: server listens on default port 179 and on all ipv4 interface addreses (0.0.0.0)
 */
 
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/prctl.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
-#include <unistd.h>
-
+#include "librelay.h"
 #include "util.h"
 #define FLAGS(a, b, c)
 
@@ -33,24 +16,15 @@
 #define BUFSIZE (1024 * 1024 * 64)
 #define MINREAD 4096
 #define MAXPEERS 100
-#define MAXPENDING 2 // Max connection requests
+#define MAXPENDING 100 // Max connection requests
 
 char VERSION[] = "2.0.0";
 
-struct peer {
-  int peer_index, sock;
-  uint64_t nread, nwrite, nprocessed, nwriteable;
-  int msg_counts[5];
-  struct sockaddr_in remote, local;
-  void *buf;
-} peer_table[MAXPEERS];
-int peer_count = 0;
-int nfds = 0;
-int running = 0;
-int listen_sock = -1;
-pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
-;
-sem_t semaphore1;
+struct peer peer_table[MAXPEERS];
+// int peer_count = 0;
+// int nfds = 0;
+// int running = 0;
+// int listen_sock = -1;
 
 void showpeer(struct peer *p) {
   printf("peer %2d: local: %s ", p->peer_index, inet_ntoa(p->local.sin_addr));
@@ -68,14 +42,14 @@ void peer_report(struct peer *p) {
   printf("%d Keepalives\n", (p->msg_counts)[4]);
 };
 
-void setsocketnonblock(int sock) {
-  fcntl(sock, F_SETFL, O_NONBLOCK);
-};
+// void setsocketnonblock(int sock) {
+//   fcntl(sock, F_SETFL, O_NONBLOCK);
+// };
 
-void setsocketnodelay(int sock) {
-  int i = 1;
-  setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-};
+// void setsocketnodelay(int sock) {
+//   int i = 1;
+//   setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
+// };
 
 void server(struct in_addr sink, int source_count) {
   struct sockaddr_in acceptaddr;
@@ -106,8 +80,6 @@ void server(struct in_addr sink, int source_count) {
   0 == (bind(serversock, (struct sockaddr *)&host, SOCKADDRSZ)) || die("Failed to bind the server socket");
 
   0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
-  0 == (sem_init(&semaphore1, 0, 0)) || die("semaphore init fail");
-  // pthread_create(&threadid, NULL, (void *)run, NULL);
   while (1) {
     memset(&acceptaddr, 0, SOCKADDRSZ);
     -1 != (peersock = accept(serversock, NULL, NULL)) || die("Failed to accept peer connection");
@@ -132,7 +104,8 @@ void server(struct in_addr sink, int source_count) {
     // setsocketnonblock(peersock);
     p = &peer_table[peer_index];
     memset(p, 0, sizeof(struct peer));
-    p->peer_index = peer_count;
+    p->peer_index = peer_index;
+    p->active = 1;
     p->buf = malloc(BUFSIZE);
     p->sock = peersock;
 
@@ -140,10 +113,13 @@ void server(struct in_addr sink, int source_count) {
       printf("peers connected: start sessions\n");
       break;
     } else {
-      printf("sink peer: %s", sink_connected ? "connected" : "waiting");
+      printf("sink peer: %s, ", sink_connected ? "connected" : "waiting");
       printf("source peers connected: %d/%d\n", sources_connected, source_count);
     }
   };
+  printf("starting librelay\n");
+  relay(sources_connected + 1, peer_table);
+  printf("librelay exited\n");
 };
 
 void usage() {
