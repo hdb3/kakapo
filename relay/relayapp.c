@@ -107,6 +107,7 @@ void server(struct in_addr sink, int source_count) {
     p->peer_index = peer_index;
     p->active = 1;
     p->buf = malloc(BUFSIZE);
+    nfds = peersock + 1 > nfds ? peersock + 1 : nfds;
     p->sock = peersock;
 
     if (sink_connected && (source_count <= sources_connected)) {

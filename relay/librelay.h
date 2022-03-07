@@ -26,3 +26,4 @@ struct peer {
 };
 
 extern void relay(int peer_count, struct peer *peer_table);
+extern int nfds;
