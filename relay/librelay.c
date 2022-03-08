@@ -209,7 +209,7 @@ void relay(int peer_count, struct peer *peer_table) {
 
   struct timespec ts = {0, 200000000}; // 200mS
   listen_sock = peer_table->sock;      // first peer is always the return traffic target (listener)
-  printf("run session(%d)\n", peer_count);
+  printf("relay, %d peers\n", peer_count);
   FD_ZERO(&read_set);
   FD_ZERO(&write_set);
   running = peer_count - 1;
