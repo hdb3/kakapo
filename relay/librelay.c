@@ -98,10 +98,8 @@ int readaction(struct peer *p, int read_flag) {
     if (res > 0) {
       p->nread += res;
       processaction(p);
-      // TDOD this looks like duplication....
-      // flush(p);
     } else {
-      // all alternatives are terminal for this peer
+      // all other alternatives are terminal for this peer
       p->active = 0;
       running--;
       if (res == 0) {
@@ -135,6 +133,7 @@ uint8_t *get_byte(struct peer *p, uint64_t offset) {
 };
 
 void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
+  // printf("dpi (%d)\n", p->peer_index);
   // this function is the opportunity to do as much or as little mangling as you might need
   // but it is inline with IO so best not take too long.....
   // for heavy processing it might be better to copy to a contiguous buffer
@@ -144,8 +143,6 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
   (4097 > msg_length) || (19 < msg_length) || die("bad sync2");
   (*(p->msg_counts))++;
   (*(p->msg_counts + msg_type))++;
-  // notice: if counts are zeroed out at connection time then the Open and Notification counts can be used as flags for state changes
-  // an EndOfRIB detector would be simple too, by checking for specific msg_length and msg_type
   switch (msg_type) {
   case 1:
     printf("peer %d, Open\n", p->peer_index);
@@ -153,6 +150,8 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
     break;
   case 2:
     // printf("peer %d, Update\n", p->peer_index);
+    if (msg_length == 23)
+      printf("peer %d, EoR\n", p->peer_index);
     forward(p, msg_length);
     break;
   case 3:
@@ -160,7 +159,7 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
     stop(p, msg_length);
     break;
   case 4:
-    printf("peer %d, Keepalive\n", p->peer_index);
+    // printf("peer %d, Keepalive\n", p->peer_index);
     echo(p, msg_length);
     break;
   };
@@ -169,8 +168,6 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
 void processaction(struct peer *p) {
   // need at least 19 bytes to have a valid length field and a message type in a message....
   uint64_t available;
-  // uncomment to remove message delineation
-  // p->nprocessed = p->nread;
   available = p->nread - p->nprocessed;
   while (18 < available) {
     // TDOD could/should check for MARKER here....
@@ -209,7 +206,7 @@ void relay(int peer_count, struct peer *peer_table) {
 
   struct timespec ts = {0, 200000000}; // 200mS
   listen_sock = peer_table->sock;      // first peer is always the return traffic target (listener)
-  printf("relay, %d peers\n", peer_count);
+  printf("librelay, %d peers\n", peer_count);
   FD_ZERO(&read_set);
   FD_ZERO(&write_set);
   running = peer_count - 1;
@@ -228,6 +225,7 @@ void relay(int peer_count, struct peer *peer_table) {
     if (-1 == res) {
       printf("pselect error, errno: %d (%s)\n", errno, strerror(errno));
     } else if (0 == res) {
+      // timeout - could use for heartbeat or other background action/trigger
       // printf("pselect timeout\n");
     }
   };
@@ -236,37 +234,20 @@ void relay(int peer_count, struct peer *peer_table) {
     close(p->sock);
     free(p->buf);
   };
-  printf("relay: exit\n");
-};
-
-void setsocketnonblock(int sock) {
-  fcntl(sock, F_SETFL, O_NONBLOCK);
-};
-
-void setsocketnodelay(int sock) {
-  int i = 1;
-  setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-};
-
-void showpeer(struct peer *p) {
-  printf("peer %2d: local: %s ", p->peer_index, inet_ntoa(p->local.sin_addr));
-  printf("         remote: %s\n", inet_ntoa(p->remote.sin_addr));
-};
-
-void peer_report(struct peer *p) {
-  printf("\npeer report\n");
-  showpeer(p);
-  printf("%ld/%ld/%ld bytes read/written/processed\n", p->nread, p->nwrite, p->nprocessed);
-  printf("%d messages\n", *(p->msg_counts));
-  printf("%d Opens\n", (p->msg_counts)[1]);
-  printf("%d Updates\n", (p->msg_counts)[2]);
-  printf("%d Notifications\n", (p->msg_counts)[3]);
-  printf("%d Keepalives\n", (p->msg_counts)[4]);
 };
 
 void peer_reports(int peer_count, struct peer *peer_table) {
+  printf("                                        bytes                 messages\n");
+  printf("peer# local            remote           read       written    Total    Opens Updates  Notifications Keepalives\n");
   for (int i = 0; i < peer_count; i++) {
     struct peer *p = peer_table + i;
-    peer_report(p);
+    printf(" %2d   %-16s ", p->peer_index, inet_ntoa(p->local.sin_addr));
+    printf("%-16s ", inet_ntoa(p->remote.sin_addr));
+    printf("%-10ld %-10ld ", p->nread, p->nwrite);
+    printf("%-8d ", *(p->msg_counts));
+    printf("%-6d", (p->msg_counts)[1]);
+    printf("%-8d ", (p->msg_counts)[2]);
+    printf("%-13d ", (p->msg_counts)[3]);
+    printf("%d \n", (p->msg_counts)[4]);
   }
 }

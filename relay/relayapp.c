@@ -77,10 +77,9 @@ int main(int argc, char *argv[]) {
     0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
     reuse = 1;
     0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
-
     0 == (bind(serversock, (struct sockaddr *)&host, SOCKADDRSZ)) || die("Failed to bind the server socket");
-
     0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
+
     while (1) {
 
       // IDLE phase
@@ -114,9 +113,11 @@ int main(int argc, char *argv[]) {
         p = &peer_table[peer_index];
         memset(p, 0, sizeof(struct peer));
         p->sock = peersock;
+        p->local = local;
+        p->remote = remote;
 
         if (sink_connected && (source_count <= sources_connected)) {
-          printf("peers connected: start sessions\n");
+          printf("all peers connected: start librelay\n");
           break;
         } else {
           printf("sink peer: %s, ", sink_connected ? "connected" : "waiting");
@@ -125,10 +126,9 @@ int main(int argc, char *argv[]) {
       };
 
       // active phase
-      printf("call librelay\n");
+
       relay(sources_connected + 1, peer_table);
-      printf("returned fromlibrelay\n");
-      // peer_reports(sources_connected + 1, peer_table);
+      peer_reports(sources_connected + 1, peer_table);
 
       // return to idle......
     }
