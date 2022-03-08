@@ -40,7 +40,7 @@ int die(char *mess) {
 }
 
 void flag(int flag, char *flagname, int fd, char *file, int line) {
-  int lopt, opt, rval;
+  uint lopt, opt, rval;
   lopt = sizeof(opt);
   rval = getsockopt(fd, IPPROTO_TCP, flag, (void *)&opt, &lopt);
   assert(rval == 0);

@@ -51,23 +51,23 @@ int write_from(struct peer *p, int sock, int length) {
   return 1;
 };
 
-int flush(struct peer *p) {
+void flush(struct peer *p) {
   if (p->nwriteable > 0) {
     write_from(p, listen_sock, p->nwriteable);
     p->nwriteable = 0;
   }
 };
 
-int forward(struct peer *p, int length) {
+void forward(struct peer *p, int length) {
   p->nwriteable += length;
 };
 
-int echo(struct peer *p, int length) {
+void echo(struct peer *p, int length) {
   flush(p);
   write_from(p, p->sock, length);
 };
 
-int stop(struct peer *p, int length) {
+void stop(struct peer *p, int length) {
   flush(p);
   p->nwrite += length;
   running = 0;
