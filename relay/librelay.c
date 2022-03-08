@@ -110,7 +110,7 @@ int readaction(struct peer *p, int read_flag) {
         if (errno == EAGAIN) {
           ; // (errno == EAGAIN)
             // nothing available but not an error
-            // should not happen as we only read if the pselect showed read will succceed
+            // should not happen as we only read if the pselect showed read will succeed
             // **** HOWEVER *******
             // experience shows that this does occur at the end of sessions
             // _repeatedly_
