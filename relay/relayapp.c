@@ -103,7 +103,6 @@ int main(int argc, char *argv[]) {
         printf("local: %s ", inet_ntoa(local.sin_addr));
         printf("remote: %s\n", inet_ntoa(remote.sin_addr));
 
-        
         if (remote.sin_addr.s_addr == sink_addr.s_addr) {
           sink_connected = 1;
           peer_index = 0;
