@@ -7,13 +7,11 @@
 #include "util.h"
 #define FLAGS(a, b, c)
 
-#define SOCKADDRSZ (sizeof(struct sockaddr_in))
+// #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 #define BUFSIZE (1024 * 1024 * 64)
 #define MINREAD 4096
-#define MAXPEERS 100
-#define MAXPENDING 2 // Max connection requests
-
-// char VERSION[] = "2.0.0";
+// #define MAXPEERS 100
+// #define MAXPENDING 2 // Max connection requests
 
 int peer_count = 0;
 int nfds = 0;
@@ -193,12 +191,25 @@ void processaction(struct peer *p) {
   flush(p);
 };
 
+void relay_init(int peer_count, struct peer *peer_table) {
+  for (int i = 0; i < peer_count; i++) {
+    struct peer *p = peer_table + i;
+    p->peer_index = i;
+    p->active = 1;
+    p->buf = malloc(BUFSIZE);
+    nfds = p->sock + 1 > nfds ? p->sock + 1 : nfds;
+  }
+}
+
 void relay(int peer_count, struct peer *peer_table) {
   int res, n, flag;
   struct peer *p;
   fd_set read_set;
   fd_set write_set;
   sigset_t sigmask;
+
+  relay_init(peer_count, peer_table);
+
   struct timespec ts = {0, 200000000}; // 200mS
   listen_sock = peer_table->sock;      // first peer is always the return traffic target (listener)
   printf("run session(%d)\n", peer_count);

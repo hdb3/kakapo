@@ -12,10 +12,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
+#define MAXPEERS 100
 struct peer {
   // TODO remove peer_index, use an index as the peer refernces ratther than a pointer
   int active, peer_index, sock;
@@ -26,4 +28,4 @@ struct peer {
 };
 
 extern void relay(int peer_count, struct peer *peer_table);
-extern int nfds;
+// extern int nfds;

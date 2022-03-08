@@ -10,21 +10,14 @@
 
 #include "librelay.h"
 #include "util.h"
+// below needed for SO_REUSEPORT
+#include <asm-generic/socket.h>
 #define FLAGS(a, b, c)
 
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
-#define BUFSIZE (1024 * 1024 * 64)
-#define MINREAD 4096
-#define MAXPEERS 100
 #define MAXPENDING 100 // Max connection requests
 
-char VERSION[] = "2.0.0";
-
 struct peer peer_table[MAXPEERS];
-// int peer_count = 0;
-// int nfds = 0;
-// int running = 0;
-// int listen_sock = -1;
 
 void showpeer(struct peer *p) {
   printf("peer %2d: local: %s ", p->peer_index, inet_ntoa(p->local.sin_addr));
@@ -104,10 +97,6 @@ void server(struct in_addr sink, int source_count) {
     // setsocketnonblock(peersock);
     p = &peer_table[peer_index];
     memset(p, 0, sizeof(struct peer));
-    p->peer_index = peer_index;
-    p->active = 1;
-    p->buf = malloc(BUFSIZE);
-    nfds = peersock + 1 > nfds ? peersock + 1 : nfds;
     p->sock = peersock;
 
     if (sink_connected && (source_count <= sources_connected)) {
