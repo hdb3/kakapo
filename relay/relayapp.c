@@ -19,32 +19,15 @@
 
 struct peer peer_table[MAXPEERS];
 
-void showpeer(struct peer *p) {
-  printf("peer %2d: local: %s ", p->peer_index, inet_ntoa(p->local.sin_addr));
-  printf("         remote: %s\n", inet_ntoa(p->remote.sin_addr));
-};
+void usage() {
+  printf("relayapp <<sink address>> [source peer count]\n");
+}
 
-void peer_report(struct peer *p) {
-  printf("\npeer report\n");
-  showpeer(p);
-  printf("%ld/%ld/%ld bytes read/written/processed\n", p->nread, p->nwrite, p->nprocessed);
-  printf("%d messages\n", *(p->msg_counts));
-  printf("%d Opens\n", (p->msg_counts)[1]);
-  printf("%d Updates\n", (p->msg_counts)[2]);
-  printf("%d Notifications\n", (p->msg_counts)[3]);
-  printf("%d Keepalives\n", (p->msg_counts)[4]);
-};
+int main(int argc, char *argv[]) {
+  sigset_t set;
 
-// void setsocketnonblock(int sock) {
-//   fcntl(sock, F_SETFL, O_NONBLOCK);
-// };
-
-// void setsocketnodelay(int sock) {
-//   int i = 1;
-//   setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
-// };
-
-void server(struct in_addr sink, int source_count) {
+  struct in_addr sink_addr;
+  int source_count = 1;
   struct sockaddr_in acceptaddr;
   int peersock;
   socklen_t socklen;
@@ -53,79 +36,16 @@ void server(struct in_addr sink, int source_count) {
   int serversock;
   int reuse;
   struct in_addr listener_addr;
-  pthread_t threadid;
   struct sockaddr_in remote, local;
   int sink_connected = 0;
   int sources_connected = 0;
   int peer_index = -1;
-
-  printf("server start\n");
-  printf("sink is: %s, source peer count is: %d\n", inet_ntoa(sink), source_count);
-
-  0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
-
-  reuse = 1;
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
-
-  reuse = 1;
-  0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
-
-  0 == (bind(serversock, (struct sockaddr *)&host, SOCKADDRSZ)) || die("Failed to bind the server socket");
-
-  0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
-  while (1) {
-    memset(&acceptaddr, 0, SOCKADDRSZ);
-    -1 != (peersock = accept(serversock, NULL, NULL)) || die("Failed to accept peer connection");
-
-    socklen = SOCKADDRSZ;
-    0 == (getpeername(peersock, (struct sockaddr *)&remote, &socklen)) || die("Failed to get peer address");
-    socklen = SOCKADDRSZ;
-    0 == (getsockname(peersock, (struct sockaddr *)&local, &socklen)) || die("Failed to get local address");
-    printf("connected:");
-    printf("local: %s ", inet_ntoa(local.sin_addr));
-    printf("remote: %s\n", inet_ntoa(remote.sin_addr));
-
-    if (remote.sin_addr.s_addr == sink.s_addr) {
-      sink_connected = 1;
-      peer_index = 0;
-    } else {
-      sources_connected += 1;
-      peer_index = sources_connected;
-    };
-
-    // fcntl(peersock, F_SETFL, O_NONBLOCK);
-    // setsocketnonblock(peersock);
-    p = &peer_table[peer_index];
-    memset(p, 0, sizeof(struct peer));
-    p->sock = peersock;
-
-    if (sink_connected && (source_count <= sources_connected)) {
-      printf("peers connected: start sessions\n");
-      break;
-    } else {
-      printf("sink peer: %s, ", sink_connected ? "connected" : "waiting");
-      printf("source peers connected: %d/%d\n", sources_connected, source_count);
-    }
-  };
-  printf("starting librelay\n");
-  relay(sources_connected + 1, peer_table);
-  printf("librelay exited\n");
-};
-
-void usage() {
-  printf("relayapp <<sink address>> [source peer count]\n");
-}
-
-int main(int argc, char *argv[]) {
-  sigset_t set;
 
   setlinebuf(stdout);
   prctl(PR_SET_DUMPABLE, 1);
   sigemptyset(&set);
   sigaddset(&set, SIGPIPE);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
-  struct in_addr sink_addr;
-  int source_count = 1;
 
   if ((argc == 1) || (argc > 3)) {
     usage();
@@ -137,6 +57,56 @@ int main(int argc, char *argv[]) {
       tail > argv[2] || die("failed parsing source peer count");
       ((source_count > 0) && (source_count < MAXPEERS)) || die("invalid source peer count");
     }
-    server(sink_addr, source_count);
+
+    printf("server start\n");
+    printf("sink is: %s, source peer count is: %d\n", inet_ntoa(sink_addr), source_count);
+
+    0 < (serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) || die("Failed to create socket");
+
+    reuse = 1;
+    0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEADDR");
+
+    reuse = 1;
+    0 == (setsockopt(serversock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse))) || die("Failed to set server socket option SO_REUSEPORT");
+
+    0 == (bind(serversock, (struct sockaddr *)&host, SOCKADDRSZ)) || die("Failed to bind the server socket");
+
+    0 == (listen(serversock, MAXPENDING)) || die("Failed to listen on server socket");
+    while (1) {
+      memset(&acceptaddr, 0, SOCKADDRSZ);
+      -1 != (peersock = accept(serversock, NULL, NULL)) || die("Failed to accept peer connection");
+
+      socklen = SOCKADDRSZ;
+      0 == (getpeername(peersock, (struct sockaddr *)&remote, &socklen)) || die("Failed to get peer address");
+      socklen = SOCKADDRSZ;
+      0 == (getsockname(peersock, (struct sockaddr *)&local, &socklen)) || die("Failed to get local address");
+      printf("connected:");
+      printf("local: %s ", inet_ntoa(local.sin_addr));
+      printf("remote: %s\n", inet_ntoa(remote.sin_addr));
+
+      if (remote.sin_addr.s_addr == sink_addr.s_addr) {
+        sink_connected = 1;
+        peer_index = 0;
+      } else {
+        sources_connected += 1;
+        peer_index = sources_connected;
+      };
+
+      p = &peer_table[peer_index];
+      memset(p, 0, sizeof(struct peer));
+      p->sock = peersock;
+
+      if (sink_connected && (source_count <= sources_connected)) {
+        printf("peers connected: start sessions\n");
+        break;
+      } else {
+        printf("sink peer: %s, ", sink_connected ? "connected" : "waiting");
+        printf("source peers connected: %d/%d\n", sources_connected, source_count);
+      }
+    };
+    printf("starting librelay\n");
+    relay(sources_connected + 1, peer_table);
+    printf("librelay exited\n");
+    peer_reports(sources_connected + 1, peer_table);
   };
 };

@@ -7,11 +7,8 @@
 #include "util.h"
 #define FLAGS(a, b, c)
 
-// #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 #define BUFSIZE (1024 * 1024 * 64)
 #define MINREAD 4096
-// #define MAXPEERS 100
-// #define MAXPENDING 2 // Max connection requests
 
 int peer_count = 0;
 int nfds = 0;
@@ -250,3 +247,26 @@ void setsocketnodelay(int sock) {
   int i = 1;
   setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void *)&i, sizeof(i));
 };
+
+void showpeer(struct peer *p) {
+  printf("peer %2d: local: %s ", p->peer_index, inet_ntoa(p->local.sin_addr));
+  printf("         remote: %s\n", inet_ntoa(p->remote.sin_addr));
+};
+
+void peer_report(struct peer *p) {
+  printf("\npeer report\n");
+  showpeer(p);
+  printf("%ld/%ld/%ld bytes read/written/processed\n", p->nread, p->nwrite, p->nprocessed);
+  printf("%d messages\n", *(p->msg_counts));
+  printf("%d Opens\n", (p->msg_counts)[1]);
+  printf("%d Updates\n", (p->msg_counts)[2]);
+  printf("%d Notifications\n", (p->msg_counts)[3]);
+  printf("%d Keepalives\n", (p->msg_counts)[4]);
+};
+
+void peer_reports(int peer_count, struct peer *peer_table) {
+  for (int i = 0; i < peer_count; i++) {
+    struct peer *p = peer_table + i;
+    peer_report(p);
+  }
+}
