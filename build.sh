@@ -29,7 +29,5 @@ echo "built version $(git describe)"
 
 popd >/dev/null
 
-if [[ -d $HOME/.local/bin ]]
-then
-  cp -v $BINDIR/logbuffer-test $BINDIR/kakapo $HOME/.local/bin
-fi
+mkdir -p $HOME/.local/bin
+cp -v $BINDIR/logbuffer-test $BINDIR/kakapo $HOME/.local/bin
