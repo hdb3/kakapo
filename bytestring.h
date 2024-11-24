@@ -12,8 +12,8 @@ struct bytestring {
   uint32_t length;
   char *data;
 };
-struct bytestring empty;
-struct bytestring EOS;
+extern struct bytestring empty;
+extern struct bytestring EOS;
 char *hexbytestring(struct bytestring bs);
 struct bytestring concatbytestring(struct bytestring bs0, ...);
 // int sendbs(int sock, struct bytestring msg);
