@@ -1,0 +1,8 @@
+[init]
+	defaultBranch = main
+[user]
+	email = nic@hdb3.net
+	name = nicholas hart
+[core]
+    editor = vim
+

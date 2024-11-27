@@ -120,7 +120,7 @@ void startpeer(struct peer *p, char *s) {
     else {
       fprintf(stderr, "retrying connection\n");
       sleep(5);
-    }; 
+    };
   };
 
   p->sock = peersock;
@@ -304,7 +304,7 @@ void summarise(char *s, double *r) {
 
 int main(int argc, char *argv[]) {
 
-  int loglocalcheck = access("kakapo.log", F_OK); 
+  int loglocalcheck = access("kakapo.log", F_OK);
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
   if (-1 == loglocalcheck) // write a header line in an empty file
     fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT WINDOW RATECOUNT SINGLERATE MULTIRATE\n");
@@ -317,9 +317,9 @@ int main(int argc, char *argv[]) {
   pid = getpid();
   fprintf(stderr, "kakapo  Version %s (%s) \n", VERSION, BUILDDATE);
   if (3 > argc) {
-    fprintf(stderr, "USAGE: kakapo <IP address>[,<IP address>] <IP address>[,<IP address>] [<IP address>[,<IP address>]\n");
-    fprintf(stderr, "       note the minimum number of peers is two, of which the first is a listener and all others are senders\n");
-    fprintf(stderr, "       many options are controlled via environment variables like SLEEP, etc...\n");
+    fprintf(stderr, "USAGE: kakapo <IP address>[,<IP address>] <IP address>[,<IP address>] [<IP address>[,<IP address>]]\n");
+    fprintf(stderr, "       Note the minimum number of peers is two, of which the first is a listener and all others are senders.\n");
+    fprintf(stderr, "       Many options are controlled via environment variables like SLEEP, etc...\n");
     exit(1);
   }
 
@@ -479,7 +479,7 @@ int main(int argc, char *argv[]) {
     single_peer_func_test(MAXBURSTCOUNT);
   } else {
 
-    fprintf(stderr, "default test mode, take a guess.....\n");
+    fprintf(stderr, "default test mode - single_peer_burst_test, with canary\n");
     canary_all();
     fprintf(stderr, "canary complete for %d peers\n", argc - 1);
 
