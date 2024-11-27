@@ -847,7 +847,8 @@ int rate_test(int nsenders, int count, int window) {
     target = window + lb.received - lb.sent;
     if (target > 0 && lb.sent < count) {
       blocking_factor = 1 + target / peer_count;
-      send_update_block((blocking_factor > MAXBLOCKINGFACTOR ? MAXBLOCKINGFACTOR : blocking_factor), sender++);
+      blocking_factor = (blocking_factor > MAXBLOCKINGFACTOR ? MAXBLOCKINGFACTOR : blocking_factor);
+      send_update_block(blocking_factor, sender++);
       lb.sent += blocking_factor;
       if (sender = senders + nsenders)
         sender = senders;
