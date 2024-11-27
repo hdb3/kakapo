@@ -5,14 +5,36 @@ SCRIPTDIR=$(realpath $(dirname "$0"))
 
 # test topology
 #
-# DUT receives from multiple internal peers and sends to a single external peer
+# the DUT should receive from multiple external peers and send to a single internal peer
+# kakapo has the inverse behaviour, and can behave as multiple ASes.
+# The AS inhabited by both DUT and kakapo is called 'internal'.
+# The other, inhabited only by kakapo, is 'external'.
+# The labels 'internal' and 'external' can be seen as correct for the DUT.
+# The actual AS numbers used here (loop.sh) are defined in the config files peers.XX
+# In practice that means the first, kakapo-as-listener, peering relation, uses the 'internal' AS, 64504
 #
-# local address: 172.18.0.13
-# external peer address: 172.18.0.19
-# internal peers: 172.18.0.20...
-#
+# local address: 172.18.0.13 (DUT)
+# external peer address: 172.18.0.19 (kakapo as sink)
+# internal peers: 172.18.0.20... (kakapo as source)
+# local/internal AS number is 64504
+# remote/external AS number is 64505
+
+# In DUT configs, the BGP configuration should look like this:
+# my_as = 64504
+# my_bgp_source_address = 172.18.0.13
+# iBGP peer: 172.18.0.19
+# eBGP peers: 172.18.0.20,21,22,...
+# NB kakapo does not know about iBGP or eBGP, but it only builds eBGP routes
+# So, the first, route-listening peer, should be in the AS of the DUT, the others in an external AS
+
+# RELAY application notes
+# RELAY is a DUT
+# It is entirely passive, and has a 'primitive' FSM.
+# Connecting peers must initiate connection, relay works by sending back the open message, and also keep-alives,
+# to the originator.  Updates are blindly forwarded.
+
 LOCAL="172.18.0.13"
-EXTERNAL="172.18.0.19"
+KAKAPO_RECEIVING_ADDRESS="172.18.0.19"
 #
 ## script control
 
@@ -31,9 +53,9 @@ EXTERNAL="172.18.0.19"
 
 BIRD_CMD="$BINDIR/bird/bird -d -c "
 BIRD2_CMD="$BINDIR/bird2/bird -d -c "
-OPENBGPD_CMD="$BINDIR/bgpd -d -f "
-GOBGP_CMD="$BINDIR/gobgpd -f "
-FRR_CMD="$BINDIR/frr -S -l $LOCAL -n --log stdout -f  "
+OPENBGPD_CMD="$BINDIR/bgpd/bgpd -d -f "
+GOBGP_CMD="$BINDIR/gobgp/gobgpd -f "
+FRR_CMD="$BINDIR/frr/bgpd -S -l $LOCAL -n --log stdout -f  "
 HBGP_CMD="$BINDIR/hbgp "
 RELAY_CMD="$BASEDIR/relay/relay2"
 KAKAPO_CMD="$BASEDIR/bin/kakapo"
@@ -69,7 +91,7 @@ for n in $(seq 1 $LOOPCOUNT); do
     GOBGP="$GOBGP_CMD $FULLCONFDIR/gobgpd.conf"
     FRR="$FRR_CMD $FULLCONFDIR/frr.conf"
     HBGP="$HBGP_CMD $FULLCONFDIR/bgp.conf"
-    RELAY="$RELAY_CMD $LOCAL $EXTERNAL"
+    RELAY="$RELAY_CMD $LOCAL $KAKAPO_RECEIVING_ADDRESS"
     for PLATFORM in $PLATFORMS; do
       BIN=${!PLATFORM}
       for m in $RANGE; do
