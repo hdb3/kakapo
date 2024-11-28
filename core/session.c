@@ -65,29 +65,29 @@ void _send(struct peer *p, const void *buf, size_t count) {
   txwait(p->sock);
 };
 
-void send_from_file(struct peer *p, char* fname) {
-struct stat statbuf;
+void send_from_file(struct peer *p, char *fname) {
+  struct stat statbuf;
   if (p->sendFlag != 0)
     die("send flag reentry fail");
   else
     p->sendFlag = 1;
-fprintf(stderr, "send_from_file using %s, in working directory %s\n",fname,get_current_dir_name());
-int fd = open(fname,0);
+  fprintf(stderr, "send_from_file using %s, in working directory %s\n", fname, get_current_dir_name());
+  int fd = open(fname, 0);
   if (fd == -1) {
     die("open file fail");
   };
-  assert(fstat(fd,&statbuf) != -1);
+  assert(fstat(fd, &statbuf) != -1);
   long to_send = statbuf.st_size;
   long sent = 0;
-  fprintf(stderr, "opened %s, filesize is %ld\n",fname,to_send);
-  while (to_send>0){
+  fprintf(stderr, "opened %s, filesize is %ld\n", fname, to_send);
+  while (to_send > 0) {
     sent = sendfile(p->sock, fd, 0, to_send);
     if (-1 == sent)
       die("trouble in sendfile");
     else
       to_send -= sent;
   };
-  assert (0==to_send);
+  assert(0 == to_send);
   p->sendFlag = 0;
 };
 
@@ -328,7 +328,8 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   for (i = 0; i < length; i++) {
     struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                  empty,
-                                 eBGPpath(localip,
+                                 //  NB - use eBGPpath if require to behave as an eBGP peer sending updates
+                                 iBGPpath(localip,
                                           localpref + usn / TABLESIZE,
                                           (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
     vec[i] = b;
@@ -372,7 +373,8 @@ void _send_next_update(struct peer *p) {
   uint32_t localpref = 101 + usn / TABLESIZE;
   struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
                                empty,
-                               eBGPpath(p->localip,
+                               //  NB - use eBGPpath if require to behave as an eBGP peer sending updates
+                               iBGPpath(p->localip,
                                         localpref,
                                         (uint32_t[]){TEN7 + usn % TABLESIZE, p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
@@ -382,7 +384,8 @@ void _send_next_update(struct peer *p) {
 
 void send_single_update(struct peer *p, struct prefix *pfx) {
 
-  struct bytestring b = update(nlris(pfx->ip, pfx->length, 1, 0), empty, eBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
+  //  NB - use eBGPpath if require to behave as an eBGP peer sending updates
+  struct bytestring b = update(nlris(pfx->ip, pfx->length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
   usn++;
   _send(p, b.data, b.length);
   free(b.data);
@@ -637,7 +640,7 @@ void rx_end(struct rx_data *rxd) {
   free(rxd);
 };
 
-void sendfile_single_peer(struct peer *target, char* fname) {
+void sendfile_single_peer(struct peer *target, char *fname) {
   struct timespec ts;
 
   struct rx_data *rxd = rx_start(target, listener);
@@ -685,7 +688,7 @@ double multi_peer_burst_test(int count) {
   struct peer *sender;
   int sent = 0;
   int i = 0;
-  //fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
+  // fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
   int n = count;
   threadid = crf_count(&n, &crfs, listener);
   gettime(&ts_start);
@@ -694,22 +697,22 @@ double multi_peer_burst_test(int count) {
     sent++;
     i = (++i < sender_count) ? i : 0;
   };
-  //fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltats(ts));
+  // fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltats(ts));
   _pthread_join(threadid);
-// TODO use getdeltats() like conditioning does...
+  // TODO use getdeltats() like conditioning does...
   gettime(&ts_end);
   elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
   fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f\n", count, elapsed);
   return elapsed;
 };
 
-double file_test(char* fname) {
+double file_test(char *fname) {
   int i;
   struct timespec ts;
   double elapsed;
   gettime(&ts);
   fprintf(stderr, "file_test start\n");
-  sendfile_single_peer(senders,fname);
+  sendfile_single_peer(senders, fname);
   send_eor(senders);
   canary(senders);
   elapsed = getdeltats(ts);
@@ -869,7 +872,7 @@ int rate_test(int nsenders, int count, int window) {
         } else
           // bgp_receive() returned an exception
           goto terminate;
-          // break;
+        // break;
         // keep reading while the current read buffer is not exhausted
       } while (bgp_peek(&listener->sb));
   } while (lb.received < count);
@@ -889,11 +892,11 @@ terminate:
   // based on the last succesful receive
   elapsed = timespec_to_double(timespec_sub(listener->sb.rcvtimestamp, ts));
   int _count = lb.received;
-  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", _count, window, elapsed, _count/elapsed);
+  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", _count, window, elapsed, _count / elapsed);
 
   // obselete // fprintf(stderr, "multi_peer_rate_test :internal variables: _elapsed %f, _count %d, rate %f\n", _elapsed, _count, _count/_elapsed);
   // fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
-  return (int) (_count/elapsed);
+  return (int)(_count / elapsed);
 };
 
 int multi_peer_rate_test(int count, int window) {
