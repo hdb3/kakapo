@@ -5,8 +5,13 @@ SCRIPTDIR=$(realpath $(dirname "$0"))
 
 # test topology
 #
-# the DUT should receive from multiple external peers and send to a single internal peer
-# kakapo has the inverse behaviour, and can behave as multiple ASes.
+# the DUT should receive from multiple internal peers and send to a single external peer
+# This is preferred to the reverse direction since export from iBGP is generally default enabled,
+# and does not require the AS path to be aligned with the actual source of the update.
+
+# In this scenario, kakapo has the inverse behaviour - send to internal peers, listen as external peer,
+# and can behave as multiple ASes, to enable this dual role.
+
 # The AS inhabited by both DUT and kakapo is called 'internal'.
 # The other, inhabited only by kakapo, is 'external'.
 # The labels 'internal' and 'external' can be seen as correct for the DUT.
@@ -22,10 +27,11 @@ SCRIPTDIR=$(realpath $(dirname "$0"))
 # In DUT configs, the BGP configuration should look like this:
 # my_as = 64504
 # my_bgp_source_address = 172.18.0.13
-# iBGP peer: 172.18.0.19
-# eBGP peers: 172.18.0.20,21,22,...
+# eBGP peer: 172.18.0.19
+# iBGP peers: 172.18.0.20,21,22,...
+
 # NB kakapo does not know about iBGP or eBGP, but it only builds eBGP routes
-# So, the first, route-listening peer, should be in the AS of the DUT, the others in an external AS
+# So, the first, route-listening peer, should not be in the AS of the DUT, the others should.
 
 # RELAY application notes
 # RELAY is a DUT
@@ -55,7 +61,7 @@ BIRD_CMD="$BINDIR/bird/bird -d -c "
 BIRD2_CMD="$BINDIR/bird2/bird -d -c "
 OPENBGPD_CMD="$BINDIR/bgpd/bgpd -d -f "
 GOBGP_CMD="$BINDIR/gobgp/gobgpd -f "
-FRR_CMD="$BINDIR/frr/bgpd -S -l $LOCAL -n --log stdout -f  "
+FRR_CMD="$BINDIR/frr/bgpd -Z -S -l $LOCAL -n --log stdout -f  "
 HBGP_CMD="$BINDIR/hbgp "
 RELAY_CMD="$BASEDIR/relay/relay2"
 KAKAPO_CMD="$BASEDIR/bin/kakapo"

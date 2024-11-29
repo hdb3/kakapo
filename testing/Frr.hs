@@ -50,6 +50,8 @@ route-map rm1 permit 99|]
 
 sectionBGP = [ "router bgp " ++ local_as
              , "bgp router-id " ++ addr local_ip
+             , "no bgp ebgp-requires-policy"
+             ,""
              ]
 
 trailer = ["line vty"
@@ -58,11 +60,12 @@ trailer = ["line vty"
           ]
 
 peerLine as ip s = unwords [ " neighbor ", addr ip, s ]
-peer rm as ip = "" : ( map (peerLine as ip) ( [ " remote-as " ++ as
+peer rm as ip = "" :  map (peerLine as ip) ( [ " remote-as " ++ as
                                             , " update-source " ++ addr local_ip
                                             , " solo"
-                                            ] ++ [" route-map rm1 in" | rm]))
+                                            , " passive"
+                                            ] ++ [" route-map rm1 in" | rm])
                                             -- ( if rm then [" route-map rm1 in" ] else []))
 
 
-peers rm as start n = concatMap (peer rm as) [start .. start + n -1] 
+peers rm as start n = concatMap (peer rm as) [start .. start + n -1]
