@@ -222,6 +222,7 @@ void doeor(char *msg) {
   fprintf(stderr, "BGP Update(EOR) (End of RIB)\n");
 };
 
+// TODO inline these...?
 struct bytestring get_nlri(struct bytestring update) {
   uint16_t wrl = ntohs(*(uint16_t *)(update.data));
   assert(wrl < update.length - 1);
@@ -350,6 +351,8 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   assert(NULL != data);
 
   char *offset = data;
+  // TDOD - there seems to be some unnecessary mallocing and freeing here,
+  //        why is the update set not built directly into the output buffer
 
   for (i = 0; i < length; i++) {
     offset = mempcpy(offset, vec[i].data, vec[i].length);
@@ -518,7 +521,10 @@ void crf_update(struct prefix *pfx, struct crf_state *crfs, struct peer *p) {
 };
 
 int pf_count(int *counter, struct bgp_message *bm) {
-  (*counter)--;
+  struct bytestring msg = (struct bytestring){bm->pl, bm->payload};
+  struct bytestring nlri = get_nlri(msg);
+  int n_of_nlris = nlri_count(nlri);
+  (*counter) -= n_of_nlris;
   return (*counter > 0 ? 0 : 1);
 };
 
@@ -561,7 +567,7 @@ double single_peer_burst_test(int count) {
   struct crf_state crfs;
   struct timespec tx_start, tx_end;
   double tx_elapsed, rx_elapsed, elapsed;
-  int n = count;
+  int n = count * GROUPSIZE; // need to count prefixes sent/received, not updates
 
   memset(&crfs, 0, sizeof(struct crf_state));
   gettime(&tx_start);
@@ -576,15 +582,15 @@ double single_peer_burst_test(int count) {
   rx_elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
   elapsed = timespec_to_double(timespec_sub(crfs.end, tx_start));
 
-  fprintf(stderr, "single_peer_burst_test total elapsed time %f count %d", elapsed, count);
+  fprintf(stderr, "single_peer_burst_test total elapsed time %f count %d", elapsed, count * GROUPSIZE);
   fprintf(stderr, " (transmit %f)", tx_elapsed);
 
   if (1 == crfs.status)
     fprintf(stderr, " (receive %f)\n", rx_elapsed);
   else if (-2 == crfs.status)
-    fprintf(stderr, " (receive ** TIMEOUT **  elapsed time %f  dropped %d/%d)\n", rx_elapsed, n, count);
+    fprintf(stderr, " (receive ** TIMEOUT **  elapsed time %f  dropped %d/%d)\n", rx_elapsed, n, count * GROUPSIZE);
   else
-    fprintf(stderr, " ( receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d)\n", crfs.status, rx_elapsed, n, count);
+    fprintf(stderr, " ( receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d)\n", crfs.status, rx_elapsed, n, count * GROUPSIZE);
 
   return elapsed;
 };
@@ -682,27 +688,47 @@ void canary_all() {
 double multi_peer_burst_test(int count) {
   struct crf_state crfs;
   memset(&crfs, 0, sizeof(struct crf_state));
-  struct timespec ts_start, ts_end;
-  double elapsed;
+  // struct timespec ts_start, ts_end;
+  struct timespec tx_start, tx_end;
+
+  double tx_elapsed, rx_elapsed, elapsed;
+
   pthread_t threadid;
   struct peer *sender;
   int sent = 0;
   int i = 0;
   // fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
-  int n = count;
+  int n = count * GROUPSIZE; // need to count prefixes sent/received, not updates
   threadid = crf_count(&n, &crfs, listener);
-  gettime(&ts_start);
+  gettime(&tx_start);
   while (sent < count) {
     send_next_update(senders + i);
     sent++;
     i = (++i < sender_count) ? i : 0;
   };
+
+  for (int i = 0; i++; i < sender_count)
+    txwait((senders + i)->sock);
+
+  gettime(&tx_end);
   // fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltats(ts));
+
   _pthread_join(threadid);
   // TODO use getdeltats() like conditioning does...
-  gettime(&ts_end);
-  elapsed = timespec_to_double(timespec_sub(ts_end, ts_start));
-  fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f\n", count, elapsed);
+
+  tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
+  rx_elapsed = timespec_to_double(timespec_sub(crfs.end, crfs.start));
+  elapsed = timespec_to_double(timespec_sub(crfs.end, tx_start));
+
+  fprintf(stderr, "multi_peer_burst_test(%d) complete: elapsed time %f (transmit %f) count %d\n", sender_count, elapsed, tx_elapsed, count * GROUPSIZE);
+
+  if (1 == crfs.status)
+    fprintf(stderr, " (receive %f)\n", rx_elapsed);
+  else if (-2 == crfs.status)
+    fprintf(stderr, " (receive ** TIMEOUT **  elapsed time %f  dropped %d/%d)\n", rx_elapsed, n, count * GROUPSIZE);
+  else
+    fprintf(stderr, " ( receive ** EXCEPTION CODE %d **  elapsed time %f  dropped %d/%d)\n", crfs.status, rx_elapsed, n, count * GROUPSIZE);
+
   return elapsed;
 };
 
