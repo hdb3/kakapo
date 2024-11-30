@@ -1,0 +1,126 @@
+# explanation of all ENV parameters used for kakapo
+
+BLOCKSIZE
+Not used! default = 3
+
+
+CANARYSEED
+usage: session.c:594
+default: 192.168.255.0
+warped before use in canary, based on p->tidx, detail not understood, but I guess that the canary has to change...
+
+CYCLECOUNT
+Not used! default = 1
+comment: "0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all"
+
+
+CYCLEDELAY
+Not used! default = 5
+
+FASTCYCLELIMIT
+Not used! default = 0
+
+GROUPSIZE
+default: 3
+comment: "prefix table size is GROUPSIZE * path table size"
+refs: session.c:329,374,932:
+Used as parameter in call to nlri.c:nlris().
+Defines the number of prefixes inserted into a single update message.
+
+
+HOLDTIME
+default: 10000
+ref: session.c:420 -> session.c:bgpopen()
+comment: it IS the holdtime offered in the BGP OPEN message by kakapo.
+
+
+MAXBLOCKINGFACTOR
+default: 1000
+ref: session.c:853
+Used in ratetest.  It is the parameter given to the function send_update_block(), then down to build_update_block() where it controls the number of update messages assembled into a burst/block.
+
+
+MAXBURSTCOUNT
+default: 3
+comment: "path table size is MAXBURSTCOUNT * BLOCKSIZE"
+MAXBURSTCOUNT is used in main.c as the control parameter for all calls to single_peer_burst_test() and multi_peer_burst_test().  It is passed as control parameter to send_update_block(), where it defines the number of updates sent in a block of updates.
+
+
+NEXTHOP
+Not used!
+default: 192.168.1.1
+comment: kakapo is always using its 'local_ip' as the next hop.
+
+
+PEERMAXRETRIES
+default: -1
+ref: main.c:118
+How often to retry the TCP connection to a peer.
+The delay is/was 5 seconds. (-> 1 second)
+default -1 means never give up.
+
+RATEBLOCKSIZE
+default: 1000000
+ref: session.c:841, ...
+used in rate_test() and func_test().
+it is an monitor count for how often to run a rate calculation.
+Not affecting directly the sent traffic, perhaps affecting rate changes.
+
+
+RATECOUNT
+default: 500000
+ref: main.c:429:, ...
+Used as control parameter to single_peer_rate_test() and multi_peer_rate_test() in position 1 () where it is passed to rate_test(...,count,...).  It is (? confirm?) the terminating condition for the rate test, i.e. the test continues until the number of messages sent (and received) reaches count.
+TDOD? rename as limit? quota?
+
+
+REPEAT
+default: 5
+ref: main.c:291:...
+Used in various test modes to control repetitions of individual tests.
+TYpically a test set consists of single conditioning/canary operations bracketing N=REPEAT core tests like single_peer_rate_test(), etc.
+
+REPEATDELAY
+default: 5
+Invariably used with 'REPEAT' to delay the next cycle of test.  Unclear why it should be so high...
+
+SEEDPREFIX / SEEDPREFIXLEN
+default: 10.0.0.0 / 30
+ref: session.c:329,376,934 - build_update_block(), send_next_update(), func_test() as parameters to nlris() where it does what it says on the tin.
+
+
+SHOWRATE
+default: 0 (false?)
+ref: stats.c:163,178: in statsreport() called by stats.c:statsrunner() which updates screen with stats 1/second.
+
+
+SLEEP
+Not used!
+default: 0
+comment: "default value -> don't rate limit the send operation"
+
+TABLESIZE
+defualt: 10
+ref: session.c:329,...
+Global prameter controlling  send_update_block(), build_update_block().
+It is hard to read-off all of the usage of TABLESIZE, but the main one seems to be/is to define the total number of distinct prefixes that can be sent, before wrapping.  For small values of some other parameters its not clear what effect it has, except that conditioning phase uses it directly.
+
+
+TCPPORT
+default: 179
+ref: main.c:102:
+As expected, used as the defualt TCP port for connecting to peers.
+
+
+TIMEOUT
+default: 10
+ref: session.c:414
+Its used at socket level, e.g. in a call to setsocktimeout().
+Units unclear, I guess seconds?  I assume that it limits the time spent in a call to read().
+
+
+WINDOW
+defualt: 1000
+ref: main.c:429,..
+Used as parameter(2) on calls to single_peer_rate_test(), multi_peer_rate_test(), landing in int rate_test(.., int window).
+(I beleive) it controls the number of outstatding updates which can be allowed during rate tests.
