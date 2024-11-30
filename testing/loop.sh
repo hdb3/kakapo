@@ -45,24 +45,26 @@ KAKAPO_RECEIVING_ADDRESS="172.18.0.19"
 ## script control
 
 # : ${PLATFORMS:="BIRD BIRD2 FRR OPENBGPD HBGP RELAY GOBGP"}
-: ${PLATFORMS:="BIRD2 OPENBGPD FRR RELAY GOBGP"}
-: ${RANGE:="01 05 10 15 20 25 30 35 40 45 50"}
+: ${PLATFORMS:="BIRD BIRD2 FRR GOBGP HBGP OPENBGPD RELAY"}
+# : ${RANGE:="01 05 10 15 20 25 30 35 40 45 50"}
+: ${RANGE:="01 20"}
 : ${LOOPCOUNT:=1}
 
 #
 # some default locations - override in the environment if needed
 # in particular, CONFSUBDIR allows to use other configuration files
 
-: ${CONFSUBDIRS:="simple filters"}
+# : ${CONFSUBDIRS:="simple filters"}
+: ${CONFSUBDIRS:="simple"}
 : ${CONFDIR:="$SCRIPTDIR"}
 #
 
 BIRD_CMD="$BINDIR/bird/bird -d -c "
 BIRD2_CMD="$BINDIR/bird2/bird -d -c "
 OPENBGPD_CMD="$BINDIR/bgpd/bgpd -d -f "
-GOBGP_CMD="$BINDIR/gobgp/gobgpd -f "
+GOBGP_CMD="$BINDIR/gobgp/gobgpd --log-plain -f "
 FRR_CMD="$BINDIR/frr/bgpd -Z -S -l $LOCAL -n --log stdout -f  "
-HBGP_CMD="$BINDIR/hbgp "
+HBGP_CMD="$BINDIR/hbgp/hbgp "
 RELAY_CMD="$BASEDIR/relay/relay2"
 KAKAPO_CMD="$BASEDIR/bin/kakapo"
 
@@ -87,6 +89,12 @@ done
 echo "configs in $CONFDIR, binaries in $BINDIR, relay2 in $(dirname $RELAY_CMD)"
 echo "kakapo is $KAKAPO_CMD, platforms: $PLATFORMS"
 
+if [ -z "$DRYRUN" ]; then
+  $SCRIPTDIR/smoketest/add_loopbacks.sh del || :
+  $SCRIPTDIR/netns.sh del || :
+  $SCRIPTDIR/netns.sh
+fi
+
 for n in $(seq 1 $LOOPCOUNT); do
   for CONFSUBDIR in $CONFSUBDIRS; do
     FULLCONFDIR="${CONFDIR}/$CONFSUBDIR"
@@ -96,7 +104,7 @@ for n in $(seq 1 $LOOPCOUNT); do
     OPENBGPD="$OPENBGPD_CMD $FULLCONFDIR/bgpd.conf"
     GOBGP="$GOBGP_CMD $FULLCONFDIR/gobgpd.conf"
     FRR="$FRR_CMD $FULLCONFDIR/frr.conf"
-    HBGP="$HBGP_CMD $FULLCONFDIR/bgp.conf"
+    HBGP="$HBGP_CMD $FULLCONFDIR/hbgp.conf"
     RELAY="$RELAY_CMD $LOCAL $KAKAPO_RECEIVING_ADDRESS"
     for PLATFORM in $PLATFORMS; do
       BIN=${!PLATFORM}
@@ -116,7 +124,7 @@ for n in $(seq 1 $LOOPCOUNT); do
           PID=$!
           sleep 5
           eval "ip netns exec kakapo bash -c \"$CMD_ENV $KAKAPO_CMD $KPEERS\""
-          kill $PID
+          kill -9 $PID
           wait
         else
           echo "ip netns exec target $BIN"
