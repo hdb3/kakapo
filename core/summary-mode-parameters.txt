@@ -1,0 +1,154 @@
+
+# Single function tests
+## Burst tests
+
+SINGLEONLY
+    REPEAT x single_peer_burst_test
+
+SINGLE
+    conditioning
+    REPEAT x canary_all, single_peer_burst_test, keepalive_all
+    canary_all
+
+FILE
+    file_test
+    REPEAT x keepalive_all, file_test
+
+MULTI
+    conditioning
+    REPEAT x canary_all, multi_peer_burst_test, keepalive_all
+
+BOTH
+    conditioning
+    REPEAT x canary_all, single_peer_burst_test, canary_all, multi_peer_burst_test, keepalive_all
+
+DEFAULT
+    canary_all
+    conditioning
+    REPEAT x canary_all, single_peer_burst_test, keepalive_all
+    canary_all
+
+
+## Rate tests
+
+
+RATE
+    canary_all
+    conditioning
+    canary_all
+    multi_peer_rate_test(RATECOUNT, WINDOW)
+
+SINGLERATE
+    canary_all
+    conditioning
+    canary_all
+    single_peer_rate_test(RATECOUNT, WINDOW)
+
+
+
+# Hybrid / multi-function tests
+
+
+
+PAM
+    conditioning
+    REPEAT x canary_all, single_peer_burst_test
+    single_peer_rate_test(RATECOUNT, WINDOW),
+    multi_peer_rate_test(RATECOUNT, WINDOW)
+
+
+
+FUNCTEST
+    canary_all
+    conditioning
+    canary_all
+    single_peer_func_test
+
+
+
+=================================================
+
+
+# Single function tests
+## Burst tests
+
+SINGLEONLY
+    REPEAT
+     single_peer_burst_test(MAXBURSTCOUNT)
+
+SINGLE
+    conditioning
+    REPEAT
+        canary_all
+        single_peer_burst_test(MAXBURSTCOUNT)
+        keepalive_all
+    canary_all
+
+FILE
+    file_test(SENDFILENAME)
+    REPEAT
+        keepalive_all
+    file_test(SENDFILENAME)
+
+MULTI
+    conditioning
+    REPEAT
+        canary_all
+        multi_peer_burst_test(MAXBURSTCOUNT)
+    keepalive_all
+
+BOTH
+    conditioning
+    REPEAT
+        canary_all
+        single_peer_burst_test(MAXBURSTCOUNT)
+        canary_all
+        multi_peer_burst_test(MAXBURSTCOUNT)
+        keepalive_all
+
+DEFAULT
+  canary_all
+    conditioning
+    REPEAT
+      canary_all
+      single_peer_burst_test(MAXBURSTCOUNT)
+      keepalive_all
+    canary_all
+
+
+## Rate tests
+
+
+RATE
+    canary_all
+    conditioning
+    canary_all
+    multi_peer_rate_test(RATECOUNT, WINDOW)
+
+SINGLERATE
+    canary_all
+    conditioning
+    canary_all
+    single_peer_rate_test(RATECOUNT, WINDOW)
+
+
+
+# Hybrid / multi-function tests
+
+
+
+PAM
+    conditioning
+    REPEAT
+        canary_all
+        single_peer_burst_test(MAXBURSTCOUNT)
+    single_peer_rate_test(RATECOUNT, WINDOW)
+    multi_peer_rate_test(RATECOUNT, WINDOW)
+
+
+
+FUNCTEST
+    canary_all
+    conditioning
+    canary_all
+    single_peer_func_test(MAXBURSTCOUNT)

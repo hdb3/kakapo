@@ -1,0 +1,72 @@
+
+SINGLEONLY
+    REPEAT
+     single_peer_burst_test(MAXBURSTCOUNT)
+
+
+SINGLE
+    conditioning
+    REPEAT
+        canary_all
+        single_peer_burst_test(MAXBURSTCOUNT)
+        keepalive_all
+    canary_all()
+
+FILE
+    file_test(SENDFILENAME)
+    REPEAT
+        keepalive_all()
+    file_test(SENDFILENAME)
+
+
+PAM
+    conditioning
+    REPEAT
+        canary_all
+        single_peer_burst_test(MAXBURSTCOUNT)
+    single_peer_rate_test(RATECOUNT, WINDOW)
+    multi_peer_rate_test(RATECOUNT, WINDOW)
+
+
+MULTI
+    conditioning()
+    REPEAT
+        canary_all()
+        multi_peer_burst_test(MAXBURSTCOUNT)
+    keepalive_all()
+
+BOTH
+    conditioning()
+    REPEAT
+        canary_all()
+        single_peer_burst_test(MAXBURSTCOUNT)
+        canary_all()
+        multi_peer_burst_test(MAXBURSTCOUNT)
+        keepalive_all()
+
+RATE
+    canary_all()
+    conditioning()
+    canary_all()
+    multi_peer_rate_test(RATECOUNT, WINDOW)
+
+SINGLERATE
+    canary_all()
+    conditioning()
+    canary_all()
+    single_peer_rate_test(RATECOUNT, WINDOW)
+
+FUNCTEST
+    canary_all()
+    conditioning()
+    canary_all()
+    single_peer_func_test(MAXBURSTCOUNT)
+
+DEFAULT
+  canary_all()
+    conditioning()
+    REPEAT
+      canary_all()
+      single_peer_burst_test(MAXBURSTCOUNT)
+      keepalive_all()
+    canary_all()
