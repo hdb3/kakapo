@@ -32,7 +32,7 @@ extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;
 extern uint32_t GROUPSIZE;
 extern uint32_t WINDOW;
-extern uint32_t BLOCKSIZE;
+extern uint32_t BLOCKSIZE; // TODO/WARN - this parameter is not used anywhere
 extern uint32_t TABLESIZE;
 extern uint32_t MAXBURSTCOUNT;
 extern uint32_t RATECOUNT;
@@ -82,7 +82,7 @@ extern int sender_count;
 void session(void *x);
 void establish(void *x);
 double single_peer_burst_test(int count);
-double file_test(char* fname);
+double file_test(char *fname);
 double multi_peer_burst_test(int count);
 int multi_peer_rate_test(int count, int window);
 int single_peer_rate_test(int count, int window);

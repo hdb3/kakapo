@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
-//#include <sys/time.h>
+// #include <sys/time.h>
 #include <assert.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -68,7 +68,7 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
   }
   while (rc > sb->count) {
     int request = sb->top - sb->start - sb->count;
-    //sockRead = recv(sb->sock, sb->base + sb->start + sb->count, request, 0);
+    // sockRead = recv(sb->sock, sb->base + sb->start + sb->count, request, 0);
     FLAGS(sb->sock, __FILE__, __LINE__);
     sockRead = read(sb->sock, sb->base + sb->start + sb->count, request);
     FLAGS(sb->sock, __FILE__, __LINE__);
