@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "bytestring.h"
 #include "kakapo.h"
 #include <arpa/inet.h>

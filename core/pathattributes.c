@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "pathattributes.h"
 #include "bytestring.h"
 #include <assert.h>

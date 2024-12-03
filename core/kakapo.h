@@ -5,7 +5,6 @@
 #define VERBOSE (0)
 #endif
 
-#define _GNU_SOURCE
 #ifndef VERSION
 #define VERSION "version undefined"
 #endif

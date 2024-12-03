@@ -1,5 +1,4 @@
 
-#define _GNU_SOURCE
 #include "util.h"
 #include <arpa/inet.h>
 #include <stdint.h>

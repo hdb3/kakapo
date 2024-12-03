@@ -1,8 +1,8 @@
 
 // util.c
 
-// ***** NOTE toHex and concat use malloc and may leak memory - use withh caution
-#define _GNU_SOURCE
+// ***** NOTE toHex and concat use malloc and may leak memory - use with caution
+
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>

@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "libutil.h"
 #include <assert.h>
 #include <errno.h>

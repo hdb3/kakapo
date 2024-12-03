@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "update.h"
 #include "bytestring.h"
 #include "pathattributes.h"

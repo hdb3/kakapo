@@ -1,6 +1,6 @@
 #!/bin/bash -xe
 shopt -s expand_aliases
-alias GCC="gcc -g -pthread -O3 -DBUILDDATE=\"\\\"$(date)\\\"\" -DVERSION=\"\\\"$(git describe)\\\"\""
+alias GCC="gcc -g -pthread -O3 -D_GNU_SOURCE -DBUILDDATE=\"\\\"$(date)\\\"\" -DVERSION=\"\\\"$(git describe)\\\"\""
 #GCC -o nlri-unittest nlri-unittest.c libutil.c
 GCC -o logbuffer-test logbuffer-test.c libutil.c
 GCC -o kakapo main.c session.c stats.c libutil.c parsearg.c -lm

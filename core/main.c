@@ -1,7 +1,6 @@
 
 /* kakapo - a BGP traffic source and sink */
 
-#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
