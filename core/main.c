@@ -299,7 +299,7 @@ void summarise(char *s, double *r) {
   double rsd = sd / mean;
 
   fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
-  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d% d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
 };
 
 int main(int argc, char *argv[]) {
