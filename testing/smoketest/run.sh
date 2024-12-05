@@ -1,4 +1,4 @@
-#!/bin/bash -xe
+#!/bin/bash -e
 : '
 directory structure
 kakapo          - KAKAPO_DIR
@@ -9,19 +9,21 @@ kakapo          - KAKAPO_DIR
 '
 
 PROG=${1-"bird2"} # run bird as default target
+EXTRA_PARAMETERS="${*:2}"
 SMALL_GROUPS="GROUPSIZE=10  TABLESIZE=100000 MAXBURSTCOUNT=80000"
 LARGE_GROUPS="GROUPSIZE=800 TABLESIZE=100000 MAXBURSTCOUNT=1000"
-DEFAULTS="LOGTEXT=$PROG REPEAT=1 TABLESIZE=100000"
+DEFAULTS="LOGTEXT=\"$PROG $EXTRA_PARAMETERS\" REPEAT=1 TABLESIZE=100000"
 
 MULTI_LARGE="$DEFAULTS $LARGE_GROUPS MODE=MULTI"
 SINGLE_LARGE="$DEFAULTS $LARGE_GROUPS MODE=SINGLEONLY"
 
 MULTI_SMALL="$DEFAULTS $SMALL_GROUPS MODE=MULTI"
 SINGLE_SMALL="$DEFAULTS $SMALL_GROUPS MODE=SINGLEONLY"
-KAKAPO_ENV="$SINGLE_LARGE"
 
-# KAKAPO_ENV="LOGTEXT=$PROG REPEAT=1 MODE=SINGLEONLY GROUPSIZE=10  TABLESIZE=100000 MAXBURSTCOUNT=80000 MAXBLOCKINGFACTOR=1"
-# KAKAPO_ENV="LOGTEXT=$PROG REPEAT=1 MODE=SINGLEONLY GROUPSIZE=800 TABLESIZE=100000 MAXBURSTCOUNT=1000  MAXBLOCKINGFACTOR=1"
+# most common variant, replace _SMALL with _LARGE,
+# and chang evalue of REPEAT
+KAKAPO_ENV="$SINGLE_SMALL REPEAT=10"
+
 SCRIPT_DIR=$(realpath $(dirname "$0"))
 CONFIG="$SCRIPT_DIR/conf/$PROG.conf"
 TESTING_DIR=$(realpath "$SCRIPT_DIR/..")
@@ -41,7 +43,7 @@ set_command() {
 	bird) COMMAND="$BIN_DIR/bird/bird -d -c ${CONFIG}" ;;
 
 	bird2)
-		mkdir -p /run/bird
+		sudo mkdir -p /run/bird
 		COMMAND="$BIN_DIR/bird2/bird -d -c ${CONFIG}"
 		;;
 
@@ -61,14 +63,18 @@ set_command() {
 	echo ${COMMAND}
 }
 
+kill9() {
+	killall -9 "$1" &>/dev/null
+}
+
 pkill() {
 	case $1 in
 	kakapo) : ;;
-	bgpd | frr) killall bgpd ;;
-	bird | bird2) killall bird ;;
-	gobgp) killall gobgpd ;;
-	hbgp) killall hbgp ;;
-	relay) killall relay2 ;;
+	bgpd | frr) kill9 bgpd ;;
+	bird | bird2) kill9 bird ;;
+	gobgp) kill9 gobgpd ;;
+	hbgp) kill9 hbgp ;;
+	relay) kill9 relay2 ;;
 
 	*)
 		echo "unknown daemon: $1"
@@ -78,16 +84,16 @@ pkill() {
 	echo ${COMMAND}
 }
 
-$TESTING_DIR/netns.sh del || :
-$SCRIPT_DIR/add_loopbacks.sh
+$TESTING_DIR/netns.sh del &>/dev/null || :
+$SCRIPT_DIR/add_loopbacks.sh &>/dev/null
 
 if [[ -f "$CONFIG" ]]; then
 	CMND=$(set_command $1)
-	echo "command is: \"$CMND\""
+	# echo "command is: \"$CMND\""
 	${CMND} &
 	PID=$!
+	sleep 2.0
 	eval $(set_command "kakapo")
-	echo "all done"
 	kill $PID
 	pkill $1
 else
