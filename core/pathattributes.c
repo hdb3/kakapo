@@ -113,3 +113,31 @@ char *rewriteASPATH(char *aspathattribute, uint32_t as, uint8_t index) {
   memcpy(to, &as, 4);
   return aspathattribute;
 };
+
+static uint32_t aspathbuffer[256]; // over large? ......
+                                   // NOTE: single thread only
+                                   //       replaces a previous malloc based version
+
+// simply return the assembled list of AS numbers with a zero value as marker for list end
+// main value is code simplification....
+
+// TODO make the caller provide the AS path buffer
+
+uint32_t *aspathbuild(uint32_t as0, ...) {
+  va_list ap;
+  int i = 0;
+  uint32_t as = as0;
+
+  va_start(ap, as0);
+
+  while (as != 0)
+  {
+    aspathbuffer[i++] = as;
+    as = va_arg(ap, uint32_t);
+  }
+  aspathbuffer[i] = 0;
+
+  va_end(ap);
+
+  return aspathbuffer;
+};

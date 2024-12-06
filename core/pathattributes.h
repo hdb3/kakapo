@@ -10,3 +10,4 @@ char *paMED(uint32_t med);
 char *paLocalPref(uint32_t localpref);
 char *paASPATH(uint32_t *asn);
 char *rewriteASPATH(char *aspathattribute, uint32_t as, uint8_t index);
+uint32_t *aspathbuild(uint32_t as0, ...);
