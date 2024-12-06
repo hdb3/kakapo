@@ -65,6 +65,7 @@ struct peer {
   uint32_t remoteip;
   uint32_t localip;
   uint32_t as;
+  uint32_t remoteas;
   uint16_t port;
   struct sockbuf sb;
   slp_t slp;
