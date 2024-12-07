@@ -6,10 +6,13 @@
 #endif
 
 #ifndef VERSION
-#define VERSION "version undefined"
+#define VERSION "????"
 #endif
 #ifndef BUILDDATE
-#define BUILDDATE "builddate unknown"
+#define BUILDDATE "????"
+#endif
+#ifndef BRANCH
+#define BRANCH "????"
 #endif
 #include "sockbuf.h"
 #include "stats.h"
@@ -65,6 +68,7 @@ struct peer {
   uint32_t remoteip;
   uint32_t localip;
   uint32_t as;
+  uint32_t remoteas;
   uint16_t port;
   struct sockbuf sb;
   slp_t slp;

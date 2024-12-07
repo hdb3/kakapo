@@ -1,23 +1,14 @@
-#!/bin/bash -xe
-shopt -s expand_aliases
-alias GCC="gcc -g -pthread -O3 -D_GNU_SOURCE -DBUILDDATE=\"\\\"$(date)\\\"\" -DVERSION=\"\\\"$(git describe)\\\"\""
-#GCC -o nlri-unittest nlri-unittest.c libutil.c
-GCC -o logbuffer-test logbuffer-test.c libutil.c
-GCC -o kakapo main.c session.c stats.c libutil.c parsearg.c -lm
-#GCC timedloop-unittest.c libutil.c -o timedloop-unittest
-#GCC -o bytestring-unittest bytestring-unittest.c libutil.c
-#GCC libutil.c update-unittest.c -o update-unittest
-#GCC -I. test/hostaddress.c util.c -o test/hostaddress
-set +v
-echo "built version $(git describe)"
+#!/bin/bash -e
 
-##
-## the following macro expansions also works....
-#alias GCC="gcc -g -pthread -O3 -D_GNU_SOURCE"
-#VERSION="$(git describe)"
-#DATE="$(date)"
-#GCC -o kakapo main.c session.c stats.c libutil.c parsearg.c -DVERSION="\"$VERSION\"" -DBUILDDATE="\"$DATE\""
+SOURCES="main.c session.c stats.c libutil.c parsearg.c"
+FLAGS="-g -pthread -O3"
+LFLAGS="-lm -luuid"
 
-#DVERSION="-DVERSION=\"$(git describe)\""
-#DDATE="-DBUILDDATE=\"$(date)\""
-#GCC -o kakapo main.c session.c stats.c libutil.c parsearg.c "$DVERSION" "$DDATE"
+DEFINES=("-D_GNU_SOURCE")
+DEFINES+=("-DBUILDDATE=\"$(date)\"")
+DEFINES+=("-DVERSION=\"$(git describe)\"")
+DEFINES+=("-DBRANCH=\"$(git branch --show-current)\"")
+
+rm -f ./kakapo
+gcc $FLAGS "${DEFINES[@]}" -o kakapo $SOURCES $LFLAGS
+./kakapo --version
