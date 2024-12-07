@@ -318,6 +318,11 @@ int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
 
 static uint64_t usn = 0;
 #define TEN7 10000000
+uint32_t *usn_path(int tidx) {
+  usn++;
+  return aspathbuild((uint32_t)tidx, TEN7 + usn % TEN7, TEN7 + usn / TEN7, 0);
+}
+
 static void *_build_update_block_buf = NULL;
 static size_t _build_update_block_siz = 0;
 
@@ -330,7 +335,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   char *data;
 
   for (i = 0; i < length; i++) {
-    uint32_t *path = aspathbuild(usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0);
+    uint32_t *path = usn_path(peer_index);
 
     struct bytestring b = update(
         nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
@@ -339,7 +344,6 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
                : iBGPpath(localip, localpref + usn / TABLESIZE, path));
     vec[i] = b;
     buflen += b.length;
-    usn++;
   };
 
   if (_build_update_block_siz >= buflen)
@@ -377,31 +381,15 @@ void send_next_update(struct peer *p) {
   send_update_block(1, p);
 };
 
-void _send_next_update(struct peer *p) {
-  bool isEBGP = (p->as != p->remoteas);
-  uint32_t *path = aspathbuild(TEN7 + usn % TABLESIZE, p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0);
-
-  uint32_t localpref = 101 + usn / TABLESIZE;
-  struct bytestring b = update(
-      nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
-      empty,
-      isEBGP ? eBGPpath(p->localip, localpref, path)
-             : iBGPpath(p->localip, localpref, path));
-  usn++;
-  __send(p, b.data, b.length);
-  free(b.data);
-};
-
 void send_single_update(struct peer *p, struct prefix *pfx) {
   bool isEBGP = (p->as != p->remoteas);
-  uint32_t *path = aspathbuild(p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0);
+  uint32_t *path = usn_path(p->tidx);
 
   struct bytestring b = update(
       nlris(pfx->ip, pfx->length, 1, 0),
       empty,
       isEBGP ? eBGPpath(p->localip, 100, path)
              : iBGPpath(p->localip, 100, path));
-  usn++;
   _send(p, b.data, b.length);
   free(b.data);
 };
