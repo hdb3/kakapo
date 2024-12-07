@@ -19,6 +19,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <uuid/uuid.h>
 
 #include "kakapo.h"
 #include "sockbuf.h"
@@ -26,6 +27,7 @@
 
 #define MAXPENDING 5 // Max connection requests
 
+uuid_t uuid;
 sem_t semrxtx;
 struct timespec txts;
 struct peer *peertable = NULL;
@@ -280,8 +282,52 @@ FILE *logjson = NULL;
 int multi_rate = 0;
 int single_rate = 0;
 
-void json_log(FILE *f, char *LOGTEXT, char *test_name, struct timespec *now, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int TABLESIZE, int GROUPSIZE, int MAXBURSTCOUNT, int REPEAT, int WINDOW, int RATECOUNT, int single_rate, int multi_rate) {
-  fprintf(f, "{\n\"unixtime\":%ld,\"LOGTEXT\":\"%s\",\"test_name\":\"%s\",\"time\":\"%s\",\"sender_count\":%d,\"conditioning_duration\":%f,\"mean\":%f,\"max\":%f,\"min\":%f,\"sd\":%f,\"TABLESIZE\":%d,\"GROUPSIZE\":%d,\"MAXBURSTCOUNT\":%d,\"REPEAT\":%d,\"WINDOW\":%d,\"RATECOUNT\":%d,\"single_rate\":%d,\"multi_rate\":%d},\n", now->tv_sec, LOGTEXT, test_name, showtime(now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int single_rate, int multi_rate) {
+  fprintf(f,
+          "{\n"
+          "\"unixtime\":%ld,"
+          "\"LOGTEXT\":\"%s\","
+          "\"test_name\":\"%s\","
+          "\"time\":\"%s\","
+          "\"sender_count\":%d,"
+          "\"conditioning_duration\":%f,"
+          "\"mean\":%f,"
+          "\"max\":%f,"
+          "\"min\":%f,"
+          "\"sd\":%f,"
+          "\"TABLESIZE\":%d,"
+          "\"GROUPSIZE\":%d,"
+          "\"MAXBURSTCOUNT\":%d,"
+          "\"REPEAT\":%d,"
+          "\"WINDOW\":%d,"
+          "\"RATECOUNT\":%d,"
+          "\"single_rate\":%d,"
+          "\"multi_rate\":%d},"
+          "\"BRANCH\":%s},"
+          "\"VERSION\":%s},"
+          "\"UUID\":%s},"
+          "\n",
+          now->tv_sec,
+          LOGTEXT,
+          test_name,
+          showtime(now),
+          sender_count,
+          conditioning_duration,
+          mean,
+          max,
+          min,
+          sd,
+          TABLESIZE,
+          GROUPSIZE,
+          MAXBURSTCOUNT,
+          REPEAT,
+          WINDOW,
+          RATECOUNT,
+          single_rate,
+          multi_rate,
+          BRANCH,
+          VERSION,
+          uuid);
 };
 
 void summarise(char *test_name, double *r) {
@@ -306,7 +352,7 @@ void summarise(char *test_name, double *r) {
 
   fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
   fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
-  json_log(logjson, LOGTEXT, test_name, &now, sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+  json_log(logjson, test_name, &now, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
 };
 
 int main(int argc, char *argv[]) {
@@ -317,13 +363,21 @@ int main(int argc, char *argv[]) {
   if (-1 == loglocalcheck) // write a header line in an empty file
     fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT WINDOW RATECOUNT SINGLERATE MULTIRATE\n");
   sigset_t set;
+  uuid_t uuid;
+  uuid_generate(uuid);
+
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
   sigemptyset(&set);
   sigaddset(&set, SIGPIPE);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
   pid = getpid();
-  fprintf(stderr, "kakapo  Version %s (%s) \n", VERSION, BUILDDATE);
+  fprintf(stderr, "kakapo  version: %s  built: %s  branch: %s\n", VERSION, BUILDDATE, BRANCH);
+
+  if ((argc > 1) && ((0 == strcmp(argv[1], "-V")) || (0 == strcmp(argv[1], "--version")))) {
+    exit(0);
+  }
+
   if (3 > argc) {
     fprintf(stderr, "USAGE: kakapo <IP address>[,<IP address>] <IP address>[,<IP address>] [<IP address>[,<IP address>]]\n");
     fprintf(stderr, "       Note the minimum number of peers is two, of which the first is a listener and all others are senders.\n");

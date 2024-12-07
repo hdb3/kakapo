@@ -6,10 +6,13 @@
 #endif
 
 #ifndef VERSION
-#define VERSION "version undefined"
+#define VERSION "????"
 #endif
 #ifndef BUILDDATE
-#define BUILDDATE "builddate unknown"
+#define BUILDDATE "????"
+#endif
+#ifndef BRANCH
+#define BRANCH "????"
 #endif
 #include "sockbuf.h"
 #include "stats.h"
