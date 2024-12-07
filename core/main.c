@@ -276,10 +276,17 @@ uint32_t senderwait() {
 };
 
 FILE *loglocal = NULL;
+FILE *logjson = NULL;
 int multi_rate = 0;
 int single_rate = 0;
 
-void summarise(char *s, double *r) {
+void json_log(FILE *f, char *LOGTEXT, char *test_name, struct timespec *now, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int TABLESIZE, int GROUPSIZE, int MAXBURSTCOUNT, int REPEAT, int WINDOW, int RATECOUNT, int single_rate, int multi_rate) {
+  fprintf(f, "{\n\"unixtime\":%ld,\"LOGTEXT\":\"%s\",\"test_name\":\"%s\",\"time\":\"%s\",\"sender_count\":%d,\"conditioning_duration\":%f,\"mean\":%f,\"max\":%f,\"min\":%f,\"sd\":%f,\"TABLESIZE\":%d,\"GROUPSIZE\":%d,\"MAXBURSTCOUNT\":%d,\"REPEAT\":%d,\"WINDOW\":%d,\"RATECOUNT\":%d,\"single_rate\":%d,\"multi_rate\":%d},\n", now->tv_sec, LOGTEXT, test_name, showtime(now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+};
+
+void summarise(char *test_name, double *r) {
+  struct timespec now;
+  gettime(&now);
   int i;
   double count = REPEAT - 1;
   double max = 0;
@@ -297,11 +304,15 @@ void summarise(char *s, double *r) {
   double sd = sqrt((count * sqsum) - (sum * sum)) / count;
   double rsd = sd / mean;
 
-  fprintf(stderr, "%s mean=%f max=%f min=%f\n", s, mean, max, min);
-  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, s, shownow(), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+  fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
+  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+  json_log(logjson, LOGTEXT, test_name, &now, sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
 };
 
 int main(int argc, char *argv[]) {
+
+  0 != (logjson = fopen("kakapo.json", "a")) || die("could not open logjson file");
+  // fprintf(logjson, "[");
 
   int loglocalcheck = access("kakapo.log", F_OK);
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
@@ -501,5 +512,7 @@ int main(int argc, char *argv[]) {
   notify_all();
   fprintf(stderr, "notification complete for %d peers\n", argc - 1);
   fprintf(stderr, "kakapo exit\n");
+  // fprintf(logjson, "\n]\n");
+
   exit(0);
 }

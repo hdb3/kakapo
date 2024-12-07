@@ -66,7 +66,7 @@ GOBGP_CMD="$BINDIR/gobgp/gobgpd --log-plain -f "
 FRR_CMD="$BINDIR/frr/bgpd -Z -S -l $LOCAL -n --log stdout -f  "
 HBGP_CMD="$BINDIR/hbgp/hbgp "
 RELAY_CMD="$BASEDIR/relay/relay2"
-KAKAPO_CMD="$BASEDIR/bin/kakapo"
+KAKAPO_CMD="$BASEDIR/core/kakapo"
 
 ## these are kakapo control variables - must be exported for kakapo process to inherit them
 
