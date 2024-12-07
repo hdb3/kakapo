@@ -28,6 +28,7 @@
 #define MAXPENDING 5 // Max connection requests
 
 uuid_t uuid;
+char UUID[37];
 sem_t semrxtx;
 struct timespec txts;
 struct peer *peertable = NULL;
@@ -302,11 +303,11 @@ void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, 
           "\"WINDOW\":%d,"
           "\"RATECOUNT\":%d,"
           "\"single_rate\":%d,"
-          "\"multi_rate\":%d},"
-          "\"BRANCH\":%s},"
-          "\"VERSION\":%s},"
-          "\"UUID\":%s},"
-          "\n",
+          "\"multi_rate\":%d,"
+          "\"BRANCH\":\"%s\","
+          "\"VERSION\":\"%s\","
+          "\"UUID\":\"%s\""
+          "},\n",
           now->tv_sec,
           LOGTEXT,
           test_name,
@@ -327,7 +328,7 @@ void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, 
           multi_rate,
           BRANCH,
           VERSION,
-          uuid);
+          UUID);
 };
 
 void summarise(char *test_name, double *r) {
@@ -365,6 +366,7 @@ int main(int argc, char *argv[]) {
   sigset_t set;
   uuid_t uuid;
   uuid_generate(uuid);
+  uuid_unparse(uuid, UUID);
 
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);
