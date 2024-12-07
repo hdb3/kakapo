@@ -8,8 +8,9 @@ kakapo          - KAKAPO_DIR
 -- -- -- conf   - SCRIPT_DIR/conf
 '
 
-PROG=${1-"bird2"} # run bird as default target
+PROG=${1-"bird2"} #  default target: bird2
 EXTRA_PARAMETERS="${*:2}"
+TINY_GROUPS="GROUPSIZE=1  TABLESIZE=2 MAXBURSTCOUNT=2"
 SMALL_GROUPS="GROUPSIZE=10  TABLESIZE=100000 MAXBURSTCOUNT=80000"
 LARGE_GROUPS="GROUPSIZE=800 TABLESIZE=100000 MAXBURSTCOUNT=1000"
 DEFAULTS="LOGTEXT=\"$PROG $EXTRA_PARAMETERS\" REPEAT=1 TABLESIZE=100000"
@@ -19,22 +20,26 @@ SINGLE_LARGE="$DEFAULTS $LARGE_GROUPS MODE=SINGLEONLY"
 
 MULTI_SMALL="$DEFAULTS $SMALL_GROUPS MODE=MULTI"
 SINGLE_SMALL="$DEFAULTS $SMALL_GROUPS MODE=SINGLEONLY"
+SINGLE_TINY="$DEFAULTS $TINY_GROUPS MODE=SINGLEONLY"
+RATE="$DEFAULTS $SMALL_GROUPS RATECOUNT=10000000 MODE=SINGLERATE"
 
 # most common variant, replace _SMALL with _LARGE,
-# and chang evalue of REPEAT
-KAKAPO_ENV="$SINGLE_SMALL REPEAT=10"
+# and change value of REPEAT
+KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
+# KAKAPO_ENV="$RATE"
 
 SCRIPT_DIR=$(realpath $(dirname "$0"))
 CONFIG="$SCRIPT_DIR/conf/$PROG.conf"
 TESTING_DIR=$(realpath "$SCRIPT_DIR/..")
 KAKAPO_DIR=$(realpath "$TESTING_DIR/..")
+KAKAPO_BIN=${OVERRIDE:-"$KAKAPO_DIR/core/kakapo"}
 BIN_DIR="$TESTING_DIR/bin"
 
 set_command() {
 	local COMMAND
 	case $1 in
 
-	kakapo) COMMAND="${KAKAPO_ENV} $KAKAPO_DIR/core/kakapo 172.18.0.13,172.18.0.19,64505 172.18.0.13,172.18.0.20,64504" ;;
+	kakapo) COMMAND="${KAKAPO_ENV} $KAKAPO_BIN 172.18.0.13,172.18.0.19,64505 172.18.0.13,172.18.0.20,64504" ;;
 
 	hbgp) COMMAND="$BIN_DIR/hbgp/hbgp ${CONFIG}" ;;
 
@@ -52,6 +57,8 @@ set_command() {
 	gobgp) COMMAND="$BIN_DIR/gobgp/gobgpd --log-plain --config-file=${CONFIG}" ;;
 
 	relay) COMMAND="$KAKAPO_DIR/relay/relay2 172.18.0.13 172.18.0.19" ;;
+
+	libvirt) COMMAND="echo \"check VM started...\"" ;;
 
 	esac
 
@@ -75,6 +82,7 @@ pkill() {
 	gobgp) kill9 gobgpd ;;
 	hbgp) kill9 hbgp ;;
 	relay) kill9 relay2 ;;
+	libvirt) : ;;
 
 	*)
 		echo "unknown daemon: $1"
@@ -85,14 +93,23 @@ pkill() {
 }
 
 $TESTING_DIR/netns.sh del &>/dev/null || :
-$SCRIPT_DIR/add_loopbacks.sh &>/dev/null
+
+if [[ "$1" == "libvirt" ]]; then
+	$SCRIPT_DIR/add_loopbacks.sh del &>/dev/null
+	$SCRIPT_DIR/add_loopbacks.sh add virbr1 &>/dev/null
+else
+	$SCRIPT_DIR/add_loopbacks.sh del virbr1 &>/dev/null
+	$SCRIPT_DIR/add_loopbacks.sh &>/dev/null
+fi
 
 if [[ -f "$CONFIG" ]]; then
 	CMND=$(set_command $1)
 	# echo "command is: \"$CMND\""
-	${CMND} &
-	PID=$!
+	PIDFILE=$(mktemp)
+	bash -c "${CMND} & echo \$! > $PIDFILE"
+	PID=$(<$PIDFILE)
 	sleep 2.0
+	# echo "COMMAND = $(set_command "kakapo")"
 	eval $(set_command "kakapo")
 	kill $PID
 	pkill $1
