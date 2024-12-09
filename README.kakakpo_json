@@ -1,0 +1,15 @@
+Since kakapo writes JSON blobs incrementally to a single file, the file itself is not valid JSON.
+In order to parse it as JSON, e.g. with the jq tool, this script can be useful:
+
+
+$ sed -e '1 i \ [' -e '$ s/,$/\]/' <kakapo.json |jq
+
+it also makes a neat alias: 
+
+$ alias kjson="sed -e '1 i \ [' -e '$ s/,$/\]/'"
+
+
+A more complex example is this:
+
+$ sed -e '1 i \ [' -e '$ s/,$/\]/' <kakapo.json |jq '.[] |  [.GROUPSIZE ,.LOGTEXT, .conditioning_duration,.mean,.sd]'
+
