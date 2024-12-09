@@ -45,9 +45,7 @@ double conditioning_duration = 0.0;
 
 uint32_t RATEBLOCKSIZE = 1000000;
 uint32_t MAXBLOCKINGFACTOR = 1000;
-uint32_t SLEEP = 0; // default value -> don't rate limit the send operation
 uint32_t TIMEOUT = 10;
-uint32_t FASTCYCLELIMIT = 0; // enabler for new testmodes
 uint32_t REPEAT = 5;         // enabler for new testmodes
 
 uint32_t TCPPORT = 179;
@@ -55,21 +53,17 @@ uint32_t PEERMAXRETRIES = -1; // retry forever
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
-uint32_t BLOCKSIZE = 3; // TODO/WARN - this parameter is not used anywhere
+// uint32_t BLOCKSIZE = 3; // TODO/WARN - this parameter is not used anywhere
 uint32_t WINDOW = 1000;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
 uint32_t RATECOUNT = 500000;
-uint32_t NEXTHOP;
-char sNEXTHOP[] = "192.168.1.1"; // = toHostAddress("192.168.1.1");  /// cant
-                                 // initilase like this ;-(
+
 uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
                                  // initilase like this ;-(
 uint32_t CANARYSEED;
 char sCANARYSEED[] = "192.168.255.0";
-uint32_t CYCLECOUNT = 1;  // 0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all
-uint32_t CYCLEDELAY = 5;  // seconds
 uint32_t REPEATDELAY = 5; // seconds
 uint32_t HOLDTIME = 10000;
 
@@ -197,15 +191,14 @@ void startlog(uint32_t tid, char *tids, struct timespec *start) {
   0 != (logfile = fopen(LOGFILE, "w")) || die("could not open log file");
   setvbuf(logfile, NULL, _IOLBF, 0);
 
-  fprintf(stderr, "\n%s startlog at %s BLOCKSIZE %d, GROUPSIZE %d, MAXBURSTCOUNT %d, CYCLECOUNT %d, CYCLEDELAY %d\n",
-          tids, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY);
+  fprintf(stderr, "\n%s startlog at %s, GROUPSIZE %d, MAXBURSTCOUNT %d\n",
+          tids, showtime(start), GROUPSIZE, MAXBURSTCOUNT);
 
   fprintf(logfile,
-          "HDR , PID , DESC , START , BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT, CYCLECOUNT, CYCLEDELAY\n"
-          "START, %d, \"%s\" , \"%s\" , %d, %d, %d, %d, %d\n"
+          "HDR , PID , DESC , START, GROUPSIZE, MAXBURSTCOUNT\n"
+          "START, %d, \"%s\" , \"%s\" ,  %d, %d\n"
           "HDR , SEQ , RTT , LATENCY , TXDURATION, RXDURATION\n",
-          pid, LOGTEXT, showtime(start), BLOCKSIZE, GROUPSIZE, MAXBURSTCOUNT,
-          CYCLECOUNT, CYCLEDELAY);
+          pid, LOGTEXT, showtime(start), GROUPSIZE, MAXBURSTCOUNT);
 };
 
 struct timespec sndlog_start, sndlog_end;
@@ -380,17 +373,14 @@ int main(int argc, char *argv[]) {
   if (3 > argc) {
     fprintf(stderr, "USAGE: kakapo <IP address>[,<IP address>] <IP address>[,<IP address>] [<IP address>[,<IP address>]]\n");
     fprintf(stderr, "       Note the minimum number of peers is two, of which the first is a listener and all others are senders.\n");
-    fprintf(stderr, "       Many options are controlled via environment variables like SLEEP, etc...\n");
+    fprintf(stderr, "       Many options are controlled via environment variables like REPEAT, etc...\n");
     exit(1);
   }
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
-  NEXTHOP = toHostAddress(sNEXTHOP); /// must initliase here because cant do it in the declaration
   SEEDPREFIX = toHostAddress(sSEEDPREFIX);
   CANARYSEED = toHostAddress(sCANARYSEED);
-  getuint32env("SLEEP", &SLEEP);
   getuint32env("TIMEOUT", &TIMEOUT);
-  getuint32env("FASTCYCLELIMIT", &FASTCYCLELIMIT);
   getuint32env("RATEBLOCKSIZE", &RATEBLOCKSIZE);
   getuint32env("MAXBLOCKINGFACTOR", &MAXBLOCKINGFACTOR);
   getuint32env("REPEAT", &REPEAT);
@@ -399,15 +389,11 @@ int main(int argc, char *argv[]) {
   gethostaddress("CANARYSEED", &CANARYSEED);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
-  getuint32env("BLOCKSIZE", &BLOCKSIZE);
   getuint32env("WINDOW", &WINDOW);
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
   getuint32env("PEERMAXRETRIES", &PEERMAXRETRIES);
-  gethostaddress("NEXTHOP", &NEXTHOP);
-  getuint32env("CYCLECOUNT", &CYCLECOUNT);
-  getuint32env("CYCLEDELAY", &CYCLEDELAY);
   getuint32env("REPEATDELAY", &REPEATDELAY);
   getuint32env("TCPPORT", &TCPPORT);
   getuint32env("SHOWRATE", &SHOWRATE);

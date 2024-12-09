@@ -2,6 +2,7 @@
 
 BLOCKSIZE
 Not used! default = 3
+*** REMOVED
 
 
 CANARYSEED
@@ -12,13 +13,17 @@ warped before use in canary, based on p->tidx, detail not understood, but I gues
 CYCLECOUNT
 Not used! default = 1
 comment: "0 => continuous, use MAXBURSTCOUNT = 0 to suppress sending at all"
+*** REMOVED
 
 
 CYCLEDELAY
 Not used! default = 5
+*** REMOVED
+
 
 FASTCYCLELIMIT
 Not used! default = 0
+*** REMOVED
 
 GROUPSIZE
 default: 3
@@ -50,6 +55,7 @@ NEXTHOP
 Not used!
 default: 192.168.1.1
 comment: kakapo is always using its 'local_ip' as the next hop.
+*** REMOVED
 
 
 PEERMAXRETRIES
@@ -78,7 +84,7 @@ REPEAT
 default: 5
 ref: main.c:291:...
 Used in various test modes to control repetitions of individual tests.
-TYpically a test set consists of single conditioning/canary operations bracketing N=REPEAT core tests like single_peer_rate_test(), etc.
+Typically a test set consists of single conditioning/canary operations bracketing N=REPEAT core tests like single_peer_rate_test(), etc.
 
 REPEATDELAY
 default: 5
@@ -98,18 +104,20 @@ SLEEP
 Not used!
 default: 0
 comment: "default value -> don't rate limit the send operation"
+*** REMOVED
+
 
 TABLESIZE
-defualt: 10
+default: 10
 ref: session.c:329,...
-Global prameter controlling  send_update_block(), build_update_block().
+Global parameter controlling  send_update_block(), build_update_block().
 It is hard to read-off all of the usage of TABLESIZE, but the main one seems to be/is to define the total number of distinct prefixes that can be sent, before wrapping.  For small values of some other parameters its not clear what effect it has, except that conditioning phase uses it directly.
 
 
 TCPPORT
 default: 179
 ref: main.c:102:
-As expected, used as the defualt TCP port for connecting to peers.
+As expected, used as the default TCP port for connecting to peers.
 
 
 TIMEOUT
@@ -120,7 +128,7 @@ Units unclear, I guess seconds?  I assume that it limits the time spent in a cal
 
 
 WINDOW
-defualt: 1000
+default: 1000
 ref: main.c:429,..
 Used as parameter(2) on calls to single_peer_rate_test(), multi_peer_rate_test(), landing in int rate_test(.., int window).
-(I beleive) it controls the number of outstatding updates which can be allowed during rate tests.
+(I believe) it controls the number of outstanding updates which can be allowed during rate tests.
