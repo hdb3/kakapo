@@ -21,12 +21,13 @@ SINGLE_LARGE="$DEFAULTS $LARGE_GROUPS MODE=SINGLEONLY"
 MULTI_SMALL="$DEFAULTS $SMALL_GROUPS MODE=MULTI"
 SINGLE_SMALL="$DEFAULTS $SMALL_GROUPS MODE=SINGLEONLY"
 SINGLE_TINY="$DEFAULTS $TINY_GROUPS MODE=SINGLEONLY"
-RATE="$DEFAULTS $SMALL_GROUPS RATECOUNT=10000000 MODE=SINGLERATE"
+RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATECOUNT=1000000 MODE=SINGLERATE"
 
 # most common variant, replace _SMALL with _LARGE,
-# and change value of REPEAT
+# and/or, change value of REPEAT,
+# or, switch to RATE measurement
 KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
-# KAKAPO_ENV="$RATE"
+KAKAPO_ENV="$RATE"
 
 SCRIPT_DIR=$(realpath $(dirname "$0"))
 CONFIG="$SCRIPT_DIR/conf/$PROG.conf"
@@ -34,6 +35,12 @@ TESTING_DIR=$(realpath "$SCRIPT_DIR/..")
 KAKAPO_DIR=$(realpath "$TESTING_DIR/..")
 KAKAPO_BIN=${OVERRIDE:-"$KAKAPO_DIR/core/kakapo"}
 BIN_DIR="$TESTING_DIR/bin"
+
+FRRLIB="$HOME/src/frr/lib/.libs"
+FRRBGPD="$HOME/src/frr/bgpd/.libs/bgpd"
+FRR="LD_LIBRARY_PATH=$FRRLIB $FRRBGPD"
+# FRR="$BIN_DIR/frr/bgpd"
+
 
 set_command() {
 	local COMMAND
@@ -52,7 +59,7 @@ set_command() {
 		COMMAND="$BIN_DIR/bird2/bird -d -c ${CONFIG}"
 		;;
 
-	frr) COMMAND="$BIN_DIR/frr/bgpd --pid_file=frr.pid --skip_runas --listenon=172.18.0.13 --no_zebra --log-level=debug --log=stdout --config_file ${CONFIG}" ;;
+	frr) COMMAND="$FRR --pid_file=frr.pid --skip_runas --listenon=172.18.0.13 --no_zebra --log=stdout --config_file ${CONFIG}" ;;
 
 	gobgp) COMMAND="$BIN_DIR/gobgp/gobgpd --log-plain --config-file=${CONFIG}" ;;
 
