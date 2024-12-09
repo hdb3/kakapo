@@ -1,6 +1,0 @@
-#include "libupdate.h"
-#include "bytestring.c"
-#include "nlri.c"
-#include "pathattributes.c"
-#include "update.c"
-#include "util.c"
