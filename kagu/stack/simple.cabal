@@ -1,0 +1,15 @@
+cabal-version:       2.0
+
+name:                simple
+version:             0.0.0.1
+license:             Apache-2.0
+author:              nic hart
+maintainer:          nic@hdb3.net
+copyright:           Nicholas Hart
+build-type: Simple
+
+executable simple
+  main-is:             Simple.hs
+  build-depends:       base , bytestring , iproute , attoparsec , attoparsec-binary , base16-bytestring , pretty-hex , io-streams , network , binary , containers , time , unix , sorted-list , hashable , unordered-containers , sorted-list , farmhash , extra , iproute , process , xml , aeson  , aeson-iproute >= 0.2 , hinotify, directory, filepath, uuid
+  default-language:    Haskell2010
+

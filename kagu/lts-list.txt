@@ -1,0 +1,20 @@
+22.43 # ghc-9.6.6, published today
+22.27 # ghc-9.6.5, published 5 months ago
+22.20 # ghc-9.6.4, published 7 months ago
+22.6 # ghc-9.6.3, published 10 months ago
+21.25 # ghc-9.4.8, published 11 months ago
+21.21 # ghc-9.4.7, published a year ago
+21.11 # ghc-9.4.6, published a year ago
+21.7 # ghc-9.4.5, published a year ago
+20.26 # ghc-9.2.8, published a year ago
+20.24 # ghc-9.2.7, published a year ago
+20.12 # ghc-9.2.6, published a year ago
+20.11 # ghc-9.2.5, published a year ago
+19.33 # ghc-9.0.2, published 2 years ago
+18.28 # ghc-8.10.7, published 3 years ago
+18.8 # ghc-8.10.6, published 3 years ago
+18.6 # ghc-8.10.4, published 3 years ago
+17.2 # ghc-8.10.3, published 4 years ago
+16.31 # ghc-8.8.4, published 4 years ago
+16.11 # ghc-8.8.3, published 4 years ago
+15.3 # ghc-8.8.2, published 5 years ago

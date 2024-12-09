@@ -1,0 +1,8 @@
+git clone git@github.com:hdb3/kagu.git
+for d in bird bird2 frr bgpd gobgp hbgp ; do mkdir -p ../kakapo/testing/bin/$d ;  done
+bird/build.sh ../kakapo/testing/bin/bird
+bird2/build.sh ../kakapo/testing/bin/bird2
+bgpd/build.sh ../kakapo/testing/bin/bgpd
+./get_pkgs.sh
+cp -r bin/* ../kakapo/testing/bin
+sudo apt install -y --no-install-recommends libyang2

@@ -1,0 +1,10 @@
+FRR:
+docker pull hdb3/frr ; docker run --cap-add NET_ADMIN --cap-add SYS_ADMIN --rm --network host --name frr hdb3/frr
+
+bird:
+docker pull hdb3/bird ; docker run --rm --network host --name bird hdb3/bird
+
+
+new:
+docker build -t localrepo:5000/frr frr
+docker run --rm --network host  localrepo:5000/frr

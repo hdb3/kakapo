@@ -1,0 +1,9 @@
+# lts-20.11 is oldest LTS which was able to build with the given cabal file
+resolver: lts-20.11
+packages:
+- .
+# ghc-options should match hbgp, otherwise this build cache is pointless
+ghc-options:
+    "$everything": -O2
+extra-deps:
+- farmhash-0.1.0.5@sha256:908f8cb5fb2b232086254aac0fdfd0bf120fb102df716ebf4ad1352685f0d93b,1972

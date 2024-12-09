@@ -1,0 +1,37 @@
+Config { configAS = 64502
+       , configBGPID = 172.18.0.13
+       , configListenAddress = 172.18.0.13
+       , configEnabledPeers = []
+       , configConfiguredPeers = [
+                                  PeerConfig { peerConfigIPv4 = (172.18.0.13,172.18.0.21)
+                                             , peerConfigAS = Nothing
+                                             , peerConfigBGPID = Nothing
+                                             , peerConfigLocalAS = Nothing
+                                             , peerConfigLocalBGPID = Nothing
+                                             , peerConfigEnableOutbound = False
+                                             , peerConfigEnableInbound = True
+                                             , peerConfigOfferedCapabilities = [CapAS4 0]
+                                             , peerConfigRequiredCapabilities = [CapAS4 0]
+                                             } ,
+                                  PeerConfig { peerConfigIPv4 = (172.18.0.13,172.18.0.22)
+                                             , peerConfigAS = Nothing
+                                             , peerConfigBGPID = Nothing
+                                             , peerConfigLocalAS = Nothing
+                                             , peerConfigLocalBGPID = Nothing
+                                             , peerConfigEnableOutbound = False
+                                             , peerConfigEnableInbound = True
+                                             , peerConfigOfferedCapabilities = [CapAS4 0]
+                                             , peerConfigRequiredCapabilities = [CapAS4 0]
+                                             }
+                                 ]
+       , configDelayOpenTimer = 2
+       , configInitialHoldTimer = 300
+       , configAllowDynamicPeers = False
+       , configEnableDataPlane = False
+       , configEnableRedistribution = False
+       , configTestRoutePath = ""
+       , configTestRouteCount = 0
+       , configOfferedCapabilities = [CapAS4 0]
+       , configRequiredCapabilities = [CapAS4 0]
+       , configOfferedHoldTime = 10
+       }

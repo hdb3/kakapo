@@ -1,0 +1,45 @@
+log stderr all;
+log "/var/log/bird.log" all;
+router id 7.0.0.1;
+
+listen bgp address 7.0.0.1;
+
+protocol device {
+}
+
+protocol kernel {
+	      disabled;
+}
+
+template bgp {
+	local as 64500;
+        source address 7.0.0.1;
+	passive;
+        multihop;
+        import all;
+        export all;
+}
+
+protocol bgp peera from bgp1 {
+        source address 7.0.0.1;
+	neighbor 7.0.0.2 as 64500;
+        rr client;
+        import all;
+        export all;
+}
+
+protocol bgp peerb from bgp1 {
+        source address 7.0.0.5;
+	neighbor 7.0.0.6 as 64500;
+        rr client;
+        import all;
+        export all;
+}
+
+protocol bgp peerc from bgp1 {
+        source address 7.0.0.9;
+	neighbor 7.0.0.10 as 64500;
+        rr client;
+        import all;
+        export all;
+}
