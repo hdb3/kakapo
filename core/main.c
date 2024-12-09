@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <math.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -29,6 +30,7 @@
 
 uuid_t uuid;
 char UUID[37];
+char HOSTNAME[HOST_NAME_MAX];
 sem_t semrxtx;
 struct timespec txts;
 struct peer *peertable = NULL;
@@ -189,14 +191,6 @@ void endlog(char *error) {
   };
   if (NULL != error)
     fprintf(stderr, "abnormal termination, error msg: %s\n", error);
-  /*
-  if (NULL == error)
-    exit(0);
-  else {
-    fprintf(stderr, "abnormal termination, error msg: %s\n", error);
-    exit(1);
-  };
-*/
 };
 
 void startlog(uint32_t tid, char *tids, struct timespec *start) {
@@ -284,51 +278,53 @@ int multi_rate = 0;
 int single_rate = 0;
 
 void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int single_rate, int multi_rate) {
-  fprintf(f,
-          "{\n"
-          "\"unixtime\":%ld,"
-          "\"LOGTEXT\":\"%s\","
-          "\"test_name\":\"%s\","
-          "\"time\":\"%s\","
-          "\"sender_count\":%d,"
-          "\"conditioning_duration\":%f,"
-          "\"mean\":%f,"
-          "\"max\":%f,"
-          "\"min\":%f,"
-          "\"sd\":%f,"
-          "\"TABLESIZE\":%d,"
-          "\"GROUPSIZE\":%d,"
-          "\"MAXBURSTCOUNT\":%d,"
-          "\"REPEAT\":%d,"
-          "\"WINDOW\":%d,"
-          "\"RATECOUNT\":%d,"
-          "\"single_rate\":%d,"
-          "\"multi_rate\":%d,"
-          "\"BRANCH\":\"%s\","
-          "\"VERSION\":\"%s\","
-          "\"UUID\":\"%s\""
-          "},\n",
-          now->tv_sec,
-          LOGTEXT,
-          test_name,
-          showtime(now),
-          sender_count,
-          conditioning_duration,
-          mean,
-          max,
-          min,
-          sd,
-          TABLESIZE,
-          GROUPSIZE,
-          MAXBURSTCOUNT,
-          REPEAT,
-          WINDOW,
-          RATECOUNT,
-          single_rate,
-          multi_rate,
-          BRANCH,
-          VERSION,
-          UUID);
+  fprintf(f, "{\n");
+
+  fprintf(f, "\"unixtime\":%ld,", now->tv_sec);
+
+  fprintf(f, "\"LOGTEXT\":\"%s\",", LOGTEXT);
+
+  fprintf(f, "\"test_name\":\"%s\",", test_name);
+
+  fprintf(f, "\"time\":\"%s\",", showtime(now));
+
+  fprintf(f, "\"sender_count\":%d,", sender_count);
+
+  fprintf(f, "\"conditioning_duration\":%f,", conditioning_duration);
+
+  fprintf(f, "\"mean\":%f,", mean);
+
+  fprintf(f, "\"max\":%f,", max);
+
+  fprintf(f, "\"min\":%f,", min);
+
+  fprintf(f, "\"sd\":%f,", sd);
+
+  fprintf(f, "\"TABLESIZE\":%d,", TABLESIZE);
+
+  fprintf(f, "\"GROUPSIZE\":%d,", GROUPSIZE);
+
+  fprintf(f, "\"MAXBURSTCOUNT\":%d,", MAXBURSTCOUNT);
+
+  fprintf(f, "\"REPEAT\":%d,", REPEAT);
+
+  fprintf(f, "\"WINDOW\":%d,", WINDOW);
+
+  fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
+
+  fprintf(f, "\"single_rate\":%d,", single_rate);
+
+  fprintf(f, "\"multi_rate\":%d,", multi_rate);
+
+  fprintf(f, "\"BRANCH\":\"%s\",", BRANCH);
+
+  fprintf(f, "\"VERSION\":\"%s\",", VERSION);
+
+  fprintf(f, "\"HOSTNAME\":\"%s\",", HOSTNAME);
+
+  fprintf(f, "\"UUID\":\"%s\"", UUID);
+
+  fprintf(f, "},\n");
 };
 
 void summarise(char *test_name, double *r) {
@@ -367,6 +363,7 @@ int main(int argc, char *argv[]) {
   uuid_t uuid;
   uuid_generate(uuid);
   uuid_unparse(uuid, UUID);
+  gethostname(HOSTNAME, HOST_NAME_MAX);
 
   setvbuf(stdout, NULL, _IOLBF, 0);
   setvbuf(stderr, NULL, _IOLBF, 0);

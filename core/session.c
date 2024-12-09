@@ -31,6 +31,9 @@
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
 
+// AS_TRANS - see RFC4893
+#define AS_TRANS 23456
+
 // wrapper for send which protects against multiple thread writes interleaving output
 // the protection is 'soft' in that it introduces wait until queue empty semantics
 // rather than an explicit semaphore
@@ -157,7 +160,7 @@ void report(int expected, int got) {
     fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
 }
 
-void doopen(char *msg, int length) {
+uint16_t doopen(char *msg, int length) {
   unsigned char version = *(unsigned char *)msg;
   if (version != 4) {
     fprintf(stderr, "unexpected version in BGP Open %d\n", version);
@@ -169,6 +172,7 @@ void doopen(char *msg, int length) {
   unsigned char *hex = toHex(msg + 10, opl);
   fprintf(stderr, "BGP Open: as = %d, routerid = %s , holdtime = %d, opt params = %s\n", as, inet_ntoa(routerid), holdtime, hex);
   free(hex);
+  return as;
 };
 
 void printPrefix(char *pfx, int length) {
@@ -314,10 +318,15 @@ int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
 
 static uint64_t usn = 0;
 #define TEN7 10000000
+uint32_t *usn_path(int tidx) {
+  usn++;
+  return aspathbuild((uint32_t)tidx, TEN7 + usn % TEN7, TEN7 + usn / TEN7, 0);
+}
+
 static void *_build_update_block_buf = NULL;
 static size_t _build_update_block_siz = 0;
 
-struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref) {
+struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref, bool isEBGP) {
 
   assert(length <= TABLESIZE);
   uint64_t i;
@@ -326,15 +335,15 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   char *data;
 
   for (i = 0; i < length; i++) {
-    struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
-                                 empty,
-                                 //  NB - use eBGPpath if require to behave as an eBGP peer sending updates
-                                 iBGPpath(localip,
-                                          localpref + usn / TABLESIZE,
-                                          (uint32_t[]){usn % TABLESIZE + TEN7, peer_index, TEN7 + usn / TEN7, 0}));
+    uint32_t *path = usn_path(peer_index);
+
+    struct bytestring b = update(
+        nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
+        empty,
+        isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path)
+               : iBGPpath(localip, localpref + usn / TABLESIZE, path));
     vec[i] = b;
     buflen += b.length;
-    usn++;
   };
 
   if (_build_update_block_siz >= buflen)
@@ -362,33 +371,25 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
 };
 
 void send_update_block(int length, struct peer *p) {
-
+  bool isEBGP = (p->as != p->remoteas);
   uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / TABLESIZE);
-  struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref);
+  struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref, isEBGP);
   __send(p, updates.data, updates.length);
 };
 
 void send_next_update(struct peer *p) {
   send_update_block(1, p);
 };
-void _send_next_update(struct peer *p) {
-  uint32_t localpref = 101 + usn / TABLESIZE;
-  struct bytestring b = update(nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
-                               empty,
-                               //  NB - use eBGPpath if require to behave as an eBGP peer sending updates
-                               iBGPpath(p->localip,
-                                        localpref,
-                                        (uint32_t[]){TEN7 + usn % TABLESIZE, p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
-  usn++;
-  __send(p, b.data, b.length);
-  free(b.data);
-};
 
 void send_single_update(struct peer *p, struct prefix *pfx) {
+  bool isEBGP = (p->as != p->remoteas);
+  uint32_t *path = usn_path(p->tidx);
 
-  //  NB - use eBGPpath if require to behave as an eBGP peer sending updates
-  struct bytestring b = update(nlris(pfx->ip, pfx->length, 1, 0), empty, iBGPpath(p->localip, 100, (uint32_t[]){p->tidx, TEN7 + usn / TEN7, TEN7 + usn % TEN7, 0}));
-  usn++;
+  struct bytestring b = update(
+      nlris(pfx->ip, pfx->length, 1, 0),
+      empty,
+      isEBGP ? eBGPpath(p->localip, 100, path)
+             : iBGPpath(p->localip, 100, path));
   _send(p, b.data, b.length);
   free(b.data);
 };
@@ -445,7 +446,11 @@ int expect_open(struct peer *p) {
   getBGPMessage(&bm, &(p->sb));
 
   if (BGPOPEN == bm.msgtype) {
-    doopen(bm.payload, bm.pl);
+    uint16_t remoteas = doopen(bm.payload, bm.pl);
+    p->remoteas = remoteas;
+    if (remoteas == AS_TRANS) {
+      fprintf(stderr, "** NOTICE - PEER sent AS_TRANS in BGP OPEN - probably harmless - assume as eBGP\n");
+    }
     return 0;
   } else {
     report(BGPOPEN, bm.msgtype);
