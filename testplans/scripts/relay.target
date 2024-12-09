@@ -1,0 +1,7 @@
+echo "enter relay.script"
+target="relay2 0.0.0.0 7.0.0.2"
+sudo ${scriptd}/../nets/nets cycle guest
+killall -u nic -9 python3 2>&1 > /dev/null || :
+vm stop
+sudo sysctl net.ipv4.ip_unprivileged_port_start=179
+echo "exit relay.script"

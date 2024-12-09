@@ -1,0 +1,4 @@
+*.raw
+*.log
+scripts/target_script
+scripts/test_script

@@ -1,0 +1,6 @@
+echo "enter bgpd.run"
+if [[ -z $1 ]] ; then config="${scriptd}/bgpd.conf" ; else config=$(realpath "$1") ; fi
+echo "bgpd using configuration in ${config}"
+export DOCKER_HOST=127.0.0.1
+exec docker run -v "${config}:/etc/bgpd.conf" -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host --name bgpd bgpd
+echo "exit bgpd.run"

@@ -1,0 +1,107 @@
+#!/usr/bin/python3
+
+import sys
+import os
+import subprocess
+import json
+
+verbose = False
+
+errorcode_sum = 0
+
+def say(s):
+    if verbose:
+        sys.stdout.write(s)
+
+def ask():
+        if verbose:
+            input("? ")
+""" 
+'targets' is a dictionary which should have a structure such as this:
+
+    targets = {'guest' : { 'dev':"virbr1",
+                           'addrs': ["7.0.0.1/30","7.0.0.5/30","7.0.0.9/30"]},
+               'host' : { 'dev':"virbr1",
+                          'addrs': ["7.0.0.2/30","7.0.0.6/30","7.0.0.10/30"]}
+              }
+
+However, it is read from the file 'nets.json' - sample JSON format follows....
+(is this at all different to the python literal?)
+{"guest": {"dev": "virbr1", "addrs": ["7.0.0.1/30", "7.0.0.5/30", "7.0.0.9/30"]}, "host": {"dev": "virbr1", "addrs": ["7.0.0.2/30", "7.0.0.6/30", "7.0.0.10/30"]}}
+
+"""
+
+def ip (ss):
+
+    p = subprocess.run(args = [ '/bin/ip' , '-brief' ] + ss, capture_output = True)
+    if 0 != p.returncode:
+        command_string = ' '.join(["ip"]+ss)
+        sys.stdout.write(f'fail: "{command_string}" -> exit code {p.returncode}\n')
+    return (p.returncode,p.stdout.decode(),p.stderr.decode())
+
+def start(target):
+    global errorcode_sum
+    for addr in target['addrs']:
+        ss = ["address", "replace", addr, "dev", target['dev']]
+        (code,stdout,stderr) = ip(ss)
+        errorcode_sum += code
+
+def stop(target):
+    for addr in target['addrs']:
+        ss = ["address", "del", addr, "dev", target['dev']]
+        ip(ss)
+
+op = {'start':start,'stop':stop}
+
+def show():
+    (code,stdout,stderr) = ip (["-4","addr"])
+    assert 0==code
+    for s in stdout.splitlines():
+        say(s + '\n')
+
+def check_root():
+    euid = os.geteuid()
+    if 0 != euid:
+        sys.exit('*** error, are you root?')
+
+config="nets.json"
+path=os.path.dirname(os.path.realpath(sys.argv[0]))
+try:
+    targets = json.load(open(path+"/"+config))
+except Exception:
+    sys.exit(f'couldn\'t open the configuration file {config}\n')
+argv = sys.argv[1::]
+if len(argv) == 0:
+    # actions = ['stop','start']
+    actions = []
+    verbose = True
+elif argv[0] == 'list':
+    say(f'nets - targets: {str(list(targets))}\n')
+    exit(0)
+elif argv[0] == 'cycle':
+    actions = ['stop','start']
+elif argv[0] in ['start','stop']:
+    actions = [ argv[0] ]
+else:
+    sys.exit(f'unknown command "{argv[0]}"\n')
+
+if len(argv) < 2:
+    targets = targets # i.e. noop, do-it-all
+elif 'all' == argv[1]:
+    targets = targets
+elif argv[1] in targets:
+    targets = { argv[1] : targets[argv[1]] }
+else:
+    sys.exit(f'unknown target "{argv[1]}"\n')
+
+if actions:
+    check_root()
+    say(f'nets - actions: {str(actions)} targets: {str(list(targets))}\n')
+    show()
+    ask()
+    for action in actions:
+        for target in targets:
+            sys.stdout.write(f'{action}: {target}\n')
+            op[action](targets[target])
+show()
+exit(1 if errorcode_sum else 0)

@@ -1,0 +1,16 @@
+tmux set mouse on
+tmux set -t test:0 remain-on-exit on
+base="/home/nic/src/hBGP/"
+testd="/home/nic/src/testplans"
+controller="controller"
+EXALOCAL=/home/nic/src/exa-simple
+EXABASE=/home/nic/src/exabgp
+EXA=$EXABASE/sbin/exabgp
+HBGP=$base/master/hbgp
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $HBGP $testd/agent1.conf > /tmp/agent1.pane
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $HBGP $testd/agent2.conf > /tmp/agent2.pane
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c $testd bash exatest.sh > /tmp/script.pane
+tmux selectl -t test main-horizontal
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c $EXALOCAL $EXA relay.conf > /tmp/exa.pane
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp tshark -i lo -Y bgp port 179 > /tmp/tshark.pane
+tmux killp -t %0

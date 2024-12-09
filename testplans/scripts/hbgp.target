@@ -1,0 +1,8 @@
+echo "enter hbgp-target.script"
+HBGP="$HOME/.local/bin/hbgp"
+target="$HBGP $scriptd/hbgp-kakapo.conf"
+killall -u nic -9 python3 2>&1 > /dev/null || :
+vm stop
+sudo ${scriptd}/../nets/nets cycle guest
+sudo sysctl net.ipv4.ip_unprivileged_port_start=179
+echo "exit hbgp-target.script"

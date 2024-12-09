@@ -1,0 +1,6 @@
+echo "enter frr.run"
+if [[ -z $1 ]] ; then config="${scriptd}/frr.conf" ; else config=$(realpath "$1") ; fi
+echo "frr using configuration in ${config}"
+export DOCKER_HOST=127.0.0.1
+exec docker run -v "${config}:/etc/frr/bgpd.conf" -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host --name frr frr
+echo "exit frr.run"

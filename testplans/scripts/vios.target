@@ -1,0 +1,9 @@
+echo "enter vios.script"
+# target="-c /tmp /usr/bin/ssh 7.0.0.1"
+target="-c /tmp /usr/bin/virsh console ios-1"
+console="-c /tmp /usr/bin/virsh console ios-1"
+interface="virbr1"
+killall -u nic -9 python3 2>&1 > /dev/null || :
+sudo `which nets` stop host
+vm start ios-1
+echo "exit vios.script"

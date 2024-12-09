@@ -1,0 +1,6 @@
+echo "enter bird2.run"
+if [[ -z $1 ]] ; then config="${scriptd}/bird2.conf" ; else config=$(realpath "$1") ; fi
+echo "bird2 using configuration in ${config}"
+export DOCKER_HOST=127.0.0.1
+exec docker run -v "${config}:/etc/bird.conf" -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host --name bird2 bird2
+echo "exit bird2.run"

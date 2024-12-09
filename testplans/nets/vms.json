@@ -1,0 +1,12 @@
+{
+    "ios-1": ["ios-1"],
+    "junos-1": ["junos-1"],
+
+    "ap-ios-1": ["ap-ios-1"],
+    "ap-ios-3": ["ap-ios-3a","ap-ios-3b","ap-ios-3c"],
+    "be-ios-3": ["be-ios-3a","be-ios-3b","be-ios-3c"],
+
+    "ap-junos-1": ["ap-junos-1"],
+    "ap-junos-3": ["ap-junos-3a","ap-junos-3b","ap-junos-3c"],
+    "be-junos-3": ["be-junos-3a","be-junos-3b","be-junos-3c"]
+}

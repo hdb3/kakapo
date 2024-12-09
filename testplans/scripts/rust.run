@@ -1,0 +1,3 @@
+echo "enter rust.run"
+exec /home/nic/.cargo/bin/passive
+echo "exit rust.run"

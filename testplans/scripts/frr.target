@@ -1,0 +1,6 @@
+echo "enter frr.script"
+target="-c /tmp /bin/bash ${scriptd}/frr.run ${scriptd}/frr.conf"
+killall -u nic -9 python3 2>&1 > /dev/null || :
+vm stop
+sudo ${scriptd}/../nets/nets cycle guest
+echo "exit frr.script"

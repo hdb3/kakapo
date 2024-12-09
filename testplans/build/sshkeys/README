@@ -1,0 +1,10 @@
+key generated with:
+$ ssh-keygen -t rsa -b 2048 -f vm -C user@vm
+
+in file ios/sshbase.cfg the key text is needed, broken on 72 character boundaries
+
+there is some kex options required to connect with IOS, try this:
+
+$ ssh cisco@192.168.120.254 -i sshkeys/vm -oKexAlgorithms=diffie-hellman-group14-sha1 -oHostKeyAlgorithms=ssh-rsa -oPubkeyAcceptedKeyTypes=ssh-rsa show version
+
+Probably, there are alternate key and auth types in this cisco image which are not deprecated in current openSSH, so this stuff could be avoided.

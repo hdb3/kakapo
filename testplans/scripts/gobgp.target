@@ -1,0 +1,6 @@
+echo "enter gobgp.script"
+target="-c /tmp /bin/bash ${scriptd}/gobgp.run ${scriptd}/gobgp.conf"
+killall -u nic -9 python3 2>&1 > /dev/null || :
+vm stop
+sudo ${scriptd}/../nets/nets cycle guest
+echo "exit gobgp.script"

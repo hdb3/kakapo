@@ -1,0 +1,12 @@
+echo "enter exabgp-target.script"
+EXASCRIPT=/home/nic/src/exa-simple/relay.conf
+EXAENV=/home/nic/src/exa-simple/exabgp.env
+EXABIN=/home/nic/src/exabgp/sbin/exabgp
+target="$EXABIN --env $EXAENV $EXASCRIPT"
+# needed because exabagp makes itself a zombie on normal kill / parent exit
+killall -u nic -9 python3 2>&1 > /dev/null || :
+vm stop
+sudo ${scriptd}/../nets/nets cycle guest
+sudo sysctl net.ipv4.ip_unprivileged_port_start=179
+# declare target=exabgp
+echo "exit exabgp-target.script"

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# refernce instance of a tmux multipane startup
+# the scripts to be executed are defined as agent1, agent2, etc....
+# the active panes are laid out based on 'splitting' the first
+# pane or one of its descendants, using the pane ID of the parent,
+# captured from the parents splitw
+
+# Since we wish to start a daughter script which sends commands to various panes
+# (agents), that script has to receive the correct pane IDs.
+# This is done by starting the script last, after all pane IDs have been instantiated.
+# The ids are passed on as environment variables set using 'tmux setenv'.
+# The target pane is created earlier with no script, and respawned as the last action.
+# This gurantees that all other processes/panes are running and accessible when the script starts.
+
+# This example is fixed function - probably a more generic one should be built in a better script language than bash
+
+# read customisation values
+scriptd=$(realpath $(dirname "$0"))
+
+source ${scriptd}/local.sh
+
+# CONTROLLER="$PWD/hbgp"
+# AGENT="$PWD/hbgp.event"
+# HBGP="$PWD/hbgp"
+
+agent1="-c /tmp $AGENT $scriptd/agent1.conf"
+agent2="-c /tmp $AGENT $scriptd/agent2.conf"
+agent3="-c /tmp $AGENT $scriptd/agent3.conf"
+script="-c $scriptd bash test3.sh"
+control="-c /tmp $CONTROLLER $scriptd/control2.conf"
+slave="-c /tmp $CONTROLLER $scriptd/slave.conf"
+tshark='-c /tmp tshark -i lo -Y bgp&&bgp.type!=4 port 179'
+
+paneid='-P -F #{pane_id}'
+
+tmux kill-session -t test || :
+tmux wait-for test
+
+base_pane=$(tmux new-session -d $paneid -s test -x 176 -y 48)
+tmux set -t test remain-on-exit on
+
+tshark_pane=$( tmux splitw -v $paneid -d -t $base_pane $tshark)
+agent1_pane=$( tmux splitw -h -p25 $paneid -d -t ${base_pane} $agent1 )
+agent2_pane=$( tmux splitw -h -p33 $paneid -d -t ${base_pane} $agent2 )
+agent3_pane=$( tmux splitw -h -p50 $paneid -d -t ${base_pane} $agent3 )
+slave_pane=$( tmux splitw -v -p50 $paneid -d -t ${tshark_pane} $slave )
+#control_pane=$( tmux splitw -h $paneid -d -t $ {tshark_pane} -c /tmp $CONTROLLER $scriptd/control2.conf)
+
+tmux set mouse on
+tmux setenv -t test agent1_pane $agent1_pane
+tmux setenv -t test agent2_pane $agent2_pane
+tmux setenv -t test agent3_pane $agent3_pane
+tmux select-pane -t ${base_pane}
+tmux respawn-pane -k -t $base_pane $script
+gnome-terminal --full-screen -- tmux attach -t test:0
+tmux wait-for test

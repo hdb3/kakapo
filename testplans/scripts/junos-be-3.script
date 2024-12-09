@@ -1,0 +1,8 @@
+echo "enter be-junos-3.script"
+target="hbgp.bestexternal $scriptd/control2.conf"
+sudo `which nets` stop host
+sudo `which nets` start controller
+vm start be-junos-3
+interface="virbr1"
+for vm in `vm` ; do echo "starting console for $vm" ; console "virsh console $vm" ; done
+echo "exit be-junos-3.script"

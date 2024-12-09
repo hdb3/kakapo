@@ -1,0 +1,7 @@
+echo "enter bird2.script"
+# export DOCKER_HOST=127.0.0.1
+target="-c /tmp /bin/bash ${scriptd}/bird2.run ${scriptd}/bird2.conf"
+killall -u nic -9 python3 2>&1 > /dev/null || :
+vm stop
+sudo ${scriptd}/../nets/nets cycle guest
+echo "exit bird2.script"

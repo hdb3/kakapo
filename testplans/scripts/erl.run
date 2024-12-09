@@ -1,0 +1,3 @@
+echo "enter erl.run"
+exec /home/nic/src/relay.nh/_build/default/rel/relay_nh/bin/relay_nh console
+echo "exit erl.run"

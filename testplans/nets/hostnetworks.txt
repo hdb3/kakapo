@@ -1,0 +1,31 @@
+(see https://docs.google.com/document/d/1HSpc58_nj9riw4n7cckVUA2ttWq6xSOVkouCO6ymewc )
+(https://tinyurl.com/rcxbnra)
+
+Detail:
+External network - virbr1 - base address 7.0.0.0 - use /30s allocated sequentially (1/2 for monitor, 5/6 for ‘good’ route, 9/10 for bad route, 13/14,17/18,... for additionals.  Note: external BGP speakers are assumed to not use inband IP for management, so no host address is required, and there are multiple subnets here no there is no plausible placeholder).
+Internal network - virbr2 - base address 192.168.120(3).0/24 - .1 is used for management access (ssh) and a controller running in host environment. Sequential addresses (.2 ....) are used for internal interfaces of BRs.
+Derived configurations:
+single BR case - ‘BR1’ - virbr1 interfaces: 7.0.0.1,5,9/30; virbr2 interface 192.168.120.2/24; internal peers: 192.168.120.1; external peers: 7.0.0.2,6,10
+
+3x BR case
+
+ - ‘BR3a’ - virbr1 interfaces: 7.0.0.1/30; virbr2 interface 192.168.120.2/24; internal peers: 192.168.120.1,3,4; external peers: 7.0.0.2
+- ‘BR3b’ - virbr1 interfaces: 7.0.0.5/30; virbr2 interface 192.168.120.3/24; internal peers: 192.168.120.1,2,4; external peers: 7.0.0.6
+- ‘BR3c’ - virbr1 interfaces: 7.0.0.9/30; virbr2 interface 192.168.120.4/24; internal peers: 192.168.120.1,2,3; external peers: 7.0.0.10
+
+BGP policy - prefer (lower locpref=50) peer 7.0.0.10
+
+External agent configuration : via virbr1 (add secondary addresses)
+ - agent1 (monitor) - AS: 65001/65000 - IP 7.0.0.2/1
+ - agent2 (good) - AS: 65002/65000 - IP 7.0.0.6/5
+ - agent3 (bad) - AS: 65003/65000 - IP 7.0.0.10/9
+
+Build/configure Scripts
+
+sudo ip addr add 7.0.0.2/30 dev virbr1
+sudo ip addr add 7.0.0.6/30 dev virbr1
+sudo ip addr add 7.0.0.10/30 dev virbr1
+sudo ip addr add 192.168.120.1/30 dev virbr2
+
+
+## NOTE the python script nets now does this work in conjunction with the .json config file in this directory

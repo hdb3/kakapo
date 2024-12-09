@@ -1,0 +1,57 @@
+#!/bin/bash -xve
+
+scriptd=$(realpath $(dirname "$0"))
+
+source ${scriptd}/local.sh
+source ${scriptd}/common.sh
+source ${scriptd}/layouts.sh
+
+export DOCKER_HOST=127.0.0.1
+tshark='-c /tmp tshark -i lo -Y bgp&&bgp.type!=4 port 179'
+bgprelay="-c /tmp bgprelay 7.0.0.1"
+dumpcap="dumpcap -f \"port 179\" -i lo -s 0 -w trace"
+kakapo="-c /tmp ${scriptd}/kakapo-bgprelay.sh"
+bird2="-c /tmp docker run -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host --name bird2 bird2"
+gobgp="-c /tmp docker run docker run --cap-add NET_ADMIN --cap-add SYS_ADMIN --rm --network host --name gobgp gobgp"
+PATH="$HOME/.local/bin:$PATH"
+CONTROLLER=hbgp
+HBGP=hbgp.event
+AGENT=hbgp.event
+agent1="-c /tmp $HBGP $scriptd/agent1.conf"
+agent2="-c /tmp $HBGP $scriptd/agent2.conf"
+agent3="-c /tmp $HBGP $scriptd/agent3.conf"
+slave="-c /tmp $HBGP $scriptd/slave.conf"
+controller="-c /tmp $CONTROLLER $scriptd/control2.conf"
+script="-c $scriptd bash test3.sh"
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test >/dev/null 2>&1 || :
+docker kill bird2 >/dev/null 2>&1 || :
+
+layout3
+
+tmux set mouse on
+
+start_host_net
+
+tmux set -t test remain-on-exit on
+tmux respawn-pane -k -t $p0c $agent1
+tmux respawn-pane -k -t $p1c $agent2
+tmux respawn-pane -k -t $p2c $agent3
+sleep 1
+tmux respawn-pane -k -t $p0a -c /tmp "$dumpcap"
+tmux respawn-pane -k -t $p1a $tshark
+tmux setenv -t test agent1_pane $p0c
+tmux setenv -t test agent2_pane $p1c
+tmux setenv -t test agent3_pane $p2c
+
+tmux respawn-pane -k -t $p0b $script
+tmux respawn-pane -k -t $p1b $bird2
+# tmux respawn-pane -k -t $p1b $slave
+tmux select-pane -t ${p0b}
+gnome-terminal --full-screen -- tmux attach -t test:0
+tmux wait-for test-complete
+echo "base pane exited"
+stop_host_net
+docker kill bird2 >/dev/null 2>&1 || :
+tmux kill-session -t test

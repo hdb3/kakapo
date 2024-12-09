@@ -1,0 +1,39 @@
+
+
+kakapo="$HOME/.local/bin/kakapo"
+ENV="SENDFILENAME=${PWD}/updates.raw TIMEOUT=1000 MODE=FILE REPEAT=50"
+# ENV="SENDFILENAME=/home/nic/src/hBGP.master/MRT/raw/66234.raw TIMEOUT=1000 REPEAT=1 MODE=FILE"
+# ENV="SENDFILENAME=updates.raw TIMEOUT=100 REPEAT=3 MODE=FILE"
+# ENV="TIMEOUT=60 REPEAT=1 TABLESIZE=160000 GROUPSIZE=5 BLOCKSIZE=1 MODE=SINGLE"
+# ENV="BLOCKSIZE=1 MODE=SINGLERATE"
+KAKAPOCMD="$ENV $kakapo 7.0.0.1,7.0.0.2,65001 7.0.0.5,7.0.0.6,65002"
+
+tsharkbgp="tshark -i ${interface} -Y bgp&&bgp.type!=4 port 179"
+tsharktcp="tshark -i ${interface} port 179"
+dumpcap="dumpcap -f port\ 179 -i ${interface} -s 0 -w trace"
+pause="read -n 1 -p 'continue?' ; if [ \"$REPLY\" = "q" ] ; then tmux kill-session -t test ; else tmux wait-for -S pause-complete ; fi ; sleep 1d"
+
+layout2
+tmux set -t test remain-on-exit on
+tmux set mouse on
+
+sudo `which nets` cycle host
+
+# export $(dbus-launch)
+gnome-terminal  --full-screen -- tmux attach -t test:0
+tmux respawn-pane -k -t $p0a $target
+
+tmux respawn-pane -k -t $p0b -c /tmp "$tsharkbgp"
+tmux respawn-pane -k -t $p1b -c /tmp "$dumpcap"
+
+tmux respawn-pane -k -t $p0c -c /tmp "$pause"
+tmux select-pane -t ${p0c}
+tmux wait-for pause-complete
+
+tmux respawn-pane -k -t $p1a -c /tmp "$KAKAPOCMD"
+
+tmux respawn-pane -k -t $p0c -c /tmp "$pause"
+tmux select-pane -t ${p0c}
+tmux wait-for pause-complete
+sudo ${scriptd}/../nets/nets stop all
+tmux kill-session -t test

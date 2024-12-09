@@ -1,0 +1,17 @@
+tmux set mouse on
+tmux set -t test:0 remain-on-exit on
+base="/home/nic/src/hBGP/"
+testd="/home/nic/src/testplans"
+controller="controller"
+#CONTROLLER=`find $base/$controller/.stack-work/install -name hbgp -executable`
+CONTROLLER=$base/$controller/hbgp
+HBGP=$base/master/hbgp
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $HBGP $testd/agent1.conf > /tmp/agent1.pane
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $HBGP $testd/agent2.conf > /tmp/agent2.pane
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $HBGP $testd/agent3.conf > /tmp/agent3.pane
+tmux selectl -t test main-horizontal
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c $testd bash test2.sh > /tmp/script.pane
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $HBGP $testd/slave.conf > /tmp/slave.pane
+tmux selectl -t test main-horizontal
+tmux splitw -P -F "#{pane_id}" -d -t test:0 -c /tmp $CONTROLLER $testd/control2.conf > /tmp/control2.pane
+tmux killp -t %0

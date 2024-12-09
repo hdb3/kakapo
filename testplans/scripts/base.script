@@ -1,0 +1,50 @@
+#!/bin/bash -x
+
+scriptd=$(realpath $(dirname "$0"))
+
+source ${scriptd}/common.sh
+source ${scriptd}/layouts.sh
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test
+tmux set mouse on
+
+layout0
+
+tmux set -t test remain-on-exit on
+gnome-terminal --full-screen -- tmux attach -t test:0
+
+read -p "layout0a..."
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test
+
+layout0a
+gnome-terminal --full-screen -- tmux attach -t test:0
+
+read -p "layout1..."
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test
+
+layout1
+gnome-terminal --full-screen -- tmux attach -t test:0
+
+read -p "layout2..."
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test
+
+layout2
+gnome-terminal --full-screen -- tmux attach -t test:0
+
+read -p "layout3..."
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test
+
+layout3
+gnome-terminal --full-screen -- tmux attach -t test:0
+
+read -p "done..."
+tmux kill-session -t test >/dev/null 2>&1 || :

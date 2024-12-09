@@ -1,0 +1,52 @@
+# controller.script
+#
+# used to run 3-port tests with a controller agent
+#
+
+AGENT="hbgp.event"
+tsharkbgp="tshark -i ${interface} -Y bgp&&bgp.type!=4 port 179"
+tsharktcp="tshark -i ${interface} port 179"
+dumpcap="dumpcap -f port\ 179 -i ${interface} -s 0 -w trace"
+layout3
+
+tmux set -t test remain-on-exit on
+tmux set mouse on
+
+sudo `which nets` cycle host
+
+agent1="-c /tmp $AGENT $scriptd/agent1.conf"
+agent2="-c /tmp $AGENT $scriptd/agent2.conf"
+agent3="-c /tmp $AGENT $scriptd/agent3.conf"
+script="-c $scriptd bash test3.sh \; tmux wait-for -S test"
+
+tshark_pane=$p0a
+dumpcap_pane=$p1a
+agent1_pane=$p0c
+agent2_pane=$p1c
+agent3_pane=$p2c
+target_pane=$p0b
+script_pane=$p1b
+
+tmux respawn-pane -k -t $tshark_pane -c /tmp "$tsharkbgp"
+tmux respawn-pane -k -t $dumpcap_pane -c /tmp "$dumpcap"
+
+tmux respawn-pane -k -t $agent1_pane $agent1
+tmux respawn-pane -k -t $agent2_pane $agent2
+tmux respawn-pane -k -t $agent3_pane $agent3
+tmux respawn-pane -k -t $target_pane $target
+
+tmux setenv -t test agent1_pane $agent1_pane
+tmux setenv -t test agent2_pane $agent2_pane
+tmux setenv -t test agent3_pane $agent3_pane
+
+tmux select-pane -t ${script_pane}
+tmux respawn-pane -k -t $script_pane $script
+
+gnome-terminal --geometry=150x20 -- tmux attach -t console:0
+gnome-terminal --full-screen -- tmux attach -t test:0
+tmux set -t console mouse on
+echo "waiting on session exit for test"
+tmux wait-for test
+sudo ${scriptd}/../nets/nets stop all
+tmux kill-session -t test
+tmux kill-session -t console

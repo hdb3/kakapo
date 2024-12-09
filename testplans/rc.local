@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# install in /etc, on recent distros enable using systemctl start/enable rc-local
+
+# creates a permissive environment to run BGP agents without privelege
+
+# see also build-nets.sh and priv.sh
+
+ip addr add 7.0.0.2/30 dev virbr1
+ip addr add 7.0.0.6/30 dev virbr1
+ip addr add 7.0.0.10/30 dev virbr1
+ip addr add 192.168.120.99/32 dev virbr2
+
+sysctl net.ipv4.ip_unprivileged_port_start=179

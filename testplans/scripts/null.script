@@ -1,0 +1,6 @@
+echo "enter null-target.script"
+target="hbgp $scriptd/slave.conf"
+vm stop
+sudo ${scriptd}/../nets/nets cycle guest
+sudo sysctl net.ipv4.ip_unprivileged_port_start=179
+echo "exit null-target.script"

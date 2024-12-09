@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# CLONED FROM slave3.sh
+# but this is vloume test not functional test
+
+# read customisation values
+scriptd=$(realpath $(dirname "$0"))
+
+source ${scriptd}/local.sh
+source ${scriptd}/common.sh
+source ${scriptd}/layouts.sh
+
+tshark='-c /tmp tshark -i virbr1 -Y bgp&&bgp.type!=4 port 179'
+bgprelay="-c /tmp bgprelay 7.0.0.1"
+dumpcap="dumpcap -f port\ 179 -i lo -s 0 -w trace"
+kakapo="-c /tmp ${scriptd}/kakapo-bgprelay.sh"
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test
+
+layout0
+
+tmux set mouse on
+
+# needed because exabagp makes itself a zombie on normal kill / parent exit
+killall -u nic -9 python3 2> /dev/null
+start_host_net
+
+tmux set -t test remain-on-exit on
+tmux respawn-pane -k -t $p0a "$dumpcap"
+sleep 1
+tmux respawn-pane -k -t $p0b $bgprelay
+tmux respawn-pane -k -t $p0c $kakapo
+tmux select-pane -t ${p0c}
+gnome-terminal --full-screen -- tmux attach -t test:0
+tmux wait-for test-complete
+echo "base pane exited"
+stop_host_net
+tmux kill-session -t test

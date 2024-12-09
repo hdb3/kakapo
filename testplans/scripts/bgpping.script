@@ -1,0 +1,56 @@
+#!/bin/bash -xve
+
+# read customisation values
+scriptd=$(realpath $(dirname "$0"))
+
+source ${scriptd}/local.sh
+source ${scriptd}/common.sh
+source ${scriptd}/layouts.sh
+
+tshark='tshark -i lo -Y bgp&&bgp.type!=4 port 179'
+tshark0='tshark -i lo port 179'
+dumpcap="dumpcap -f port\ 179 -i lo -s 0 -w trace"
+listener="bgpping --listen 7.0.0.1 7.0.0.2 ; sleep 1d"
+listener2="bgpping --listen 7.0.0.5 7.0.0.2 ; sleep 1d"
+talker="bgpping 7.0.0.2 7.0.0.1 ; sleep 1d"
+talker2="bgpping 7.0.0.2 7.0.0.5 ; sleep 1d"
+pause="read -n 1 -p 'continue?' ; if [ \"$REPLY\" = "q" ] ; then tmux kill-session -t test ; else tmux wait-for -S pause-complete ; fi ; sleep 1d"
+
+tmux kill-session -t test >/dev/null 2>&1 || :
+tmux wait-for test >/dev/null 2>&1 || :
+
+layout1
+tmux set -t test remain-on-exit on
+tmux set mouse on
+gnome-terminal -- tmux attach -t test:0
+
+start_host_net
+
+tmux respawn-pane -k -t $p0c -c /tmp "$pause"
+tmux respawn-pane -k -t $p0b -c /tmp "$tshark0"
+sleep 1
+tmux respawn-pane -k -t $p0a -c /tmp "$listener"
+sleep 1
+tmux respawn-pane -k -t $p1a -c /tmp "$talker"
+tmux select-pane -t ${p0c}
+tmux wait-for pause-complete
+
+tmux respawn-pane -k -t $p1a -c /tmp "echo '<null>'"
+tmux respawn-pane -k -t $p0a -c /tmp "$listener2"
+tmux respawn-pane -k -t $p0b -c /tmp "$tshark0"
+sleep 1
+tmux respawn-pane -k -t $p1a -c /tmp "$talker"
+
+tmux respawn-pane -k -t $p0c -c /tmp "$pause"
+tmux wait-for pause-complete
+
+sleep 3
+tmux respawn-pane -k -t $p1a -c /tmp "$talker2"
+
+tmux respawn-pane -k -t $p0c -c /tmp "$pause"
+tmux wait-for pause-complete
+
+# tmux wait-for test-complete
+echo "base pane exited"
+stop_host_net
+tmux kill-session -t test

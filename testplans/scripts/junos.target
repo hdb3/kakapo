@@ -1,0 +1,8 @@
+echo "enter junos.script"
+# target="-c /tmp /usr/bin/ssh 7.0.0.1"
+target="-c /tmp /usr/bin/virsh console junos-1"
+console="-c /tmp /usr/bin/virsh console junos-1"
+sudo `which nets` stop host
+vm start junos-1
+interface="virbr1"
+echo "exit junos.script"

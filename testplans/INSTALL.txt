@@ -1,0 +1,50 @@
+# 'testplans' installation
+
+The installation procedures provided and documented here are intended to enable a bare machine to be brought up to the capability of running all of the tests supported.
+This includes building all artefacts including the hBGP applications and test utilities: also the assembly and configuration of the 3rd party proprietary and open source test system targets.
+The only prerequisites not publicly and freely retrievable are copies of the Cisco and Juniper virtual router images.
+
+The boostrap process follows the following sequence:
+  1) download build and install hBGP
+  2) download build and install the kakapo test suite
+  3) install and configure test system pre-requisites (Docker, kvm/qemu , local utilities including kagu)
+  4) install 3rd party opensource BGP systems in Docker containers
+  5) build 3rd party proprietary virtual router instances
+
+  6) (optional) development environment can be installed if required.  VisualStudioCode and vi have both been used.
+
+Separate install scripts are provided for each stage, some located in subdirectories associated with specific topics.
+
+The boot strap installer invokes each install script in sequence.
+The installation scripts are intended to be independently complete, except where there is a dependncy on a project specific artefact,
+and so each installation script installs its specific dependencies, with possible duplication.
+
+The package dependencies target ubuntu, but RH family distros have also been used succesfully for all components,
+and it is expected that it should be trivial to migrate to an RH derivative environment, e.g. Centos.
+
+All executable binaries are installed in $HOME/.local/bin.  Some installation steps require sudo capabilities, but the installer itself should not need to run as root.
+
+The Docker and kvm/qemu usage in the installer scripts target locally hosted VMs, containers and contaier image repositories, however remote deployment of any or all components is
+easy to implement.  The test framework itself is explicitly supported in a remote execution mode.
+
+The installation process runs from the executable script 'bootstrap.sh'.
+
+## Haskell build issues
+
+Haskell source may be built in several ways, with further minor variants in each approach.
+For reproducible build Stack is a good choice, but it has the disadvantages of excluding access to mosr recent compiler releases,
+and is sometime subject to missing dependency problems which can be hard or impossible to resolve.
+
+Cabal in recent releases can provide some, possibly all, of the reproducibility of Stack builds.
+It is also the case that cabal builds generally suffer fewer dependency obstacles.
+
+However, until recently (2020) cabal builds were dependent on complex manual compiler installation procedures when the requirement is to use the latest compilers.
+This problem does not affect stack.
+Now however the 'ghcup' tool has made compiler installation processes much easier,
+and enables access to compiler versions which were otherwise entirely inaccessible as a result of complex package dependencies.
+
+In conclusion: stack remains a good choice for use during development when reproducibility is more important than easy access to the latest compilers.
+Cabal in combination with ghcup is better when latest compilers are required,
+and it is likely that, with futher work, this project could also integrate cabal features to enable the same degree of reproducibility as stack.
+For the time being however, paralel stack and cabal build capability is maintained.
+For the test system cabal/ghcup is preferred becasue ghc veriosn 8.10 is beleived to offer significant benefits in the area of performance and GC.

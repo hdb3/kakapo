@@ -1,0 +1,6 @@
+echo "enter gobgp.run"
+if [[ -z $1 ]] ; then config="${scriptd}/gobgp.conf" ; else config=$(realpath "$1") ; fi
+echo "gobgp using configuration in ${config}"
+export DOCKER_HOST=127.0.0.1
+exec docker run -v "${config}:/etc/gobgpd.conf" -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host --name gobgp gobgp
+echo "exit gobgp.run"

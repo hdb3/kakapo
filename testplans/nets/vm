@@ -1,0 +1,136 @@
+#!/usr/bin/python3
+
+import sys
+import os
+import subprocess
+import json
+import itertools
+
+verbose = False
+
+
+def say(s):
+    if verbose:
+        sys.stdout.write(s)
+
+def ask():
+        if verbose:
+            input("? ")
+""" 
+'targets' is a dictionary which should have a structure such as this:
+
+    targets = {'guest' : { 'dev':"virbr1",
+                           'addrs': ["7.0.0.1/30","7.0.0.5/30","7.0.0.9/30"]},
+               'host' : { 'dev':"virbr1",
+                          'addrs': ["7.0.0.2/30","7.0.0.6/30","7.0.0.10/30"]}
+              }
+
+However, it is read from the file 'nets.json' - sample JSON format follows....
+(is this at all different to the python literal?)
+{"guest": {"dev": "virbr1", "addrs": ["7.0.0.1/30", "7.0.0.5/30", "7.0.0.9/30"]}, "host": {"dev": "virbr1", "addrs": ["7.0.0.2/30", "7.0.0.6/30", "7.0.0.10/30"]}}
+
+"""
+
+def virsh_running ():
+    p = subprocess.run(args = [ '/usr/bin/virsh' , 'list', '--name' ], capture_output = True)
+    if 0 != p.returncode:
+        sys.stdout.write(f'fail: virsh list --name, exit code {p.returncode}\n')
+        return []
+    else:
+        vms=list(itertools.filterfalse(lambda s: s == "", p.stdout.decode().splitlines()))
+        # sys.stdout.write(f'running: {vms}\n')
+        return (vms)
+
+def virsh_start(target):
+    p = subprocess.run(args = [ '/usr/bin/virsh' , 'start', target ], capture_output = True)
+    if 0 != p.returncode:
+        sys.stdout.write(f'fail: virsh start {target}, exit code {p.returncode}\n')
+    else:
+        sys.stdout.write(f'started {target}\n')
+    return (p.returncode)
+
+def virsh_stop(target):
+    p = subprocess.run(args = [ '/usr/bin/virsh' , 'destroy', target ], capture_output = True)
+    if 0 != p.returncode:
+        sys.stdout.write(f'fail: virsh destroy {target}, exit code {p.returncode}\n')
+    else:
+        sys.stdout.write(f'destroyed {target}\n')
+    return (p.returncode)
+
+def stop():
+    errorcode_sum=0
+    vms=virsh_running()
+    # sys.stdout.write(f'will kill {vms}\n')
+    for vm in vms:
+        errorcode_sum += virsh_stop(vm)
+    return errorcode_sum
+
+def start(vms):
+    errorcode_sum=0
+    running_vms=set(virsh_running())
+    needed_vms=set(vms)
+    # r=list(running_vms)
+    # n=list(needed_vms)
+    # sys.stdout.write(f'running: {r}, needed: {n}\n')
+    stop_list=list(running_vms - needed_vms)
+    start_list = list(needed_vms - running_vms)
+    # sys.stdout.write(f'stop list is {stop_list}\n')
+    # sys.stdout.write(f'start list is {start_list}\n')
+
+    for vm in stop_list:
+        errorcode_sum += virsh_stop(vm)
+
+    for vm in start_list:
+        errorcode_sum += virsh_start(vm)
+    return errorcode_sum
+
+def check_root():
+    euid = os.geteuid()
+    if 0 != euid:
+        sys.exit('*** error, are you root?')
+
+config="vms.json"
+path=os.path.dirname(os.path.realpath(sys.argv[0]))
+try:
+    targets = json.load(open(path+"/"+config))
+except Exception:
+    sys.exit(f'couldn\'t open the configuration file {config}\n')
+
+def list_targets ():
+    sys.stdout.write('targets:\n')
+    for (target,vms) in targets.items():
+        sys.stdout.write(f'{target}: ')
+        for vm in vms:
+            sys.stdout.write(f'{vm} ')
+        sys.stdout.write('\n')
+
+argv = sys.argv[1::]
+
+if (len(argv) == 0):
+    for vm in virsh_running():
+        sys.stdout.write(f'{vm} ')
+    sys.stdout.write('\n')
+    sys.exit(0)
+elif (len(argv) == 1) and (argv[0] == 'list') :
+    list_targets()
+    sys.exit(0)
+elif (len(argv) == 1) and (argv[0] == 'stop') :
+    errorcode_sum=stop()  
+elif (len(argv) == 2) and (argv[0] == 'start') :
+    target = argv[1]
+    if (target not in targets):
+        sys.stdout.write(f'{target} not fount in target catalogue\n')
+        list_targets()
+        exit(1)
+    else:
+        errorcode_sum=start(targets[target])
+else:
+    list_targets()
+    sys.exit('try vm stop or vm start <target>\n')
+if 0 == errorcode_sum:
+    sys.stdout.write('Done\n')
+    sys.exit(0)
+else:
+    sys.exit('Done with errors\n')
+
+check_root()
