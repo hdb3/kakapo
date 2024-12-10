@@ -1,18 +1,19 @@
-FROM base
+FROM ubuntu:24.04
+# supply minimal utilities needed for agnostic installation script
+# copied from/see -  frr/Dockerfile - for more notes.
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends -y install curl ca-certificates build-essential libevent-dev flex bison libncurses-dev libreadline-dev
 WORKDIR /build
-RUN export VER=8.6 ; curl http://cdn.openbsd.org/pub/OpenBSD/OpenBGPD/openbgpd-${VER}.tar.gz | tar xz && \
-    cd openbgpd-${VER} && \
-    ./configure --sysconfdir=/etc CFLAGS='-fcommon' && \
-    make && \
-    cp src/bgpd/bgpd src/bgpctl/bgpctl ..
-FROM fedora:41
-COPY bgpd.conf /etc
-COPY --from=0 /build/bgpd /build/bgpctl /usr/sbin/
+COPY build.sh .
+ENV BGPDVER="8.6"
+RUN ./build.sh "/usr/bin" "$BIRD2VER"
+# surely there is a simpler way to create a user, the restricted privilege hardly matters in a container
 RUN  groupadd _bgpd && \
      useradd -g _bgpd -s /sbin/nologin -d /empty -c 'OpenBGPD daemon' _bgpd && \
      mkdir -p /empty && \
      chown 0 /empty && \
      chgrp 0 /empty && \
      chmod 0755 /empty
-
-ENTRYPOINT ["/usr/sbin/bgpd", "-d"]
+ENV BGPD="/usr/bin/bgpd"
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT $BGPD -d -f /config/bgpd.conf

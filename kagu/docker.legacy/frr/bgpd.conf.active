@@ -1,0 +1,16 @@
+ password zebra
+!
+router bgp 64504
+ bgp router-id 172.18.0.13
+ neighbor 172.18.0.11 remote-as 64504
+ neighbor 172.18.0.11 update-source 172.18.0.13
+ neighbor 172.18.0.11 route-reflector-client
+ neighbor 172.18.0.11 solo
+ neighbor 172.18.0.12 remote-as 64504
+ neighbor 172.18.0.12 update-source 172.18.0.13
+ neighbor 172.18.0.12 route-reflector-client
+ neighbor 172.18.0.12 solo
+
+line vty
+ exec-timeout 0 0
+ no login

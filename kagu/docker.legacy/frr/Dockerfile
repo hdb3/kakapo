@@ -8,7 +8,7 @@ ENV FRRVER="frr-8"
 RUN ./build.sh "$FRRVER"
 ENV BGPD="/usr/lib/frr/bgpd"
 ENV BGPLISTENADDR="intentionally_invalid_string.0.0.0.0.0"
-# RUN mkdir /config
+RUN mkdir /config
 
 # ENTRYPOINT ["$BGPD", "-S","-Z", "-n", "--log", "stdout", "--listenon","$BGPLISTENADDR" "-f", "/config/bgpd.conf"]
 

@@ -1,21 +1,22 @@
-FROM ghcup.ubuntu
+FROM ghcup
 WORKDIR /build
-# Note - unrecorded motivation for switching between murmur-hash and farmhash.
-# It is believed that there is no functional distinction, just package compatibility driven.
-# ARG BRANCH=murmur-hash
-ARG BRANCH=master
-ADD https://api.github.com/repos/hdb3/hBGP/git/refs/heads/${BRANCH} hbgp.json
-RUN apt -y -y --no-install-recommends install git pkg-config
-RUN \
-    git clone https://github.com/hdb3/hBGP.git -b ${BRANCH} && \
-    cd hBGP && \
-    cabal build && \
-    cabal install exe:hbgp exe:hbgp.event --installdir=/build/bin --install-method=copy --overwrite-policy=always
 
-# # FROM fedora:41
-# FROM ubuntu:24.04
-COPY --from=0 /build/bin/hbgp /usr/bin
-COPY --from=0 /build/bin/hbgp.event /usr/bin
-COPY --from=0 /build/hbgp.json /root
-COPY bgp.conf /root
-ENTRYPOINT ["/bin/bash", "-il"]
+# Note - the motivation for switching between murmur-hash and farmhash is unrecorded,
+# though it is believed that there is no functional distinction, just package version compatibility driven.
+# the branch 'master' uses 'farmhash' in place of 'murmur-hash'
+# ARG BRANCH=murmur-hash
+ARG BRANCH=yaml_config
+RUN apt -y -y --no-install-recommends install git pkg-config
+ADD https://github.com/hdb3/hBGP.git#${BRANCH} .
+RUN cabal build
+
+#  NOTE - the following installs _all_ the versions of
+# hbgp - i.e. hbgp.info, hbgp.warn, hbgp.debug, and hbgp.event
+# I don't understand why, but as it works i laeve it as it is.
+
+RUN cabal install exe:hbgp.event --installdir=/build/bin --install-method=copy --overwrite-policy=always
+
+RUN cp /build/bin/hbgp.*  /usr/bin
+ENV BGPD=/usr/bin/hbgp.info
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT $BGPD /config/bgpd.conf

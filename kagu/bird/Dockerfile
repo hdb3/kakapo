@@ -1,14 +1,14 @@
-FROM base
+FROM ubuntu:24.04
+# supply minimal utilities needed for agnostic installation script
+# copied from/see -  frr/Dockerfile - for more notes.
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends -y install curl ca-certificates build-essential flex bison libncurses-dev libreadline-dev
 WORKDIR /build
-ARG VERSION=1.6.8
-# NOTE pre 2.0 releases now have specific url with version in path, e.g. https://bird.network.cz/download/1.6/.....
-RUN curl https://bird.network.cz/download/1.6/bird-${VERSION}.tar.gz | tar xz && \
-    cd bird-${VERSION} && \
-    ./configure --prefix=/  CFLAGS='-fcommon' && \
-    make && \
-    cp birdc bird ..
-FROM fedora:41
-COPY bird.conf /etc
-COPY run.sh /root
-COPY --from=0 /build/birdc /build/bird /usr/sbin/
-ENTRYPOINT ["/bin/bash", "-e", "/root/run.sh"]
+COPY build.sh .
+ENV BIRDVER="1.6.8"
+RUN ./build.sh "/usr/bin" "$BIRDVER"
+ENV BGPD="/usr/bin/bird"
+# RUN mkdir /config
+
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT $BGPD -d -c /config/bgpd.conf

@@ -2,15 +2,17 @@
 TARGET_DIR=${1:?"please give a target directory for build output"}
 TARGET_DIR=$(realpath $TARGET_DIR)
 
+sudo apt install -y --no-install-recommends libevent-dev
+
 mkdir -p ${TARGET_DIR}
 BUILD_DIR=$(mktemp -d)
 pushd $BUILD_DIR
 
-VER=${2:-"8.6"}
+VER=8.6
 curl http://cdn.openbsd.org/pub/OpenBSD/OpenBGPD/openbgpd-${VER}.tar.gz | tar xz
 cd openbgpd-${VER}
 ./configure --sysconfdir=/etc CFLAGS='-fcommon'
-make
+make 
 cp src/bgpd/bgpd src/bgpctl/bgpctl ${TARGET_DIR}
 popd
 rm -rf ${BUILD_DIR}
