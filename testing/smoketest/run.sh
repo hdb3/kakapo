@@ -41,6 +41,7 @@ FRRBGPD="$HOME/src/frr/bgpd/.libs/bgpd"
 FRR="LD_LIBRARY_PATH=$FRRLIB $FRRBGPD"
 # FRR="$BIN_DIR/frr/bgpd"
 
+DOCKER_RUN="docker run --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host"
 
 set_command() {
 	local COMMAND
@@ -48,20 +49,29 @@ set_command() {
 
 	kakapo) COMMAND="${KAKAPO_ENV} $KAKAPO_BIN 172.18.0.13,172.18.0.19,64505 172.18.0.13,172.18.0.20,64504" ;;
 
-	hbgp) COMMAND="$BIN_DIR/hbgp/hbgp ${CONFIG}" ;;
+	# hbgp) COMMAND="$BIN_DIR/hbgp/hbgp ${CONFIG}" ;;
+	hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name hbgp hbgp" ;;
 
-	bgpd) COMMAND="$BIN_DIR/bgpd/bgpd -d -f ${CONFIG}" ;;
+	bgpd) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name bgpd bgpd" ;;
 
-	bird) COMMAND="$BIN_DIR/bird/bird -d -c ${CONFIG}" ;;
+	# bgpd) COMMAND="$BIN_DIR/bgpd/bgpd -d -f ${CONFIG}" ;;
 
-	bird2)
-		sudo mkdir -p /run/bird
-		COMMAND="$BIN_DIR/bird2/bird -d -c ${CONFIG}"
-		;;
+	# bird) COMMAND="$BIN_DIR/bird/bird -d -c ${CONFIG}" ;;
 
-	frr) COMMAND="$FRR --pid_file=frr.pid --skip_runas --listenon=172.18.0.13 --no_zebra --log=stdout --config_file ${CONFIG}" ;;
+	# bird2)
+	# 	sudo mkdir -p /run/bird
+	# 	COMMAND="$BIN_DIR/bird2/bird -d -c ${CONFIG}"
+	# 	;;
 
-	gobgp) COMMAND="$BIN_DIR/gobgp/gobgpd --log-plain --config-file=${CONFIG}" ;;
+	bird) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name bird bird" ;;
+
+	bird2) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name bird2 bird2" ;;
+
+	frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name frr frr" ;;
+	# frr) COMMAND="$FRR --pid_file=frr.pid --skip_runas --listenon=172.18.0.13 --no_zebra --log=stdout --config_file ${CONFIG}" ;;
+
+	gobgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name gobgp gobgp" ;;
+	# gobgp) COMMAND="$BIN_DIR/gobgp/gobgpd --log-plain --config-file=${CONFIG}" ;;
 
 	relay) COMMAND="$KAKAPO_DIR/relay/relay2 172.18.0.13 172.18.0.19" ;;
 
@@ -84,10 +94,12 @@ kill9() {
 pkill() {
 	case $1 in
 	kakapo) : ;;
-	bgpd | frr) kill9 bgpd ;;
-	bird | bird2) kill9 bird ;;
-	gobgp) kill9 gobgpd ;;
-	hbgp) kill9 hbgp ;;
+	# bgpd) kill9 bgpd ;;
+	hbgp | bgpd | gobgp | bird2 | bird | frr) docker kill $1 ;;
+	# bird2) docker kill $1 ;;
+	# bird) kill9 bird ;;
+	# gobgp) kill9 gobgpd ;;
+	# hbgp) kill9 hbgp ;;
 	relay) kill9 relay2 ;;
 	libvirt) : ;;
 
@@ -111,14 +123,14 @@ fi
 
 if [[ -f "$CONFIG" ]]; then
 	CMND=$(set_command $1)
-	# echo "command is: \"$CMND\""
+	echo "command is: \"$CMND\""
 	PIDFILE=$(mktemp)
 	bash -c "${CMND} & echo \$! > $PIDFILE"
 	PID=$(<$PIDFILE)
 	sleep 2.0
 	# echo "COMMAND = $(set_command "kakapo")"
 	eval $(set_command "kakapo")
-	kill $PID
+	# kill $PID
 	pkill $1
 else
 	echo "can't run, $CONFIG not exists"

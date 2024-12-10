@@ -1,0 +1,242 @@
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes  packets
+    3559940020 17136596
+    TX:  bytes  packets
+    3559940020 17136596
+
+
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes  packets
+    3568077703 17136913
+    TX:  bytes  packets
+    3568077703 17136913
+
+
+
+
+    17136913 - 17136596 = 317
+    3568077703 - 3559940020 = 8137683
+
+    3568077703 - 3559940020
+
+
+RX:  bytes  packets              3627566680 17147456
+TX:  bytes  packets                3627566680 17147456
+
+RX:  bytes  packets               3645035994 17147950
+TX:  bytes  packets                3645035994 17147950
+
+3645035994 - 3627566680
+17147950 - 17147456
+
+
+SMALL_GROUPS="GROUPSIZE=10  TABLESIZE=100000 MAXBURSTCOUNT=80000"
+
+
+relay - 800 / 1000 0.011584
+bird2 - 800 / 1000 0.331834
+bird2 - 10 / 80000 0.452000
+relay - 10 / 80000 0.022648
+
+
+    3559940020 17136596
+    3568077703 17136913
+
+
+
+
+
+    3627566680 17147456
+    3645035994 17147950
+
+    3568077703  - 3559940020
+    17136913-17136596
+
+    3645035994- 3627566680
+    17147950 - 17147456
+
+    message sizes (BGP level inc header - 108 bytes @ 10 pfxs) @800 pfxs 4059
+    for 800k table, full table size on the wire 108 . 80000, 4059 . 1000, ratio 2.13
+
+    results.0 - power saving, large groups
+    results.1 - performance,  large groups
+
+    The total payload sizes are 8.64 and 4.059 MB.
+    The respective processing speed for bird2 and relay at these sizes is:
+    (all timings are in seconds)
+
+    platform   10 pfx groups    800 pfx groups
+    relay      0.013085         0.008312
+    bird2      0.396413         0.400822
+
+    The derived rates are
+
+    platform   10 pfx groups    800 pfx groups
+    relay      0.013085         0.008312
+    bird2      0.396413         0.400822
+
+Exploring impact of experimental Environment Variables
+The context for most of the experimental data presented in this work is an Intel server platform.
+For the purpose of validating contrasting the performance limits of the performance tools, the same simple measurement was run in a range of different test environments;
+hyper -power latest intel server, modern laptop and the older server platform used for most other reported data elsewhere in this doucment:
+
+- dual Intel(R) Xeon(R) Gold 6338N CPU @ 2.20GHz (64 core) / 512GB memory / intel e810 (100G) NIC
+-laptop: Intel(R) Core(TM) i7-1280P (14 core) 32GB memory
+
+network topology
+- e810 100G NIC
+- veth
+- loopback
+
+It may seem slightly surprising that in no setting is the modern Intel server platform is, the highest performing:
+as a rule, virtual interfaces (loopback, veth) are faster than the best NIC, and a laptop CPU out-performs the server.
+
+Over a virtual interface, the 'relay' lightweight BGP exceeds 5 Gbps and 6M routes/messages, processing nearly 100M prefixes /second.
+Whether the bottleneck is the source (kakapo) or the sink (relay), is not known.
+The best performing 'real' BGP speaker is bird2.
+Depednig upon teh metric used for comparison, bird2 is 30x to 50x slower than relay.
+This is not surprising, becuase relay does not do anything useful beyind parsing and dsicardin every BGP update it receives.
+But, it helps to validate that when we measure how fast bird2 is, we are measuring bird2 limits and not the test tool.
+
+For comparison, when running over 'real' network hardware, even a 100G NIC with sophisitcated hardware offload, the observered through puts are lower than virtaul interfaces,
+by a margin of around 2:1.  But, in the server hosting these NICs, even the virtual interface based tests are significantly slower than when running on a laptop in performance mode'
+Only by switching to power saving mode and running on battery power does laptop performance reduce to below that of the server.)
+
+Even for the very slow Go implmentation of BGP, which fully saturate many CPU cores in these tests running on the laptop, the server environment was not able to improve on the laptop.
+Perhaps, in very high scale tests with large numbers of peers, the server could benefit the golang BGP, but this was never seen in practice.
+
+The orchestration of these tests is presented in some detail here, since it is also the basis for much of the remaining experimentation.
+
+Note regarding sub-project name schemes:
+'kagu' and 'kakapo, are New Zealand bird species.
+The names were assigned in order to distinguish the then 'new' frameworks which replaced earlier ad hoc scripts and semi-manual processes, when it became clear that a structured experimental system was required, especially one which could not only manage a wide range of experimnental parameters, and capture a wide range of observations, but also reliable record the correlations between them.
+
+Important nuances of this are not only the explicit inputs e.g. which BGP speaker is being tested, with what input data, but also variables such as the execution context, the versions of software, including compiler optimisation, linux kernel parameters, assigned CPU cores and RAM, network topology.
+
+The choice of creating two rather than one sub-projects, and two sub-project names, was driven by the insight that a separation between the orchestration framework ('kagu'), and the BGP performance tool ('kakapo') was important for flexibility.
+'kakapo' has been used in a range of contexts: VM (kvm-qemu), container (docker), simple namespace, and flat (un-namespaced) host, with apprpiately varying netwrok interface flavours.
+
+Even as these experimental contexts change and evolve, the performance tool, need not and should not.
+Similarly, when new apsects of performance measurement are added in the performance tool, e.g. extending to continuous rate-based measuerent, or changes in BGP behaviour to accomoadet new target BGP platforms, it is important that the new test can be applied in any experimental context, without having to extend the orchestration tool (kagu), at each performance tool (kakapo) development cycle.
+
+It remains the case that the orchestrator, 'kagu', is agnostic of the tests it executes - the string 'BGP' appears nowehere in kagu source code - a simple smoke-test case for 'kagu' in a new environment is that it can run 'fping' as its application, rather than BGP peering sessions.
+
+Similarly, 'kakapo' can be used indepenedently of kagu - it's 'smoketest' is a simple 'bash' script.
+
+This overview simplifies the separation of roles a little - somewhere in the combined system, the orchestrator msut be instructed on the specific applications to run, and if 'kagu' and 'kakapo' are mutually ignorant of each other, how can that be resolved?   The answer is that for this work, a third project is created - 'testplans' - which wraps/customises 'kagu', and also has the role of building and deploying the many test targets.
+
+Diagram of Project Structure
+
+outer box: test tools
+build phase: test tools builds BGP end points -
+
+hbgp
+kakapo-core
+kakapo-relay
+
+bird
+bird2
+openBGP (bgpd)
+frr
+gobgpd (gobgp)
+
+junos (Juniper VMX)
+ios (Cisco vIOS)
+
+Of these, both docker and flat binary instances are created for all except junos (Juniper VMX) and ios (Cisco vIOS),
+which are only available as KVM virtual machines.
+
+
+outer box: test tools
+preparation phase: test tools creates execution environments, e.g.
+
+
+outer box: test tools
+execution phase: test tools builds BGP end points -
+
+
+ has a customisation
+
+<diagrams>
+  <virtual execuation environment>
+    < server host context containing two containers >
+      <named: target, kakapo>
+    < veth interfaces present in each container >
+      < ip addresses $IP_TARGET, $IP_LISTENER $IP_SINK[] >
+    < containers run binaries, kakapo and e.g. bird2 >
+<table>
+Here is presented a sample of raw data generated by kakapo performance tool.
+<sample raw data>
+
+Here is a sample of the command line invocation parameters  auto-generated by kagu.
+<kakapo and bird invocation>
+----
+names = [ "relay x 10", "relay x 800","bird x 10","bird x 800"]
+times = [0.013085 , 0.008312 , 0.396413 ,0.400822]
+putStrLn $ unlines $ map summary [0..3]
+bitrate t v = v * 8 / t
+
+
+
+bitrate t v = v * 8 / t / 1e6
+messagerate t m = m / t
+
+messages =[80000,1000,80000,1000,80000,80000,80000]
+volume = [108*80000,4059*1000,108*80000,4059*1000,108*80000,108*80000,108*80000]
+
+
+times = [0.013085 , 0.008312 , 0.396413 , 0.400822 ,16.781714,0.025711,0.793703]
+names = [ "relay x 10", "relay x 800","bird x 10","bird x 800","gobgp x 10","relay x 10 (e810)","bird x 10 (e810)"]
+
+summary n = names!!n ++ "  " ++ show (1000 * (times!!n)) ++ "  " ++ show (messagerate (times!!n) (messages!!n))++ "  " ++ show (bitrate (times!!n) (volume!!n))
+
+putStrLn $ unlines $ map summary [0..6]
+
+
+---------------------------------------
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+   link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes  packets errors dropped  missed   mcast
+    3559940020 17136596
+    TX:  bytes  packets errors dropped carrier collsns
+    3559940020 17136596
+
+
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes  packets errors dropped  missed   mcast
+    3568077703 17136913
+    TX:  bytes  packets errors dropped carrier collsns
+    3568077703 17136913
+
+
+
+
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes  packets errors dropped  missed   mcast
+    3627566680 17147456
+    TX:  bytes  packets errors dropped carrier collsns
+    3627566680 17147456
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    RX:  bytes  packets errors dropped  missed   mcast
+    3645035994 17147950
+    TX:  bytes  packets errors dropped carrier collsns
+    3645035994 17147950
+
+
+single_peer_burst_test total elapsed time 0.011846 count 800000 (transmit 0.010058) (receive 0.011800)
+single_peer_burst_test total elapsed time 0.011768 count 800000 (transmit 0.009593) (receive 0.011584)
+single_peer_burst_test total elapsed time 0.467259 count 800000 (transmit 0.452933) (receive 0.467159)
+single_peer_burst_test total elapsed time 0.012356 count 800000 (transmit 0.009602) (receive 0.012099)
+single_peer_burst_test total elapsed time 0.332037 count 800000 (transmit 0.323345) (receive 0.331834)
+single_peer_burst_test total elapsed time 0.452193 count 800000 (transmit 0.411677) (receive 0.452000)
+single_peer_burst_test total elapsed time 0.026203 count 800000 (transmit 0.022693) (receive 0.026076)
+single_peer_burst_test total elapsed time 0.022859 count 800000 (transmit 0.021780) (receive 0.022648)

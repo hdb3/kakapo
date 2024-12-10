@@ -1,0 +1,12 @@
+Variation in table parameters is not so interesting unless some non-linear behaviour is seen.
+So, work with 'full' tables.
+
+Multi-peer tests are not so interesting for the same reason, except that for some BGPs it seems that this is a way to really push them over the limit.
+
+Variations in update lengths and block sizes, ditto.  One can presume that larger NLRIs are faster to process than lots of smaller ones.
+
+What is the range of variants available:
+1) number of prefixes packed in a single update message.
+2) tablesize
+3) number of peers
+
