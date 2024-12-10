@@ -8,10 +8,10 @@ kakapo          - KAKAPO_DIR
 -- -- -- conf   - SCRIPT_DIR/conf
 '
 
-PROG=${1-"bird2"} #  default target: bird2
+PROG=${1-"bird2"} # default target: bird2
 EXTRA_PARAMETERS="${*:2}"
-TINY_GROUPS="GROUPSIZE=1  TABLESIZE=2 MAXBURSTCOUNT=2"
-SMALL_GROUPS="GROUPSIZE=10  TABLESIZE=100000 MAXBURSTCOUNT=80000"
+TINY_GROUPS="GROUPSIZE=1 TABLESIZE=2 MAXBURSTCOUNT=2"
+SMALL_GROUPS="GROUPSIZE=10 TABLESIZE=100000 MAXBURSTCOUNT=80000"
 LARGE_GROUPS="GROUPSIZE=800 TABLESIZE=100000 MAXBURSTCOUNT=1000"
 DEFAULTS="LOGTEXT=\"$PROG $EXTRA_PARAMETERS\" REPEAT=1 TABLESIZE=100000"
 
@@ -36,9 +36,9 @@ KAKAPO_DIR=$(realpath "$TESTING_DIR/..")
 KAKAPO_BIN=${OVERRIDE:-"$KAKAPO_DIR/core/kakapo"}
 BIN_DIR="$TESTING_DIR/bin"
 
-FRRLIB="$HOME/src/frr/lib/.libs"
-FRRBGPD="$HOME/src/frr/bgpd/.libs/bgpd"
-FRR="LD_LIBRARY_PATH=$FRRLIB $FRRBGPD"
+# FRRLIB="$HOME/src/frr/lib/.libs"
+# FRRBGPD="$HOME/src/frr/bgpd/.libs/bgpd"
+# FRR="LD_LIBRARY_PATH=$FRRLIB $FRRBGPD"
 # FRR="$BIN_DIR/frr/bgpd"
 
 DOCKER_RUN="docker run --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host"
@@ -49,29 +49,11 @@ set_command() {
 
 	kakapo) COMMAND="${KAKAPO_ENV} $KAKAPO_BIN 172.18.0.13,172.18.0.19,64505 172.18.0.13,172.18.0.20,64504" ;;
 
-	# hbgp) COMMAND="$BIN_DIR/hbgp/hbgp ${CONFIG}" ;;
-	hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name hbgp hbgp" ;;
+	bgpd | bird | bird2 | gobgp | hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
-	bgpd) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name bgpd bgpd" ;;
+	frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
-	# bgpd) COMMAND="$BIN_DIR/bgpd/bgpd -d -f ${CONFIG}" ;;
-
-	# bird) COMMAND="$BIN_DIR/bird/bird -d -c ${CONFIG}" ;;
-
-	# bird2)
-	# 	sudo mkdir -p /run/bird
-	# 	COMMAND="$BIN_DIR/bird2/bird -d -c ${CONFIG}"
-	# 	;;
-
-	bird) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name bird bird" ;;
-
-	bird2) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name bird2 bird2" ;;
-
-	frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name frr frr" ;;
-	# frr) COMMAND="$FRR --pid_file=frr.pid --skip_runas --listenon=172.18.0.13 --no_zebra --log=stdout --config_file ${CONFIG}" ;;
-
-	gobgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name gobgp gobgp" ;;
-	# gobgp) COMMAND="$BIN_DIR/gobgp/gobgpd --log-plain --config-file=${CONFIG}" ;;
+	gobgpV2) COMMAND="$BIN_DIR/gobgp/gobgpd --log-plain --config-file=${CONFIG}" ;;
 
 	relay) COMMAND="$KAKAPO_DIR/relay/relay2 172.18.0.13 172.18.0.19" ;;
 
@@ -94,14 +76,10 @@ kill9() {
 pkill() {
 	case $1 in
 	kakapo) : ;;
-	# bgpd) kill9 bgpd ;;
 	hbgp | bgpd | gobgp | bird2 | bird | frr) docker kill $1 ;;
-	# bird2) docker kill $1 ;;
-	# bird) kill9 bird ;;
-	# gobgp) kill9 gobgpd ;;
-	# hbgp) kill9 hbgp ;;
 	relay) kill9 relay2 ;;
 	libvirt) : ;;
+	gobgpV2) kill9 gobgpd ;;
 
 	*)
 		echo "unknown daemon: $1"
@@ -123,7 +101,7 @@ fi
 
 if [[ -f "$CONFIG" ]]; then
 	CMND=$(set_command $1)
-	echo "command is: \"$CMND\""
+	# echo "command is: \"$CMND\""
 	PIDFILE=$(mktemp)
 	bash -c "${CMND} & echo \$! > $PIDFILE"
 	PID=$(<$PIDFILE)

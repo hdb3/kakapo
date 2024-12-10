@@ -1,0 +1,124 @@
+Docker Considerations
+
+Docker is used to simply run a variety of BGPs in a consistent manner.
+It allows per implementation considerations, such as special users or groups, embedded absolute paths to runtime state,
+as well as just required but static command line parameters, to be abstracted away from the context of use.
+
+In doing so, it makes the invocation statements easily reusable, and ensure consistency of behaviour accross different execution environments and experimenatal contexts.
+
+Requirement / Problem Statement
+
+Hide implementation specific but unchanging command and context parameters.
+Provide a consistent scheme for passing variable parameters,
+i.e., configuration, and possibly also  execution context, i.e. network topology and addressing.
+Enable easy implementation instance variation/substitution, e.g. alternate versions, or alternate, implementation specific, operational settings
+
+Design / Strategy
+At runtime, a Dockerised BGP should have a consistent/common style of invocation, e.g.:
+
+$ runbgp bird2 conf/simple/bird2.cfg
+
+It maybe that <bird2> is simply a named Docker image. Certainly, <conf/simple/bird2.cfg> is a readable file, present in the context of the caller.
+More generally,  <bird2> is a key into a catalogue of available prepared images which comply with the specification to be defined.
+
+Identity and Versioning
+Over time and in different execution environments the exact content of an image such as <bird2> may vary.
+It is important to capture sufficient detail of the image to have confidence that results from different experiment runs can be directly compared.
+This requirement also applies to the external/system-level execution environment, but here the concern is specifically about comparability of images.
+Since a Docker build specification is not 'reproducible', the only simple but safe way to have 100% confidence of comparability would be to use the image identity itself, i.e. Docker's IMAGE ID.
+But for many purposes, confidence that the Dockerfile used to build two different images was identical is a useful indicator.  Knowing the date of build is also useful, since builds from the same Dockerfile executed at closely contemporaenous points in time are unlikely to differ substantially.
+Therefore, the solution for labelling and identifying images can be specified as the triple:
+- checksum of Dockerfile
+- image build time
+- image ID
+Of these, only "checksum of Dockerfile" requires any work beyond use of standard Docker image properties.
+It is easy however to add metadata to a Docker image at build time (using the syntax $ docker build --label KEY=VALUE).
+So, images to be used should have a special tag, e.g. dockerfile_md5sum, to allow for comparability of results between platforms or over time.
+
+Configuration
+
+Typically a BGP implementation uses just a single text-based configuration file, takes a command line parameter to specify the location of a configuration file.  In earlier versions of FRR this was not true, if the entire FRR daemon set had to be configured, but if only the BGP daemon requires customisation then a single file suffices.  More recent versions of FRR do allow single configuration style of operation for the complete FRR system.
+
+Unsurprisingly, the solution for passing configuration files into Docker instances of BGP speakers is to 'mount a volume', in Docker terminology.  The convention adopted for configuration file name and path is to use a distinctive name and path for all flavours of BGP daemon - by not reusing a path in '/etc/' it is intended to help to avoid or diagnose cases where the 'wrong' configuration is accessed by the container BGP binary.  In order to avoid issues caused by running a 'default' configuration, these containers should not contain any configuration at all.
+
+The required docker run options for configuration file access are:
+
+--volume <path to config file in host>:"/config/bgpd.conf"
+
+Network Namespaces
+
+The Docker images built here are intended to be 'network agnostic'.  It is assumed that when the image is run that there will exist in the resulting container a layer 3 network context which is compatible with the provided configuration file.  Since the scope of investigation is purely the control plane, this is a relatively trivial consideration.  In most cases the Docker 'host network' configuration is used.  However, some BGPs do require additional network control capabilities, so that the full default network context for these containers is instantiated using the docker run options:
+
+- --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host
+
+Runtime Considerations
+
+For every variety of BGP container an entrypoint is constructed which directs the running BGP binary to use the configuration file at the path described above.
+
+A BGP Docker instance is started in the network context already described, with the configuration path assigment as described.  The configuration file should be the only customised parameter required accross all BGP image types.
+
+A complete invocation pattern is:
+
+$ docker run -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host  --volume "${config}:/config/bgpd.conf" --name <$bgpd> <$bgpd>
+
+where by the two customisation parameters are $config and $bgpd
+
+An example 'ENTRYPOINT' in the Dockerfile is:
+# ENTRYPOINT ["/usr/lib/frr/bgpd", "-S","-Z", "-n", "--log", "stdout", "-f", "/config/bgpd.conf"]
+
+BGP Daemon Command Line Variables
+
+For some cases, variable value configuration parameters may need to be passed as commandline arguments.
+An example is the FRR '--listenon' parameter.  The solution adopted is to use a passed-in environment variable.  This option avoids complexities involved in composing variable command parameters for different execution environments.
+The principle in general is that if a parameter with general meaning is required, it should have a generic mechanism to manage it.   This is the only current example, but the principle is sound.  In practice it looks like this:
+
+(in Dockerfile:
+    # ENV BGPLISTENADDR="intentionally_invalid_string.0.0.0.0.0"
+    # ENTRYPOINT ["$BGPD", "-S","-Z", "-n", "--log", "stdout", "--listenon","$BGPLISTENADDR" "-f", "/config/bgpd.conf"]
+)
+
+At run-time:
+$ docker run --env BGPLISTENADDR="192.168.179.179" ......
+
+**** NOTE ******
+Using this method to pass variable into ENTRYPOINT is incompatoble with Docker's 'exec form' of ENTRYPOINT.  So, the 'shell form' of ENTRYPOINT must be used (no square brackets....)
+
+Building a BGP Image
+
+THe standard Docker build procedure is followed, only the 'label' aspect is unusual, e.g.:
+
+$ MD5SUM=$(md5sum frr/Dockerfile | cut -d " " -f1)
+$ docker build --label dockerfile_md5sum=$MD5SUM -t frr frr
+
+A recipe for extracting the image fingerprint/identity data is:
+$ ID=$(docker images -q $image)
+$ DOCKERFILE_MD5SUM=$(docker inspect --format='{{json .Config.Labels.dockerfile_md5sum}}' $image)
+$ CREATE_DATE=$(docker inspect --format='{{json .Created}}' $image)
+$ echo "(\"$ID\",$DOCKERFILE_MD5SUM,$CREATE_DATE)"
+
+Putting It All Together
+
+1) write the Dockerfile, e.g. vi hbgp/Dockerfile, where the line ENTRYPOINT looks like this:
+    $ .... ENTRYPOINT ["/usr/bin/hbgp", "-f", "/config/bgpd.conf"] >> hbgp/Dockerfile
+
+1a) Ideally, the build phase in Dockerfile is Docker agnostic, i.e.
+    # RUN apt update ; apt install <DOCKER BUILD ESSENTIAL>
+    # RUN copy build.sh .
+    # RUN ./build.sh
+    # ARG BGPD="/usr/bin/hbgp"
+    .....
+    # ENTRYPOINT ["$BGPD", "-f", "/config/bgpd.conf"]
+
+2) build the image:
+    $ MD5SUM=$(md5sum hbgp/Dockerfile | cut -d " " -f1)
+    $ docker build --label dockerfile_md5sum=$MD5SUM -t hbgp hbgp
+
+3) run the BGP container (after preparing the network context):
+    $ docker run -it --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host --volume "${config}:/config/bgpd.conf" --name hbgp hbgp
+3a) not forgetting, where needed, '--env BGPLISTENADDR="192.168.179.179"'
+
+4) optionally, get the image identity to save in a structured result file...
+    $ ID=$(docker images -q $image)
+    $ DOCKERFILE_MD5SUM=$(docker inspect --format='{{json .Config.Labels.dockerfile_md5sum}}' $image)
+    $ CREATE_DATE=$(docker inspect --format='{{json .Created}}' $image)
+    $ ID_TRIPLE="(\"$ID\",$DOCKERFILE_MD5SUM,$CREATE_DATE)"
