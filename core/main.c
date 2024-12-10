@@ -4,10 +4,8 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -19,7 +17,6 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <time.h>
-#include <unistd.h>
 #include <uuid/uuid.h>
 
 #include "kakapo.h"
@@ -46,22 +43,20 @@ double conditioning_duration = 0.0;
 uint32_t RATEBLOCKSIZE = 1000000;
 uint32_t MAXBLOCKINGFACTOR = 1000;
 uint32_t TIMEOUT = 10;
-uint32_t REPEAT = 5;         // enabler for new testmodes
+uint32_t REPEAT = 5;
 
 uint32_t TCPPORT = 179;
 uint32_t PEERMAXRETRIES = -1; // retry forever
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
-uint32_t GROUPSIZE = 3; // prefix table size is GROUPSIZE * path table size
-// uint32_t BLOCKSIZE = 3; // TODO/WARN - this parameter is not used anywhere
+uint32_t GROUPSIZE = 3;
 uint32_t WINDOW = 1000;
 uint32_t TABLESIZE = 10;
-uint32_t MAXBURSTCOUNT = 3; // path table size is MAXBURSTCOUNT * BLOCKSIZE
+uint32_t MAXBURSTCOUNT = 3;
 uint32_t RATECOUNT = 500000;
 
 uint32_t SEEDPREFIX;
-char sSEEDPREFIX[] = "10.0.0.0"; // = toHostAddress("10.0.0.0");  /// cant
-                                 // initilase like this ;-(
+char sSEEDPREFIX[] = "10.0.0.0";
 uint32_t CANARYSEED;
 char sCANARYSEED[] = "192.168.255.0";
 uint32_t REPEATDELAY = 5; // seconds
@@ -72,14 +67,13 @@ char LOGPATH[128] = "localhost";
 char LOGTEXT[1024] = "";
 char *MODE;
 char SENDFILENAME[128] = "updates.raw";
-char sMODE[128] = "BURST"; // only LISTENER and SENDER have any effect
-char BURST[] = "BURST";
+char sMODE[128] = "BURST";
+// char BURST[] = "BURST";
 char DYNAMIC[] = "DYNAMIC";
 char CONTINUOUS[] = "CONTINUOUS";
 
 uint32_t IDLETHR = 1; // 1 seconds default burst idle threshold
 
-// probably should be in a library rather than main....
 static char *_s;
 char *show_peer(struct peer *p) {
   int tmp = asprintf(&_s, "peer %d %d:%s", p->tidx, p->as, inet_ntoa((struct in_addr){p->localip}));
@@ -123,9 +117,7 @@ void startpeer(struct peer *p, char *s) {
 
   p->sock = peersock;
 
-  // fprintf(stderr, "connected for %s\n", s);
   p->thrd = _pthread_create((void *)establish, p);
-  // fprintf(stderr, "started for %s,%ld\n", s, p->thrd);
 };
 
 // NOTE - the target string must be actual static memory large enough...
@@ -218,12 +210,7 @@ void sndlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
 
 void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
             struct timespec *end) {
-  // this is the corresponding freestanding report
-  // fprintf(stderr, "%s rcvlog seq %d duration %f latency %f\n", tids, seq,
-  //         timespec_to_double(timespec_sub(*end, *start)),
-  //         timespec_to_double(timespec_sub(*end, txts)));
   assert(seq == sndlog_seq);
-#ifndef RAWDATA
   fprintf(
       stderr,
       "burstlog seq %d rtt %f latency %f send duration %f recv duration %f\n",
@@ -240,16 +227,6 @@ void rcvlog(uint32_t tid, char *tids, uint32_t seq, struct timespec *start,
             timespec_to_double(timespec_sub(sndlog_end, sndlog_start)),
             timespec_to_double(timespec_sub(*end, *start)));
   };
-#else
-  fprintf(
-      stderr,
-      "burstlog rawdate seq %d tx_start %f tx_end %f rx_start %f rx_end %f\n",
-      seq, timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
-      timespec_to_double(*start), timespec_to_double(*end));
-  fprintf(logfile, "%d , %f , %f , %f , %f\n", seq,
-          timespec_to_double(sndlog_start), timespec_to_double(sndlog_end),
-          timespec_to_double(*start), timespec_to_double(*end));
-#endif
 };
 
 uint32_t rcvseq;
@@ -323,27 +300,37 @@ void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, 
 void summarise(char *test_name, double *r) {
   struct timespec now;
   gettime(&now);
-  int i;
-  double count = REPEAT - 1;
-  double max = 0;
-  double min = 0;
-  double sum = 0;
-  double sqsum = 0;
 
-  for (i = 1; i < REPEAT; i++) {
-    sum += r[i];
-    sqsum += r[i] * r[i];
-    max = r[i] > max ? r[i] : max;
-    min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
-  };
-  double mean = sum / count;
-  double sd = sqrt((count * sqsum) - (sum * sum)) / count;
-  double rsd = sd / mean;
+  if (REPEAT > 1) {
+    double count = REPEAT - 1;
+    double max = 0;
+    double min = 0;
+    double sum = 0;
+    double sqsum = 0;
 
-  fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
-  fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
-  json_log(logjson, test_name, &now, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
+    for (int i = 1; i < REPEAT; i++) {
+      sum += r[i];
+      sqsum += r[i] * r[i];
+      max = r[i] > max ? r[i] : max;
+      min = 0 == min ? r[i] : (r[i] < min ? r[i] : min);
+    };
+    double mean = sum / count;
+    double sd = sqrt((count * sqsum) - (sum * sum)) / count;
+    double rsd = sd / mean;
+
+    fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
+    fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+    json_log(logjson, test_name, &now, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
+  } else
+    json_log(logjson, test_name, &now, sender_count, conditioning_duration, *r, *r, *r, 0, single_rate, multi_rate);
 };
+
+// rate_summarise() uses global variables single_rate and multi_rate for legacy reasons -  multipart tests, e.g. 'PAM'.
+void rate_summarise(char *test_name) {
+  struct timespec now;
+  gettime(&now);
+  json_log(logjson, test_name, &now, sender_count, conditioning_duration, 0, 0, 0, 0, single_rate, multi_rate);
+}
 
 int main(int argc, char *argv[]) {
 
@@ -507,7 +494,8 @@ int main(int argc, char *argv[]) {
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
-    multi_peer_rate_test(RATECOUNT, WINDOW);
+    multi_rate = multi_peer_rate_test(RATECOUNT, WINDOW);
+    rate_summarise("multi_peer_rate_test");
   } else if (0 == strcmp(MODE, "SINGLERATE")) {
     fprintf(stderr, "single peer rate test mode\n");
     fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", RATECOUNT, WINDOW);
@@ -515,32 +503,18 @@ int main(int argc, char *argv[]) {
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
-    single_peer_rate_test(RATECOUNT, WINDOW);
+    single_rate = single_peer_rate_test(RATECOUNT, WINDOW);
+    rate_summarise("single_peer_rate_test");
   } else if (0 == strcmp(MODE, "FUNCTEST")) {
     fprintf(stderr, "single peer functional test mode\n");
-    // fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", MAXBURSTCOUNT, WINDOW);
     canary_all();
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
     single_peer_func_test(MAXBURSTCOUNT);
   } else {
-
-    fprintf(stderr, "default test mode - single_peer_burst_test, with canary\n");
-    canary_all();
-    fprintf(stderr, "canary complete for %d peers\n", argc - 1);
-
-    conditioning_duration = conditioning();
-    for (i = 0; i < REPEAT; i++) {
-      canary_all();
-      sleep(REPEATDELAY);
-      fprintf(stderr, "cycle %d\n", i);
-      results[i] = single_peer_burst_test(MAXBURSTCOUNT);
-      keepalive_all();
-    };
-    canary_all();
-    summarise("single_peer_burst_test", results);
-    fprintf(stderr, "single_peer_burst_tests complete for %d peers\n", argc - 1);
+    fprintf(stderr, "default test mode - single_peer_func_test\n");
+    single_peer_func_test(MAXBURSTCOUNT);
   }
 
   notify_all();

@@ -7,7 +7,6 @@
 #include <limits.h>
 #include <linux/sockios.h>
 #include <net/if.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <signal.h>
@@ -16,7 +15,6 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/sendfile.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
@@ -41,7 +39,6 @@
 // __send: variant od _send which does not use txwait
 void __send(struct peer *p, const void *buf, size_t count) {
   size_t sent, total_sent;
-  // printf("******send: %ld\n", count);
   if (p->sendFlag != 0)
     die("send flag reentry fail");
   else
@@ -56,7 +53,6 @@ void __send(struct peer *p, const void *buf, size_t count) {
     if (total_sent < count)
       printf("******total_sent<count: %ld %ld\n", total_sent, count);
   } while (total_sent < count);
-  // printf("******done: %ld\n", count);
   p->sendFlag = 0;
 };
 
@@ -496,7 +492,7 @@ void crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct peer *p) {
       crfs->status = -1;
     }
   };
-  crfs->end = p->sb.rcvtimestamp; // why _DID_ this SIGSEGV ????
+  crfs->end = p->sb.rcvtimestamp;
 };
 
 int pf_withdrawn(int *counter, struct bgp_message *bm) {
@@ -616,12 +612,6 @@ void canary(struct peer *p) {
   fprintf(stderr, "canary for %s\n", show_peer(p));
   send_single_update(p, canary_peer(p));
   crf_update(canary_peer(p), &crfs, listener);
-
-  // removed because:
-  //   a) not essential because now every fresh update is different and hence will propagate
-  //   b) becuase hbgp is wrongly not prpagating the withdraws (wrong, obviously!!)
-  // send_single_withdraw(p, canary_peer(p));
-  // crf_withdrawn_count(1, &crfs, listener);
 };
 
 struct rx_data {
@@ -655,10 +645,8 @@ void sendfile_single_peer(struct peer *target, char *fname) {
 
   struct rx_data *rxd = rx_start(target, listener);
   gettime(&ts);
-  // fprintf(stderr, "sendfile:          %s\n", show_peer(target));
   send_from_file(target, fname);
   rx_end(rxd);
-  // fprintf(stderr, "sendfile complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
 };
 
 void conditioning_single_peer(struct peer *target) {
@@ -692,7 +680,6 @@ void canary_all() {
 double multi_peer_burst_test(int count) {
   struct crf_state crfs;
   memset(&crfs, 0, sizeof(struct crf_state));
-  // struct timespec ts_start, ts_end;
   struct timespec tx_start, tx_end;
 
   double tx_elapsed, rx_elapsed, elapsed;
@@ -701,7 +688,6 @@ double multi_peer_burst_test(int count) {
   struct peer *sender;
   int sent = 0;
   int i = 0;
-  // fprintf(stderr, "multi_peer_burst_test(%d) start\n", count);
   int n = count * GROUPSIZE; // need to count prefixes sent/received, not updates
   threadid = crf_count(&n, &crfs, listener);
   gettime(&tx_start);
@@ -715,7 +701,6 @@ double multi_peer_burst_test(int count) {
     txwait((senders + i)->sock);
 
   gettime(&tx_end);
-  // fprintf(stderr, "multi_peer_burst_test(%d) transmit complete: elapsed time %s\n", count, showdeltats(ts));
 
   _pthread_join(threadid);
   // TODO use getdeltats() like conditioning does...
@@ -758,7 +743,7 @@ double conditioning() {
   fprintf(stderr, "conditioning start\n");
   for (i = 0; i < sender_count; i++) {
     conditioning_single_peer(senders + i);
-    keepalive_all(); // protect against keepalive timeot failure in large configs
+    keepalive_all(); // protect against keepalive timeout failure in large configs
   };
   elapsed = getdeltats(ts);
   fprintf(stderr, "conditioning complete: elapsed time %f\n", elapsed);
@@ -913,19 +898,12 @@ terminate:
   logbuffer_write(&lb, &lr);
   _pthread_join(threadid);
 
-  // this is the elapsed time if there was no exception
-  // elapsed = getdeltats(ts);
-  // fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", count, window, elapsed,count/elapsed);
-  // return (int) (count/elapsed);
-
   // this is the elapsed time even if there was an exception
   // based on the last succesful receive
   elapsed = timespec_to_double(timespec_sub(listener->sb.rcvtimestamp, ts));
   int _count = lb.received;
   fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", _count, window, elapsed, _count / elapsed);
 
-  // obselete // fprintf(stderr, "multi_peer_rate_test :internal variables: _elapsed %f, _count %d, rate %f\n", _elapsed, _count, _count/_elapsed);
-  // fprintf(stderr, "multi_peer_rate_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
   return (int)(_count / elapsed);
 };
 
@@ -989,7 +967,6 @@ void func_test(int nsenders, int count) {
       break;
     }
     count++;
-    // fprintf(stderr, "func_test iteration % d\n", count);
   };
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};

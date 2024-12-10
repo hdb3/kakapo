@@ -4,10 +4,8 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
-// #include <sys/time.h>
 #include <assert.h>
 #include <errno.h>
-#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,12 +13,10 @@
 #include <unistd.h>
 
 #include "sockbuf.h"
-#include "tcpflags.h"
 #include "util.h"
 
 void setsocktimeout(int sock, int timeout) {
   struct timeval tv;
-  // tv.tv_sec = 20;
   tv.tv_sec = timeout;
   tv.tv_usec = 0;
   setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
@@ -62,16 +58,12 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
 
   if ((rc > sb->count) && (sb->start + sb->count > sb->threshold)) {
     // reshuffle
-    // //fprintf(stderr,"sockbuf.c: reshuffle\n");
     memmove(sb->base, sb->base + sb->start, sb->count);
     sb->start = 0;
   }
   while (rc > sb->count) {
     int request = sb->top - sb->start - sb->count;
-    // sockRead = recv(sb->sock, sb->base + sb->start + sb->count, request, 0);
-    FLAGS(sb->sock, __FILE__, __LINE__);
     sockRead = read(sb->sock, sb->base + sb->start + sb->count, request);
-    FLAGS(sb->sock, __FILE__, __LINE__);
     // if zero or worse, die...
     if (sockRead < 0) {
       if (errno == EINTR)
@@ -103,8 +95,7 @@ char *bufferedRead(struct sockbuf *sb, int rc) {
       sb->count = sb->count + sockRead;
     }
   }
-  // if we get here then we know there is enough in the buffer to satisfy the
-  // request
+  // if we get here then we know there is enough in the buffer to satisfy the request
   sb->count = sb->count - rc;
   int tmp = sb->start;
   sb->start = sb->start + rc;

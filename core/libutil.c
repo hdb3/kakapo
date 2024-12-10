@@ -3,7 +3,6 @@
 #include "nlri.c"
 #include "pathattributes.c"
 #include "sockbuf.c"
-#include "tcpflags.c"
 #include "timedloop.c"
 #include "timespec.c"
 #include "txwait.c"
