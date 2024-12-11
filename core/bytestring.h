@@ -1,9 +1,10 @@
-#include "util.h"
 #include <malloc.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "util.h"
 
 #ifndef _BYTESTRING_H
 #define _BYTESTRING_H

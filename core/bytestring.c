@@ -1,4 +1,3 @@
-#include "libutil.h"
 #include <assert.h>
 #include <errno.h>
 #include <malloc.h>
@@ -6,6 +5,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "libutil.h"
 
 struct bytestring empty = {0, 0};
 

@@ -2,23 +2,22 @@
 
 // sockbuf.c
 
-#include <stdio.h>
-#include <sys/socket.h>
 #include <assert.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
-#include "sockbuf.h"
-#include "util.h"
+#include "libutil.h"
 
 void setsocktimeout(int sock, int timeout) {
-  struct timeval tv;
-  tv.tv_sec = timeout;
-  tv.tv_usec = 0;
+
+  struct timeval tv = {.tv_sec = timeout, .tv_usec = 0};
   setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
 };
 

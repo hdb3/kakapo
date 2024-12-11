@@ -1,9 +1,10 @@
-#include "txwait.h"
 #include <assert.h>
 #include <linux/sockios.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <time.h>
+
+#include "txwait.h"
 
 void txwait(int sock) {
   int error, value;

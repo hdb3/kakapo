@@ -1,10 +1,12 @@
 
 #ifndef __STATS_H
 #define __STATS_H
-#include "libutil.h"
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include "libutil.h"
+
 #define _1e6 (1000000L)
 
 struct logrecord {

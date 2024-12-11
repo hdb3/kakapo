@@ -1,6 +1,7 @@
-#include "bytestring.h"
 #include <stdint.h>
 #include <stdio.h>
+
+#include "bytestring.h"
 
 struct bytestring pas2bytestring(char *pa, ...);
 struct bytestring pa2bytestring(char *pa);

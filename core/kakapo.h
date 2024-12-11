@@ -5,6 +5,7 @@
 #define VERBOSE (0)
 #endif
 
+// compile time defines for version strings
 #ifndef VERSION
 #define VERSION "????"
 #endif
@@ -14,6 +15,7 @@
 #ifndef BRANCH
 #define BRANCH "????"
 #endif
+
 #include "sockbuf.h"
 #include "stats.h"
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
@@ -34,10 +36,10 @@ extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;
 extern uint32_t GROUPSIZE;
 extern uint32_t WINDOW;
-extern uint32_t BLOCKSIZE; // TODO/WARN - this parameter is not used anywhere
 extern uint32_t TABLESIZE;
 extern uint32_t MAXBURSTCOUNT;
 extern uint32_t RATECOUNT;
+extern uint32_t RATETIMELIMIT;
 extern uint32_t NEXTHOP;
 extern uint32_t CYCLECOUNT;
 extern uint32_t CYCLEDELAY;

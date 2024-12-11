@@ -1,5 +1,6 @@
-#include "logbuffer.h"
 #include <stdio.h>
+
+#include "libutil.h"
 
 int main(int argc, char **argv) {
   int i;

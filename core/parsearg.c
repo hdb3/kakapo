@@ -1,5 +1,4 @@
 
-#include "util.h"
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -7,6 +6,8 @@
 #include <string.h>
 
 #include "kakapo.h"
+#include "libutil.h"
+
 // LIMIT: max number of sub-parameters in a single parameter string
 #define LIMIT 4
 args_t commaparse(char *s) {

@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/time.h>
+#include <time.h>
 
 typedef long long int inttime;
 int die(char *mess);

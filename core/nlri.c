@@ -1,11 +1,12 @@
-#include "bytestring.h"
-#include "kakapo.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <byteswap.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include "kakapo.h"
+#include "libutil.h"
 
 static char *s;
 char *showprefix(struct prefix pfx) {

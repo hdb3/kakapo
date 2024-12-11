@@ -1,15 +1,16 @@
 
 /* kakapo-session - a BGP traffic source and sink */
 
-#include "stats.h"
-
-#include "kakapo.h"
-#include "libutil.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+
+#include "kakapo.h"
+#include "libutil.h"
+#include "stats.h"
+
 #define _1e6 (1000000L)
 static slp_t statsbase = NULL;
 

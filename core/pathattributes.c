@@ -1,10 +1,11 @@
-#include "pathattributes.h"
-#include "bytestring.h"
+
 #include <assert.h>
 #include <byteswap.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include "libutil.h"
 
 #define Optional (0x80)
 #define Transitive (0x40)
@@ -130,8 +131,7 @@ uint32_t *aspathbuild(uint32_t as0, ...) {
 
   va_start(ap, as0);
 
-  while (as != 0)
-  {
+  while (as != 0) {
     aspathbuffer[i++] = as;
     as = va_arg(ap, uint32_t);
   }

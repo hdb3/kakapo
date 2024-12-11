@@ -1,11 +1,12 @@
-#include "update.h"
-#include "bytestring.h"
-#include "pathattributes.h"
 #include <assert.h>
 #include <byteswap.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include "bytestring.h"
+#include "pathattributes.h"
+#include "update.h"
 
 struct bytestring updatehdr(uint16_t length) {
   static char b[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

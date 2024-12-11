@@ -1,8 +1,9 @@
-#include "timedloop.h"
-#include "libutil.h"
-#include "timespec.h"
 #include <stdio.h>
 #include <time.h>
+
+#include "libutil.h"
+#include "timedloop.h"
+#include "timespec.h"
 
 void timedloopms(int duration, int(action)(int)) {
   long int secs = duration / 1000L;
