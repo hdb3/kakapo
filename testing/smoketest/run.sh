@@ -7,6 +7,7 @@ kakapo          - KAKAPO_DIR
 -- -- smoketest - SCRIPT_DIR
 -- -- -- conf   - SCRIPT_DIR/conf
 '
+export DOCKER_BUILDKIT=1 DOCKER_HOST=127.0.0.1
 
 PROG=${1-"bird2"} # default target: bird2
 EXTRA_PARAMETERS="${*:2}"
