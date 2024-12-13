@@ -563,7 +563,7 @@ exit:
   fprintf(stderr, "establish: abnormal exit\n");
 };
 
-double single_peer_burst_test(int count) {
+double single_peer_burst_test(uint32_t count) {
   struct crf_state crfs;
   struct timespec tx_start, tx_end;
   double tx_elapsed, rx_elapsed, elapsed;
@@ -677,7 +677,7 @@ void canary_all() {
   fprintf(stderr, "canary_all complete: elapsed time %s\n", showdeltats(ts));
 };
 
-double multi_peer_burst_test(int count) {
+double multi_peer_burst_test(uint32_t count) {
   struct crf_state crfs;
   memset(&crfs, 0, sizeof(struct crf_state));
   struct timespec tx_start, tx_end;
@@ -847,7 +847,7 @@ void logging_thread(struct logbuffer *lb) {
   };
 };
 
-int rate_test(int nsenders, int count, int window) {
+int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
   struct timespec ts;
   double elapsed;
   pthread_t threadid;
@@ -918,17 +918,17 @@ terminate:
   return (int)(_count / elapsed);
 };
 
-int multi_peer_rate_test(int count, int window) {
+int multi_peer_rate_test(uint32_t count, uint32_t window) {
   return rate_test(sender_count, count, window);
 };
 
-int single_peer_rate_test(int count, int window) {
+int single_peer_rate_test(uint32_t count, uint32_t window) {
   return rate_test(1, count, window);
 };
 
 // ******* functional test extensions
 
-void func_test(int nsenders, int count) {
+void func_test(uint32_t nsenders, uint32_t count) {
   struct timespec ts;
   pthread_t threadid;
   struct logbuffer lb;
@@ -987,10 +987,10 @@ void func_test(int nsenders, int count) {
   fprintf(stderr, "func_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));
 };
 
-void multi_peer_func_test(int count) {
+void multi_peer_func_test(uint32_t count) {
   func_test(sender_count, count);
 };
 
-void single_peer_func_test(int count) {
+void single_peer_func_test(uint32_t count) {
   func_test(1, count);
 };
