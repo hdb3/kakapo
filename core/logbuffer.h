@@ -16,10 +16,12 @@ struct logbuffer {
   int overrun_count;
   struct log_record *logrecords;
   struct timespec duration;
+  struct timespec deadline;
   int received, sent;
+  bool stop_flag;
 };
 
-void logbuffer_init(struct logbuffer *lb, int size, int bsize, struct timespec duration);
+void logbuffer_init(struct logbuffer *lb, int size, int bsize, struct timespec duration, struct timespec deadline);
 void logbuffer_write(struct logbuffer *lb, struct log_record *lr);
 struct log_record *logbuffer_read(struct logbuffer *lb);
 void logbuffer_destroy(struct logbuffer *lb);

@@ -16,13 +16,12 @@
 #include <sys/ioctl.h>
 #include <sys/sendfile.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/uio.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "kakapo.h"
 #include "libutil.h"
-#include "stats.h"
 
 #define BUFFSIZE 0x10000
 
@@ -851,7 +850,7 @@ int rate_test(int nsenders, int count, int window) {
   int blocking_factor;
 
   assert(nsenders > 0 && nsenders <= sender_count);
-  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
+  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0}, (struct timespec){10, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);
@@ -927,7 +926,7 @@ void func_test(int nsenders, int count) {
   struct prefix *next_prefix;
 
   assert(nsenders > 0 && nsenders <= sender_count);
-  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0});
+  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0}, (struct timespec){10, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);

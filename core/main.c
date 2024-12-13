@@ -3,6 +3,7 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <bits/local_lim.h>
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -15,13 +16,12 @@
 #include <string.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <time.h>
+#include <unistd.h>
 #include <uuid/uuid.h>
 
 #include "kakapo.h"
-#include "sockbuf.h"
-#include "stats.h"
+#include "libutil.h"
 
 #define MAXPENDING 5 // Max connection requests
 
@@ -41,6 +41,7 @@ int tflag = 0; // the global termination flag - when != 0, exit gracefully
 double conditioning_duration = 0.0;
 
 uint32_t RATEBLOCKSIZE = 1000000;
+uint32_t RATETIMELIMIT = UINT32_MAX;
 uint32_t MAXBLOCKINGFACTOR = 1000;
 uint32_t TIMEOUT = 10;
 uint32_t REPEAT = 5;
@@ -380,6 +381,11 @@ int main(int argc, char *argv[]) {
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
+  getuint32env("RATETIMELIMIT", &RATETIMELIMIT);
+  if (RATETIMELIMIT != UINT32_MAX) {
+    fprintf(stderr, "RATETIMELIMIT set, override any value for RATECOUNT\n");
+    RATECOUNT = UINT32_MAX;
+  }
   getuint32env("PEERMAXRETRIES", &PEERMAXRETRIES);
   getuint32env("REPEATDELAY", &REPEATDELAY);
   getuint32env("TCPPORT", &TCPPORT);
