@@ -866,7 +866,10 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
   logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, log_cycle_duration, deadline);
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
-  clock_gettime(CLOCK_REALTIME, &lr.ts);
+  // // clock_gettime() uasge obscure - the sockbuf function bufferedRead() uses plain gettime().....
+  // clock_gettime(CLOCK_REALTIME, &lr.ts);
+  // additionally, tyhe reson to make the call at all here is unclear....
+  gettime(&lr.ts);
   lr.index = 0;
   logbuffer_write(&lb, &lr);
 
