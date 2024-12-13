@@ -25,6 +25,7 @@
 
 #define BUFFSIZE 0x10000
 #define LOG_BUFFER_SIZE 1000
+#define LOG_CYCLE_DURATION 1 // units: seconds
 
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
@@ -837,12 +838,12 @@ void logging_thread(struct logbuffer *lb) {
       lb->stop_flag = true;
 
     ts_delay = timespec_sub(ts_target, ts_now);
-    while (ts_delay.tv_sec > 0 || (ts_delay.tv_sec == 0 && ts_delay.tv_nsec > 0))
+    while (ts_delay.tv_sec > 0 && ts_delay.tv_nsec > 0)
       if (0 == nanosleep(&ts_delay, &ts_delay))
         break;
     if (logger(lb, llp))
       break;
-    ts_target = timespec_add(ts_target, lb->duration);
+    ts_target = timespec_add(ts_target, lb->log_cycle_duration);
   };
 };
 
@@ -860,8 +861,9 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
   struct timespec deadline;
   gettime(&deadline);
   deadline.tv_sec += RATETIMELIMIT;
+  struct timespec log_cycle_duration = {.tv_sec = LOG_CYCLE_DURATION};
 
-  logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, (struct timespec){1, 0}, deadline);
+  logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, log_cycle_duration, deadline);
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);
@@ -937,7 +939,7 @@ void func_test(uint32_t nsenders, uint32_t count) {
   struct prefix *next_prefix;
 
   assert(nsenders > 0 && nsenders <= sender_count);
-  logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, (struct timespec){1, 0}, (struct timespec){100, 0});
+  logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, (struct timespec){LOG_CYCLE_DURATION, 0}, (struct timespec){100, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);

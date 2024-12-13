@@ -8,14 +8,14 @@ void logbuffer_destroy(struct logbuffer *lb) {
   memset(lb, 0, sizeof(struct logbuffer));
 };
 
-void logbuffer_init(struct logbuffer *lb, int size, int bsize, struct timespec duration, struct timespec deadline) {
-  lb->logrecords = calloc(sizeof(struct log_record), size);
+void logbuffer_init(struct logbuffer *lb, int buffer_size, int block_size, struct timespec log_cycle_duration, struct timespec deadline) {
+  lb->logrecords = calloc(sizeof(struct log_record), buffer_size);
   lb->read_cursor = 0;
   lb->write_cursor = 0;
   lb->overrun_count = 0;
-  lb->block_size = bsize;
-  lb->buffer_size = size;
-  lb->duration = duration;
+  lb->block_size = block_size;
+  lb->buffer_size = buffer_size;
+  lb->log_cycle_duration = log_cycle_duration;
   lb->deadline = deadline;
   lb->received = 0;
   lb->sent = 0;
