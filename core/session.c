@@ -665,7 +665,6 @@ void keepalive_all() {
   int i;
   for (i = 0; i < peer_count; i++)
     send_keepalive(peertable + i);
-  fprintf(stderr, "keepalive_all complete\n");
 };
 
 void canary_all() {
@@ -913,7 +912,7 @@ terminate:
   // based on the last succesful receive
   elapsed = timespec_to_double(timespec_sub(listener->sb.rcvtimestamp, ts));
   int _count = lb.received;
-  fprintf(stderr, "multi_peer_rate_test(%d/%d) transmit complete: elapsed time %f, rate %f\n", _count, window, elapsed, _count / elapsed);
+  fprintf(stderr, "rate_test(%d/%d) transmit complete: elapsed time %0.3f, rate %d msgs/sec\n", _count, window, elapsed, (int)(_count / elapsed));
 
   return (int)(_count / elapsed);
 };
