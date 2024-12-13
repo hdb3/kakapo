@@ -40,21 +40,23 @@ int pid;
 int tflag = 0; // the global termination flag - when != 0, exit gracefully
 double conditioning_duration = 0.0;
 
-uint32_t RATEBLOCKSIZE = 1000000;
-uint32_t RATETIMELIMIT = UINT32_MAX;
 uint32_t MAXBLOCKINGFACTOR = 1000;
 uint32_t TIMEOUT = 10;
 uint32_t REPEAT = 5;
 
 uint32_t TCPPORT = 179;
-uint32_t PEERMAXRETRIES = -1; // retry forever
+uint32_t PEERMAXRETRIES = -1; // -1 ~ retry forever
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3;
 uint32_t WINDOW = 1000;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3;
-uint32_t RATECOUNT = 500000;
+uint32_t RATEBLOCKSIZE = 1000000;
+uint32_t RATECOUNT = UINT32_MAX;
+uint32_t RATETIMELIMIT = UINT32_MAX;
+// if neither RATETIMELIMIT nor RATECOUNT set then a default is used for RATETIMELIMIT
+#define RATETIMELIMIT_DEFAULT 10
 
 uint32_t SEEDPREFIX;
 char sSEEDPREFIX[] = "10.0.0.0";
@@ -382,9 +384,9 @@ int main(int argc, char *argv[]) {
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
   getuint32env("RATETIMELIMIT", &RATETIMELIMIT);
-  if (RATETIMELIMIT != UINT32_MAX) {
-    fprintf(stderr, "RATETIMELIMIT set, override any value for RATECOUNT\n");
-    RATECOUNT = UINT32_MAX;
+  if ((RATETIMELIMIT == UINT32_MAX) && (RATECOUNT == UINT32_MAX)) {
+    fprintf(stderr, "Neither RATETIMELIMIT nor RATECOUNT set, using RATETIMELIMIT = %d.\n", RATETIMELIMIT_DEFAULT);
+    RATETIMELIMIT = RATETIMELIMIT_DEFAULT;
   }
   getuint32env("PEERMAXRETRIES", &PEERMAXRETRIES);
   getuint32env("REPEATDELAY", &REPEATDELAY);

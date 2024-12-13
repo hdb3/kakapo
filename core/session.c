@@ -24,6 +24,7 @@
 #include "libutil.h"
 
 #define BUFFSIZE 0x10000
+#define LOG_BUFFER_SIZE 1000
 
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
@@ -806,8 +807,12 @@ int logger(struct logbuffer *lb, struct logger_local *llp) {
         llp->last_lr = *lrp;
       } else { // 2nd or later entry, rate calculation is possible
         struct timespec aggregate_duration = timespec_sub(lrp->ts, llp->first_lr.ts);
+
+        // 'aggregate_count'- why is there not simply a running count?
         int aggregate_count = lrp->index * lb->block_size;
         struct timespec cycle_duration = timespec_sub(lrp->ts, llp->last_lr.ts);
+
+        // 'cycle_count'- why is there not simply a running count?
         int cycle_count = (lrp->index - llp->last_lr.index) * lb->block_size;
         printf("aggregate rate = %d (%d/%f)\n", (int)(aggregate_count / timespec_to_double(aggregate_duration)), aggregate_count, timespec_to_double(aggregate_duration));
         printf("current rate = %d (%d/%f)\n", (int)(cycle_count / timespec_to_double(cycle_duration)), cycle_count, timespec_to_double(cycle_duration));
@@ -829,6 +834,9 @@ void logging_thread(struct logbuffer *lb) {
 
   while (1) {
     gettime(&ts_now);
+    if (ts_now.tv_sec > lb->deadline.tv_sec)
+      lb->stop_flag = true;
+
     ts_delay = timespec_sub(ts_target, ts_now);
     while (ts_delay.tv_sec > 0 || (ts_delay.tv_sec == 0 && ts_delay.tv_nsec > 0))
       if (0 == nanosleep(&ts_delay, &ts_delay))
@@ -850,7 +858,11 @@ int rate_test(int nsenders, int count, int window) {
   int blocking_factor;
 
   assert(nsenders > 0 && nsenders <= sender_count);
-  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0}, (struct timespec){10, 0});
+  struct timespec deadline;
+  gettime(&deadline);
+  deadline.tv_sec += RATETIMELIMIT;
+
+  logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, (struct timespec){1, 0}, deadline);
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);
@@ -889,7 +901,7 @@ int rate_test(int nsenders, int count, int window) {
         // break;
         // keep reading while the current read buffer is not exhausted
       } while (bgp_peek(&listener->sb));
-  } while (lb.received < count);
+  } while (lb.received < count && !lb.stop_flag);
 terminate:
   // let the logger thread know it should exit.
   lr.ts = (struct timespec){0, 0};
@@ -926,7 +938,7 @@ void func_test(int nsenders, int count) {
   struct prefix *next_prefix;
 
   assert(nsenders > 0 && nsenders <= sender_count);
-  logbuffer_init(&lb, 1000, RATEBLOCKSIZE, (struct timespec){1, 0}, (struct timespec){10, 0});
+  logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, (struct timespec){1, 0}, (struct timespec){100, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   clock_gettime(CLOCK_REALTIME, &lr.ts);
