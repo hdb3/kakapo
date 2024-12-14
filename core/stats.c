@@ -11,6 +11,12 @@
 #include "libutil.h"
 #include "stats.h"
 
+inttime getinttime() {
+  struct timespec ts;
+  gettime(&ts);
+  return (inttime)(ts.tv_sec);
+};
+
 #define _1e6 (1000000L)
 static slp_t statsbase = NULL;
 
@@ -179,15 +185,14 @@ static void statsreport() {
       fprintf(stderr, "\e[%dA", active * 2);
 };
 
-void startstatsrunner() {
-
-  void *statsrunner(void *arg) {
-    while (1) {
-      statsreport();
-      sleep(1);
-    };
+void *statsrunner(void *arg) {
+  while (1) {
+    statsreport();
+    sleep(1);
   };
+};
 
+void startstatsrunner() {
   pthread_t thrd;
   pthread_create(&thrd, NULL, statsrunner, NULL);
 };

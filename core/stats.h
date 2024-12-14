@@ -8,6 +8,7 @@
 #include "libutil.h"
 
 #define _1e6 (1000000L)
+#define TSZERO ((struct timespec){0, 0})
 
 struct logrecord {
   inttime ts;

@@ -25,6 +25,12 @@
 
 #define MAXPENDING 5 // Max connection requests
 
+FILE *loglocal = NULL;
+FILE *logjson = NULL;
+#ifdef TRACE
+FILE *tracefile = NULL;
+#endif
+
 uuid_t uuid;
 char UUID[37];
 char HOSTNAME[HOST_NAME_MAX];
@@ -245,17 +251,13 @@ uint32_t senderwait() {
   return rcvseq;
 };
 
-FILE *loglocal = NULL;
-FILE *logjson = NULL;
-#ifdef TRACE
-FILE *tracefile = NULL;
-#endif
-
 int multi_rate = 0;
 int single_rate = 0;
 
 void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int single_rate, int multi_rate) {
-  fprintf(f, "{\n");
+  fprintf(f, "{ ");
+
+  fprintf(f, "\"type\":\"summary\",");
 
   fprintf(f, "\"unixtime\":%ld,", now->tv_sec);
 
@@ -303,6 +305,32 @@ void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, 
 
   fprintf(f, "},\n");
 };
+
+// Note - use UUID to correlate, aggregate and identify these log types
+void json_log_rate(FILE *f, struct rate_test_data *log_data) {
+  fprintf(f, "{ ");
+
+  fprintf(f, "\"type\":\"rate_intermediate\",");
+
+  fprintf(f, "\"UUID\":\"%s\",", UUID);
+
+  fprintf(f, "\"time\":\"%s\",", shownow_prec(9));
+
+  fprintf(f, "\"elapsed\":%f,", log_data->elapsed);
+
+  fprintf(f, "\"duration\":%f,", log_data->duration);
+
+  fprintf(f, "\"message_count\":%ld,", log_data->message_count);
+
+  fprintf(f, "\"calculated_rate\":%ld", log_data->calculated_rate);
+
+  fprintf(f, "},\n");
+};
+
+void log_rate_test_data(struct rate_test_data *log_data) {
+  json_log_rate(logjson, log_data);
+  fflush(logjson);
+}
 
 void summarise(char *test_name, double *r) {
   struct timespec now;
@@ -396,10 +424,6 @@ int main(int argc, char *argv[]) {
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
   getuint32env("RATETIMELIMIT", &RATETIMELIMIT);
-  if ((RATETIMELIMIT == UINT32_MAX) && (RATECOUNT == UINT32_MAX)) {
-    fprintf(stderr, "Neither RATETIMELIMIT nor RATECOUNT set, using RATETIMELIMIT = %d.\n", RATETIMELIMIT_DEFAULT);
-    RATETIMELIMIT = RATETIMELIMIT_DEFAULT;
-  }
   getuint32env("PEERMAXRETRIES", &PEERMAXRETRIES);
   getuint32env("REPEATDELAY", &REPEATDELAY);
   getuint32env("TCPPORT", &TCPPORT);
@@ -411,6 +435,11 @@ int main(int argc, char *argv[]) {
   MODE = sMODE;
   getsenv("MODE", MODE);
   getsenv("SENDFILENAME", SENDFILENAME);
+
+  if ((RATETIMELIMIT == UINT32_MAX) && (RATECOUNT == UINT32_MAX)) {
+    fprintf(stderr, "Neither RATETIMELIMIT nor RATECOUNT set, using RATETIMELIMIT = %d.\n", RATETIMELIMIT_DEFAULT);
+    RATETIMELIMIT = RATETIMELIMIT_DEFAULT;
+  }
 
   int i;
   struct peer *p;

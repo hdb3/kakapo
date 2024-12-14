@@ -23,6 +23,7 @@
 #ifdef TRACE
 extern FILE *tracefile;
 #endif
+extern FILE *tracefile;
 extern int pid;
 extern int tflag;
 extern uint32_t PEERMAXRETRIES;
@@ -125,3 +126,10 @@ struct bgp_message {
   uint16_t pl;
   unsigned char msgtype;
 };
+
+struct rate_test_data {
+  double elapsed, duration;
+  uint64_t message_count, calculated_rate;
+};
+
+void log_rate_test_data(struct rate_test_data *log_data);

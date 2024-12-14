@@ -44,7 +44,7 @@
 // the protection is 'soft' in that it introduces wait until queue empty semantics
 // rather than an explicit semaphore
 
-// __send: variant od _send which does not use txwait
+// __send: variant of _send which does not use txwait
 void __send(struct peer *p, const void *buf, size_t count) {
   size_t sent, total_sent;
   if (p->sendFlag != 0)
@@ -112,7 +112,7 @@ char *bgpopen(int as, int holdtime, int routerid, char *hexoptions) {
   if (NULL == hexoptions) { // then we should build our own AS4 capability
                             // using the provided AS number
     // 020c = Optional Parameter = Capability, length 0x0c
-    // 010400010001 = multiprotocol, AFI/SAFI 1/1
+    // 010400010001 = multi-protocol, AFI/SAFI 1/1
     // 4104xxxxxxxx AS4 capability, with ASn
     hexoptions = concat("020c", "010400010001", "4104", hex32(as), NULL);
     // hexoptions = concat("02064104", hex32(as), NULL);
@@ -304,7 +304,7 @@ int getBGPMessage(struct bgp_message *bm, struct sockbuf *sb) {
   } else if (0 == header) {
     bm->msgtype = BGPTIMEOUT;
   } else if (!isMarker(header)) {
-    // this is a differnt condition and should have a seprate value 'BGPUNSYNCHRONISED'
+    // this is a different condition and should have a separate value 'BGPUNSYNCHRONISED'
     die("Failed to find BGP marker in msg header from peer");
     bm->msgtype = BGPENDOFSTREAM;
   } else {
@@ -800,13 +800,30 @@ int logger(struct logbuffer *lb, struct logger_local *llp, bool log_to_file) {
   struct log_record *lrp;
   lrp = logbuffer_read(lb);
 
-  // // **** usefull diagnostic!!!!
-  // // do not remove!!!!!
-  // printf("sent/received: %d/%d\r", lb->sent, lb->received);
-  // fflush(stdout);
-  // fprintf(tracefile, "%s - enter logger\n", shownow());
+  /*
+  rate logging to file
+
+  For long running rate test, show intermediate  datapoints.
+  The raw data point is a time interval with incremental count accumulated in that interval.
+  The context is the delta time since the test started.
+  The full data point is therefore a triple,
+  - elapsed time since t0 - float/double
+  - sample duration - float/double
+  - sample message count - uint64
+
+  An immediately interesting derived datapoint is the implied rate over the interval.
+  - rate (messages per second) - uint32
+
+  The datapoint in struct form is:
+
+    struct rate_test_data {
+      double elapsed, duration;
+      uint64_t message_count, calculated_rate;
+    }
+  */
 
   while (NULL != lrp) {
+    // // DO NOT REMOVE!!!! - sample use case for trace file
     // fprintf(tracefile, "%s - in logger\n", shownow());
 
     // this,  (0 == lrp->timestamp.tv_sec),  is an exit flag in disguise
@@ -814,8 +831,6 @@ int logger(struct logbuffer *lb, struct logger_local *llp, bool log_to_file) {
     if (0 == lrp->timestamp.tv_sec)
       return 1;
     else {
-      // **** usefull diagnostic!!!!
-      // do not remove!!!!!
       printf("sent/received: %d/%d\r", lb->sent, lb->received);
       fflush(stdout);
 
@@ -828,10 +843,16 @@ int logger(struct logbuffer *lb, struct logger_local *llp, bool log_to_file) {
         uint64_t cycle_count = lrp->message_count - llp->last_lr.message_count;
         uint32_t aggregate_rate = (uint32_t)(lrp->message_count / timespec_to_double(aggregate_duration));
         uint32_t cycle_rate = (uint32_t)(cycle_count / timespec_to_double(cycle_duration));
-
-        // // will be needed again for reporting during soak test length rate tests
         // printf("aggregate rate = %d (%ld/%f)\n", aggregate_rate, lrp->message_count, timespec_to_double (aggregate_duration));
         // printf("current rate = %d (%ld/%f)\n", cycle_rate, cycle_count, timespec_to_double(cycle_duration));
+        struct rate_test_data log_data = {
+            .elapsed = timespec_to_double(aggregate_duration),
+            .duration = timespec_to_double(cycle_duration),
+            .message_count = cycle_count,
+            .calculated_rate = cycle_rate,
+        };
+        log_rate_test_data(&log_data);
+
         llp->last_lr = *lrp;
       }
     };
@@ -855,8 +876,8 @@ void logging_thread(struct logbuffer *lb) {
     cycle_count++;
     log_to_file = (0 == cycle_count % LOG_TO_FILE_RATIO);
     gettime(&ts_now);
-    if (ts_now.tv_sec > lb->deadline.tv_sec)
-      lb->stop_flag = true;
+
+    lb->stop_flag = timespec_ge(ts_now, lb->deadline);
 
     ts_delay = timespec_sub(ts_target, ts_now);
     while (ts_delay.tv_sec > 0 || (ts_delay.tv_sec == 0 && ts_delay.tv_nsec > 0))
@@ -889,7 +910,7 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
   logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, log_cycle_duration, deadline);
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
-  // // clock_gettime() uasge obscure - the sockbuf function bufferedRead() uses plain gettime().....
+  // // clock_gettime() usage obscure - the sockbuf function bufferedRead() uses plain gettime().....
   // clock_gettime(CLOCK_REALTIME, &lr.ts);
   // additionally, the reason to make the call at all here is unclear....
   gettime(&lr.timestamp);
@@ -935,7 +956,6 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
           // if (0 == lb.received % RATEBLOCKSIZE || timespec_gt(local_time, next_log_time)) {
 
           if (timespec_gt(local_time, next_log_time)) {
-            // fprintf(tracefile, "%s - in next_log_time\n", shownow());
             lr.timestamp = listener->sb.rcvtimestamp;
             lr.message_count = lb.received;
             logbuffer_write(&lb, &lr);
@@ -944,9 +964,7 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
           }
 
           if (timespec_gt(local_time, next_keepalive_time)) {
-            // fprintf(tracefile, "%s - in next_keepalive_time\n", shownow());
-
-            // in case of long running rate tests, while absent a separate keep alive thread, keepalive must be sent here
+            // in case of long running rate tests, and absent a separate keep alive thread, keepalive must be sent here
             keepalive_all();
             // set up next deadline
             next_keepalive_time = timespec_add(local_time, keepalive_time_increment);
@@ -967,7 +985,7 @@ terminate:
   _pthread_join(threadid);
 
   // this is the elapsed time even if there was an exception
-  // based on the last succesful receive
+  // based on the last successful receive
   elapsed = timespec_to_double(timespec_sub(listener->sb.rcvtimestamp, ts));
   int _count = lb.received;
   fprintf(stderr, "rate_test(%d/%d) transmit complete: elapsed time %0.3f, rate %d msgs/sec\n", _count, window, elapsed, (int)(_count / elapsed));
