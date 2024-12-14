@@ -1,20 +1,10 @@
 
 // util.c
 
-// ***** NOTE toHex and concat use malloc and may leak memory - use with caution
+// ***** NOTE toHex and concat use malloc and may leak memory - use with caution!
+// ***** NOTE also - non-thread-safe functions abound
 
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdarg.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <time.h>
+#include <math.h>
 
 #include "libutil.h"
 
@@ -30,12 +20,18 @@ void gettime(struct timespec *ts) {
   int tmp = clock_gettime(CLOCK_REALTIME, ts);
 };
 
+// in this version of showtime, the full 9 digits based on nano second value is printed.
 char *showtime(struct timespec *ts) {
   static char s[128];
-  ctime_r(&ts->tv_sec, s);
-  // the following removes the terminating linefeed charcater!
-  s[strlen(s) - 1] = 0;
+  size_t len = strftime(s, 127, "%F %T.", gmtime(&ts->tv_sec));
+  sprintf(s + len, "%09ld", ts->tv_nsec);
   return s;
+};
+
+char *shownow() {
+  struct timespec ts;
+  gettime(&ts);
+  return showtime(&ts);
 };
 
 double getdeltats(struct timespec ts) {
@@ -51,25 +47,7 @@ char *showdeltats(struct timespec ts) {
   return s;
 };
 
-/*
-char *showdeltats(struct timespec ts) {
-  struct timespec now;
-  char *s;
-  gettime(&now);
-  double elapsed = timespec_to_double(timespec_sub(now, ts));
-  // int elapsed_ms = timespec_to_ms(timespec_sub(now, ts));
-  int tmp = asprintf(&s, "%01f", elapsed);
-  return s;
-};
-*/
-char *shownow() {
-  struct timespec ts;
-  gettime(&ts);
-  return showtime(&ts);
-};
-
 char *fromHostAddress(uint32_t ip) {
-  // static char s [5];
   return inet_ntoa((struct in_addr){ip});
 };
 

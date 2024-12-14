@@ -1,4 +1,5 @@
 #!/bin/bash -e
+#shellcheck disable=SC2034,SC2046,SC2089,SC2090
 : '
 directory structure
 kakapo          - KAKAPO_DIR

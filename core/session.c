@@ -25,7 +25,14 @@
 
 #define BUFFSIZE 0x10000
 #define LOG_BUFFER_SIZE 1000
-#define LOG_CYCLE_DURATION 1 // units: seconds
+
+#define MILLISECOND 1000000 // as multiple of nano seconds
+
+// NB actual LOG_CYCLE duration will be some of these two...
+#define LOG_CYCLE_DURATION 0 // units: seconds
+#define LOG_CYCLE_MILLIS 250 // units: milli seconds
+#define LOG_TIME_INCREMENT (MILLISECOND * 250)
+#define LOG_TO_FILE_RATIO 40 //  multiplier for LOG_CYCLE_DURATION, determines when to make a file report for rate counts
 
 #define NOTIFICATION_CEASE 6
 #define NOTIFICATION_ADMIN_RESET 4
@@ -789,59 +796,73 @@ struct logger_local {
   struct log_record last_lr;
 };
 
-int logger(struct logbuffer *lb, struct logger_local *llp) {
+int logger(struct logbuffer *lb, struct logger_local *llp, bool log_to_file) {
   struct log_record *lrp;
   lrp = logbuffer_read(lb);
 
-  // **** usefull diagnostic!!!!
-  // do not remove!!!!!
-  printf("sent/received: %d/%d\r", lb->sent, lb->received);
-  fflush(stdout);
+  // // **** usefull diagnostic!!!!
+  // // do not remove!!!!!
+  // printf("sent/received: %d/%d\r", lb->sent, lb->received);
+  // fflush(stdout);
+  // fprintf(tracefile, "%s - enter logger\n", shownow());
 
   while (NULL != lrp) {
-    if (0 == lrp->ts.tv_sec)
+    // fprintf(tracefile, "%s - in logger\n", shownow());
+
+    // this,  (0 == lrp->timestamp.tv_sec),  is an exit flag in disguise
+    // TDOD, make a real flag.....
+    if (0 == lrp->timestamp.tv_sec)
       return 1;
     else {
-      if (0 == lrp->index) { // first entry
+      // **** usefull diagnostic!!!!
+      // do not remove!!!!!
+      printf("sent/received: %d/%d\r", lb->sent, lb->received);
+      fflush(stdout);
+
+      if (0 == lrp->message_count) { // first entry
         llp->first_lr = *lrp;
         llp->last_lr = *lrp;
-      } else { // 2nd or later entry, rate calculation is possible
-        struct timespec aggregate_duration = timespec_sub(lrp->ts, llp->first_lr.ts);
+      } else if (log_to_file) { // only on or after 2nd entry is rate calculation possible
+        struct timespec aggregate_duration = timespec_sub(lrp->timestamp, llp->first_lr.timestamp);
+        struct timespec cycle_duration = timespec_sub(lrp->timestamp, llp->last_lr.timestamp);
+        uint64_t cycle_count = lrp->message_count - llp->last_lr.message_count;
+        uint32_t aggregate_rate = (uint32_t)(lrp->message_count / timespec_to_double(aggregate_duration));
+        uint32_t cycle_rate = (uint32_t)(cycle_count / timespec_to_double(cycle_duration));
 
-        // 'aggregate_count'- why is there not simply a running count?
-        int aggregate_count = lrp->index * lb->block_size;
-        struct timespec cycle_duration = timespec_sub(lrp->ts, llp->last_lr.ts);
-
-        // 'cycle_count'- why is there not simply a running count?
-        int cycle_count = (lrp->index - llp->last_lr.index) * lb->block_size;
-        printf("aggregate rate = %d (%d/%f)\n", (int)(aggregate_count / timespec_to_double(aggregate_duration)), aggregate_count, timespec_to_double(aggregate_duration));
-        printf("current rate = %d (%d/%f)\n", (int)(cycle_count / timespec_to_double(cycle_duration)), cycle_count, timespec_to_double(cycle_duration));
+        // // will be needed again for reporting during soak test length rate tests
+        // printf("aggregate rate = %d (%ld/%f)\n", aggregate_rate, lrp->message_count, timespec_to_double (aggregate_duration));
+        // printf("current rate = %d (%ld/%f)\n", cycle_rate, cycle_count, timespec_to_double(cycle_duration));
+        llp->last_lr = *lrp;
       }
     };
-    llp->last_lr = *lrp;
     lrp = logbuffer_read(lb);
   };
+  // fprintf(tracefile, "%s - exit logger\n", shownow());
 
   return 0;
 };
 
 void logging_thread(struct logbuffer *lb) {
 
-  struct timespec ts_delay, ts_target, ts_entry, ts_exit, ts_now;
+  struct timespec ts_delay, ts_target, ts_now;
   struct logger_local *llp = malloc(sizeof(struct logger_local));
+  int cycle_count = 0;
+  bool log_to_file = false;
 
   gettime(&ts_target);
 
   while (1) {
+    cycle_count++;
+    log_to_file = (0 == cycle_count % LOG_TO_FILE_RATIO);
     gettime(&ts_now);
     if (ts_now.tv_sec > lb->deadline.tv_sec)
       lb->stop_flag = true;
 
     ts_delay = timespec_sub(ts_target, ts_now);
-    while (ts_delay.tv_sec > 0 && ts_delay.tv_nsec > 0)
+    while (ts_delay.tv_sec > 0 || (ts_delay.tv_sec == 0 && ts_delay.tv_nsec > 0))
       if (0 == nanosleep(&ts_delay, &ts_delay))
         break;
-    if (logger(lb, llp))
+    if (logger(lb, llp, log_to_file))
       break;
     ts_target = timespec_add(ts_target, lb->log_cycle_duration);
   };
@@ -861,21 +882,34 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
   struct timespec deadline;
   gettime(&deadline);
   deadline.tv_sec += RATETIMELIMIT;
-  struct timespec log_cycle_duration = {.tv_sec = LOG_CYCLE_DURATION};
+  struct timespec log_cycle_duration = {
+      .tv_sec = LOG_CYCLE_DURATION,
+      .tv_nsec = LOG_CYCLE_MILLIS * MILLISECOND};
 
   logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, log_cycle_duration, deadline);
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
   // // clock_gettime() uasge obscure - the sockbuf function bufferedRead() uses plain gettime().....
   // clock_gettime(CLOCK_REALTIME, &lr.ts);
-  // additionally, tyhe reson to make the call at all here is unclear....
-  gettime(&lr.ts);
-  lr.index = 0;
+  // additionally, the reason to make the call at all here is unclear....
+  gettime(&lr.timestamp);
+  lr.message_count = 0;
   logbuffer_write(&lb, &lr);
 
   fprintf(stderr, "rate_test start, % d sending peers\n", nsenders);
   keepalive_all(); // absent a separate keep alive thread we need to take this precaution
   sender = senders;
+
+  struct timespec next_log_time;
+  struct timespec log_time_increment = {.tv_sec = 0, .tv_nsec = LOG_TIME_INCREMENT};
+  gettime(&next_log_time);
+  next_log_time = timespec_add(next_log_time, log_time_increment);
+
+  struct timespec next_keepalive_time;
+  struct timespec keepalive_time_increment = {.tv_sec = 10};
+  gettime(&next_keepalive_time);
+  next_keepalive_time = timespec_add(next_keepalive_time, keepalive_time_increment);
+
   do {
     target = window + lb.received - lb.sent;
     if (target > 0 && lb.sent < count) {
@@ -889,16 +923,35 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
       continue;
     } else
       do {
+        struct timespec local_time;
         if (bgp_receive(listener)) {
           lb.received++;
-          if (0 == lb.received % RATEBLOCKSIZE) {
-            lr.ts = listener->sb.rcvtimestamp;
 
-            lr.index = lb.received / RATEBLOCKSIZE;
+          // // avoid making a gettime() syscall for every message, by peeking at the timestamp in the socket.
+          // this is just fallback/safety reference code....
+          // clock_gettime(CLOCK_REALTIME, &local_time);
+          local_time = listener->sb.rcvtimestamp;
+
+          // if (0 == lb.received % RATEBLOCKSIZE || timespec_gt(local_time, next_log_time)) {
+
+          if (timespec_gt(local_time, next_log_time)) {
+            // fprintf(tracefile, "%s - in next_log_time\n", shownow());
+            lr.timestamp = listener->sb.rcvtimestamp;
+            lr.message_count = lb.received;
             logbuffer_write(&lb, &lr);
-            keepalive_all(); // absent a separate keep alive thread we need to take this precaution
-                             // in case of long running rate tests
+            // set up next logging deadline
+            next_log_time = timespec_add(local_time, log_time_increment);
           }
+
+          if (timespec_gt(local_time, next_keepalive_time)) {
+            // fprintf(tracefile, "%s - in next_keepalive_time\n", shownow());
+
+            // in case of long running rate tests, while absent a separate keep alive thread, keepalive must be sent here
+            keepalive_all();
+            // set up next deadline
+            next_keepalive_time = timespec_add(local_time, keepalive_time_increment);
+          }
+
         } else
           // bgp_receive() returned an exception
           goto terminate;
@@ -908,8 +961,8 @@ int rate_test(uint32_t nsenders, uint32_t count, uint32_t window) {
   } while (lb.received < count && !lb.stop_flag);
 terminate:
   // let the logger thread know it should exit.
-  lr.ts = (struct timespec){0, 0};
-  lr.index = -1;
+  lr.timestamp = (struct timespec){0, 0};
+  lr.message_count = -1;
   logbuffer_write(&lb, &lr);
   _pthread_join(threadid);
 
@@ -945,8 +998,8 @@ void func_test(uint32_t nsenders, uint32_t count) {
   logbuffer_init(&lb, LOG_BUFFER_SIZE, RATEBLOCKSIZE, (struct timespec){LOG_CYCLE_DURATION, 0}, (struct timespec){100, 0});
   pthread_create(&threadid, NULL, (thread_t *)*logging_thread, &lb);
   gettime(&ts);
-  clock_gettime(CLOCK_REALTIME, &lr.ts);
-  lr.index = 0;
+  clock_gettime(CLOCK_REALTIME, &lr.timestamp);
+  lr.message_count = 0;
   logbuffer_write(&lb, &lr);
 
   fprintf(stderr, "func_test start, % d sending peers\n", nsenders);
@@ -966,8 +1019,8 @@ void func_test(uint32_t nsenders, uint32_t count) {
       if (cmp_prefix(next_prefix, &pfx)) {
         lb.received++;
         if (0 == lb.received % RATEBLOCKSIZE) {
-          lr.ts = listener->sb.rcvtimestamp;
-          lr.index = lb.received / RATEBLOCKSIZE;
+          lr.timestamp = listener->sb.rcvtimestamp;
+          lr.message_count = lb.received;
           logbuffer_write(&lb, &lr);
         }
       } else {
@@ -984,8 +1037,8 @@ void func_test(uint32_t nsenders, uint32_t count) {
     count++;
   };
   // let the logger thread know it should exit.
-  lr.ts = (struct timespec){0, 0};
-  lr.index = -1;
+  lr.timestamp = (struct timespec){0, 0};
+  lr.message_count = -1;
   logbuffer_write(&lb, &lr);
   _pthread_join(threadid);
   fprintf(stderr, "func_test(%d) complete: elapsed time %s\n", count, showdeltats(ts));

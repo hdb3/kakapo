@@ -1,4 +1,4 @@
-#!/bin/bash -xe
+#!/bin/bash -e
 for bgp in bird bird2 gobgp bgpd frr hbgp relay
   do
     echo "*** $bgp ***"

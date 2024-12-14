@@ -2,7 +2,10 @@
 
 #ifndef __UTIL_H
 #define __UTIL_H
-#include <pthread.h>
+// #include <pthread.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>

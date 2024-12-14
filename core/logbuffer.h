@@ -4,8 +4,8 @@
 #include "timespec.h"
 
 struct log_record {
-  struct timespec ts;
-  int index;
+  struct timespec timestamp;
+  uint64_t message_count;
 };
 
 struct logbuffer {

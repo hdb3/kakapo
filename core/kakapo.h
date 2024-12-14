@@ -20,6 +20,9 @@
 #include "stats.h"
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 
+#ifdef TRACE
+extern FILE *tracefile;
+#endif
 extern int pid;
 extern int tflag;
 extern uint32_t PEERMAXRETRIES;

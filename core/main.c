@@ -247,6 +247,10 @@ uint32_t senderwait() {
 
 FILE *loglocal = NULL;
 FILE *logjson = NULL;
+#ifdef TRACE
+FILE *tracefile = NULL;
+#endif
+
 int multi_rate = 0;
 int single_rate = 0;
 
@@ -337,7 +341,15 @@ void rate_summarise(char *test_name) {
 
 int main(int argc, char *argv[]) {
 
+#ifdef TRACE
+  0 != (tracefile = fopen("kakapo.trace", "a")) || die("could not open trace file");
+#endif
   0 != (logjson = fopen("kakapo.json", "a")) || die("could not open logjson file");
+
+  // (TODO confirm ) why this access check exists....
+  // Answer: so that, only for an empty file, a header is written.
+  // The F_OK flag is a bit obscure....?
+
   int loglocalcheck = access("kakapo.log", F_OK);
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
   if (-1 == loglocalcheck) // write a header line in an empty file
