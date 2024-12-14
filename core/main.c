@@ -325,12 +325,54 @@ void json_log_rate(FILE *f, struct rate_test_data *log_data) {
   fprintf(f, "\"calculated_rate\":%ld", log_data->calculated_rate);
 
   fprintf(f, "},\n");
+
+  fflush(f);
 };
 
 void log_rate_test_data(struct rate_test_data *log_data) {
   json_log_rate(logjson, log_data);
-  fflush(logjson);
 }
+
+void json_log_start(FILE *f, int sender_count) {
+  struct timespec now;
+  gettime(&now);
+
+  fprintf(f, "{ ");
+
+  fprintf(f, "\"type\":\"start\",");
+
+  fprintf(f, "\"unixtime\":%ld,", now.tv_sec);
+
+  fprintf(f, "\"LOGTEXT\":\"%s\",", LOGTEXT);
+
+  fprintf(f, "\"time\":\"%s\",", showtime(&now));
+
+  fprintf(f, "\"sender_count\":%d,", sender_count);
+
+  fprintf(f, "\"TABLESIZE\":%d,", TABLESIZE);
+
+  fprintf(f, "\"GROUPSIZE\":%d,", GROUPSIZE);
+
+  fprintf(f, "\"MAXBURSTCOUNT\":%d,", MAXBURSTCOUNT);
+
+  fprintf(f, "\"REPEAT\":%d,", REPEAT);
+
+  fprintf(f, "\"WINDOW\":%d,", WINDOW);
+
+  fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
+
+  fprintf(f, "\"BRANCH\":\"%s\",", BRANCH);
+
+  fprintf(f, "\"VERSION\":\"%s\",", VERSION);
+
+  fprintf(f, "\"HOSTNAME\":\"%s\",", HOSTNAME);
+
+  fprintf(f, "\"UUID\":\"%s\"", UUID);
+
+  fprintf(f, "},\n");
+
+  fflush(f);
+};
 
 void summarise(char *test_name, double *r) {
   struct timespec now;
@@ -452,6 +494,7 @@ int main(int argc, char *argv[]) {
   peertable = calloc(argc, sizeof(struct peer));
   listener = peertable;
   senders = peertable + 1;
+  json_log_start(logjson, sender_count);
 
   for (i = 0; i < peer_count; i++) {
     p = peertable + i;
