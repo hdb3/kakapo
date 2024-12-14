@@ -156,12 +156,16 @@ char *showtype(char msgtype) {
   }
 }
 
+char *BGP_EXIT_STATUS = "NOT SET";
 void report(int expected, int got) {
 
-  if (expected == got)
+  if (expected == got) {
+    BGP_EXIT_STATUS = "OK";
     fprintf(stderr, "session: OK, got %s\n", showtype(expected));
-  else
+  } else {
+    BGP_EXIT_STATUS = showtype(got);
     fprintf(stderr, "session: expected %s, got %s (%d)\n", showtype(expected), showtype(got), got);
+  }
 }
 
 uint16_t doopen(char *msg, int length) {
@@ -493,6 +497,7 @@ void crf(struct crf_state *crfs, pf_t(*pf), void *pf_state, struct peer *p) {
       continue;
     } else if (BGPTIMEOUT == bm.msgtype) {
       fprintf(stderr, "crf: timeout\n");
+      report(BGPUPDATE, bm.msgtype);
       crfs->status = -2;
     } else {
       fprintf(stderr, "crf: exception exit\n");

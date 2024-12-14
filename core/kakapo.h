@@ -23,6 +23,9 @@
 #ifdef TRACE
 extern FILE *tracefile;
 #endif
+
+extern char *BGP_EXIT_STATUS; // exit status for most bgp tests, e.g. rate test.  "OK" if clean.
+
 extern FILE *tracefile;
 extern int pid;
 extern int tflag;

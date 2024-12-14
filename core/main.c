@@ -31,6 +31,8 @@ FILE *logjson = NULL;
 FILE *tracefile = NULL;
 #endif
 
+struct timespec system_start_time;
+
 uuid_t uuid;
 char UUID[37];
 char HOSTNAME[HOST_NAME_MAX];
@@ -254,12 +256,14 @@ uint32_t senderwait() {
 int multi_rate = 0;
 int single_rate = 0;
 
-void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int single_rate, int multi_rate) {
+void json_log(FILE *f, char *test_name, struct timespec *now, double elapsed_time, int sender_count, double conditioning_duration, double mean, double max, double min, double sd, int single_rate, int multi_rate) {
   fprintf(f, "{ ");
 
   fprintf(f, "\"type\":\"summary\",");
 
   fprintf(f, "\"unixtime\":%ld,", now->tv_sec);
+
+  fprintf(f, "\"elapsed_time\":%f,", elapsed_time);
 
   fprintf(f, "\"LOGTEXT\":\"%s\",", LOGTEXT);
 
@@ -301,7 +305,9 @@ void json_log(FILE *f, char *test_name, struct timespec *now, int sender_count, 
 
   fprintf(f, "\"HOSTNAME\":\"%s\",", HOSTNAME);
 
-  fprintf(f, "\"UUID\":\"%s\"", UUID);
+  fprintf(f, "\"UUID\":\"%s\",", UUID);
+
+  fprintf(f, "\"exit_status\":\"%s\"", BGP_EXIT_STATUS);
 
   fprintf(f, "},\n");
 };
@@ -377,6 +383,7 @@ void json_log_start(FILE *f, int sender_count) {
 void summarise(char *test_name, double *r) {
   struct timespec now;
   gettime(&now);
+  double elapsed_time = timespec_to_double(timespec_sub(now, system_start_time));
 
   if (REPEAT > 1) {
     double count = REPEAT - 1;
@@ -397,16 +404,18 @@ void summarise(char *test_name, double *r) {
 
     fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
     fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
-    json_log(logjson, test_name, &now, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
+    json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
   } else
-    json_log(logjson, test_name, &now, sender_count, conditioning_duration, *r, *r, *r, 0, single_rate, multi_rate);
+    json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, *r, *r, *r, 0, single_rate, multi_rate);
 };
 
 // rate_summarise() uses global variables single_rate and multi_rate for legacy reasons -  multipart tests, e.g. 'PAM'.
 void rate_summarise(char *test_name) {
   struct timespec now;
   gettime(&now);
-  json_log(logjson, test_name, &now, sender_count, conditioning_duration, 0, 0, 0, 0, single_rate, multi_rate);
+  double elapsed_time = timespec_to_double(timespec_sub(now, system_start_time));
+
+  json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, 0, 0, 0, 0, single_rate, multi_rate);
 }
 
 int main(int argc, char *argv[]) {
@@ -494,6 +503,7 @@ int main(int argc, char *argv[]) {
   peertable = calloc(argc, sizeof(struct peer));
   listener = peertable;
   senders = peertable + 1;
+  gettime(&system_start_time);
   json_log_start(logjson, sender_count);
 
   for (i = 0; i < peer_count; i++) {
