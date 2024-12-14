@@ -2,18 +2,17 @@
 
 #ifndef __UTIL_H
 #define __UTIL_H
-// #include <pthread.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <time.h>
 
 typedef long long int inttime;
 int die(char *mess);
 void gettime(struct timespec *ts);
 char *showtime(struct timespec *ts);
+char *shownow_prec(u_int8_t prec);
+char *showtime_prec(struct timespec *ts, u_int8_t prec);
 double getdeltats(struct timespec ts);
 char *showdeltats(struct timespec ts);
 char *shownow();

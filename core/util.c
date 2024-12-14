@@ -2,7 +2,10 @@
 // util.c
 
 // ***** NOTE toHex and concat use malloc and may leak memory - use with caution!
-// ***** NOTE also - non-thread-safe functions abound
+// ***** NOTE also - non-thread-safe functions abound.
+
+// ***** Possibly there exist portable standardised implementations of some functions here.
+//       But I did not find an easy way to do that.
 
 #include <math.h>
 
@@ -20,18 +23,55 @@ void gettime(struct timespec *ts) {
   int tmp = clock_gettime(CLOCK_REALTIME, ts);
 };
 
-// in this version of showtime, the full 9 digits based on nano second value is printed.
-char *showtime(struct timespec *ts) {
-  static char s[128];
-  size_t len = strftime(s, 127, "%F %T.", gmtime(&ts->tv_sec));
-  sprintf(s + len, "%09ld", ts->tv_nsec);
+// show_ns_prec() - helper for showtime_prec()
+char *show_ns_prec(uint64_t ns, u_int8_t prec) {
+  // the ns value is some 64 bit type, and 'guaranteed' less than 10^9
+  // if the calling function has concerns the guarantee is not sound,
+  // it should normalise the struct timespec value before calling here.
+  // This function is not thread safe.
+
+  prec = (prec > 9) ? 9 : prec; // MAX function
+  double fractional_seconds = (double)ns;
+  double scale_factor = pow(10, 9 - prec);
+  fractional_seconds /= scale_factor;
+  fractional_seconds = round(fractional_seconds);
+  int integral_fractional_seconds = (int)fractional_seconds;
+
+  static char s[16];
+  sprintf(s, "%0*d", (int)prec, integral_fractional_seconds);
   return s;
 };
 
-char *shownow() {
+// in this version of showtime, the precision required for the fractional part is explicit
+char *showtime_prec(struct timespec *ts, u_int8_t prec) {
+  static char s[128];
+  size_t len = strftime(s, 127, "%F %T", gmtime(&ts->tv_sec));
+  if (prec > 0)
+    sprintf(s + len, ".%s", show_ns_prec(ts->tv_nsec, prec));
+  return s;
+};
+
+char *shownow_prec(u_int8_t prec) {
   struct timespec ts;
   gettime(&ts);
-  return showtime(&ts);
+  return showtime_prec(&ts, prec);
+};
+
+// naive implementation, nano-second precision display
+// char *showtime(struct timespec *ts) {
+//   static char s[128];
+//   size_t len = strftime(s, 127, "%F %T.", gmtime(&ts->tv_sec));
+//   sprintf(s + len, "%09ld", ts->tv_nsec);
+//   return s;
+// };
+
+// in these versions of showtime/shownow, the precision is arbitrarily set at 3 ~ millisecond precision
+char *showtime(struct timespec *ts) {
+  return showtime_prec(ts, 3);
+};
+
+char *shownow() {
+  return shownow_prec(3);
 };
 
 double getdeltats(struct timespec ts) {
@@ -119,10 +159,6 @@ void printHex(FILE *fd, char *buf, int l) {
   fprintf(fd, "[%s]\n", hex);
   free(hex);
 }
-
-/* Subtract the ‘struct timeval’ values X and Y,
-   storing the result in RESULT.
-   Return 1 if the difference is negative, otherwise 0. */
 
 inttime getinttime() {
   struct timeval tv;

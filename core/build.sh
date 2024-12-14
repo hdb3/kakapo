@@ -13,5 +13,6 @@ rm -f ./kakapo
 gcc $FLAGS "${DEFINES[@]}" -o kakapo $SOURCES $LFLAGS
 ./kakapo --version
 
-# also build any temporary unit test - note, libutil.c needed if any thing in libutil.h is referenced
-gcc $FLAGS "${DEFINES[@]}" -o unit unit.c libutil.c $LFLAGS
+# # uncomment the next lines to enable build of some unit test functions...
+# # Build any temporary unit test.
+# gcc -g "${DEFINES[@]}" -o unit unit.c libutil.c $LFLAGS
