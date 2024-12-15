@@ -17,16 +17,13 @@ struct bytestring updatehdr(uint16_t length) {
   return (struct bytestring){19, b};
 };
 
-struct bytestring update(struct bytestring nlri, struct bytestring withdrawn,
-                         struct bytestring pathattributes) {
+struct bytestring update(struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
 
-  uint16_t payloadlength =
-      nlri.length + withdrawn.length + pathattributes.length + 4;
+  uint16_t payloadlength = nlri.length + withdrawn.length + pathattributes.length + 4;
 
   struct bytestring hdr = updatehdr(payloadlength);
 
-  uint16_t messagelength =
-      payloadlength + hdr.length; // yes hdr.length IS always 19...
+  uint16_t messagelength = payloadlength + hdr.length; // yes hdr.length IS always 19...
 
   char *buf = malloc(messagelength);
 
@@ -42,11 +39,9 @@ struct bytestring update(struct bytestring nlri, struct bytestring withdrawn,
 };
 
 struct bytestring iBGPpath(uint32_t nexthop, uint32_t localpref, uint32_t *asn) {
-  return pas2bytestring(paOrigin, paLocalPref(localpref), paNextHop(nexthop),
-                        paASPATH(asn), NULL);
+  return pas2bytestring(paOrigin, paLocalPref(localpref), paNextHop(nexthop), paASPATH(asn), NULL);
 };
 
 struct bytestring eBGPpath(uint32_t nexthop, uint32_t med, uint32_t *asn) {
-  return pas2bytestring(paOrigin, paMED(med), paNextHop(nexthop), paASPATH(asn),
-                        NULL);
+  return pas2bytestring(paOrigin, paMED(med), paNextHop(nexthop), paASPATH(asn), NULL);
 };

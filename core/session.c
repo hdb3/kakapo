@@ -354,6 +354,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     buflen += b.length;
   };
 
+// following code simply expands the buffer if it's not already big enough
   if (_build_update_block_siz >= buflen)
     data = _build_update_block_buf;
   else {

@@ -116,6 +116,8 @@ else
 	$SCRIPT_DIR/add_loopbacks.sh &>/dev/null
 fi
 
+docker kill bird bird2 relay gobgp hbgp frr bgpd &>/dev/null || :
+
 if [[ -f "$CONFIG" ]]; then
 	CMND=$(set_command $1)
 	# echo "command is: \"$CMND\""
