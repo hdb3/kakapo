@@ -26,6 +26,7 @@ struct bytestring update(struct bytestring nlri, struct bytestring withdrawn, st
   uint16_t messagelength = payloadlength + hdr.length; // yes hdr.length IS always 19...
 
   char *buf = malloc(messagelength);
+  assert(buf != NULL);
 
   char *next = mempcpy(buf, hdr.data, hdr.length);
   *((uint16_t *)next) = __bswap_16(withdrawn.length);

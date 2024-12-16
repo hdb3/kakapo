@@ -44,6 +44,8 @@ RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATETIMELIMIT=3600 MODE=SINGLERATE"
 # and/or, change value of REPEAT,
 # or, switch to RATE measurement
 KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
+# KAKAPO_ENV="MALLOC_CHECK_=2 $RATE"
+# KAKAPO_ENV="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0 $RATE"
 KAKAPO_ENV="$RATE"
 
 SCRIPT_DIR=$(realpath $(dirname "$0"))

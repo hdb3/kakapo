@@ -59,13 +59,14 @@ void __send(struct peer *p, const void *buf, size_t count) {
     assert(sent != -1);
     total_sent += sent;
     if (total_sent < count)
-      printf("******total_sent<count: %ld %ld\n", total_sent, count);
+      fprintf(stderr, "******total_sent<count: %ld %ld\n", total_sent, count);
   } while (total_sent < count);
   p->sendFlag = 0;
 };
 
 void _send(struct peer *p, const void *buf, size_t count) {
-  int sent;
+  // wait before buffer empty reduces probability of sending whilst another thread is also sending
+  // otherwise the first txwait() is just a delay op.
   txwait(p->sock);
   __send(p, buf, count);
   txwait(p->sock);
@@ -101,7 +102,7 @@ unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 void send_notification(struct peer *p, unsigned char major, unsigned char minor) {
   notification[19] = major;
   notification[20] = minor;
-  __send(p, notification, 21);
+  _send(p, notification, 21);
   close(p->sock);
 };
 unsigned char keepalive[19] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 19, 4};
@@ -334,15 +335,26 @@ uint32_t *usn_path(int tidx) {
 static void *_build_update_block_buf = NULL;
 static size_t _build_update_block_siz = 0;
 
+// TODO switch to building write buffer directly by build_update_block() writing to the buffer.
+//       Enable buffer stretch by calculating update size in advance...
+//       Using formula in build_update_block(), :
+//         uint16_t payloadlength = nlri.length + withdrawn.length + pathattributes.length + 4;
+//         uint16_t messagelength = payloadlength + hdr.length; // yes hdr.length IS always 19...
+
+struct bytestring *update_list = NULL;
+int length_carried = 0;
+
 struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref, bool isEBGP) {
 
   assert(length <= TABLESIZE);
-  uint64_t i;
-  struct bytestring *vec = malloc(sizeof(struct bytestring) * length);
-  uint64_t buflen = 0;
+  if (length > length_carried) {
+    update_list = realloc(update_list, sizeof(struct bytestring) * length);
+    length_carried = length;
+  }
+  size_t buflen = 0;
   char *data;
 
-  for (i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++) {
     uint32_t *path = usn_path(peer_index);
 
     struct bytestring b = update(
@@ -350,11 +362,13 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
         empty,
         isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path)
                : iBGPpath(localip, localpref + usn / TABLESIZE, path));
-    vec[i] = b;
+    update_list[i] = b;
     buflen += b.length;
   };
 
-// following code simply expands the buffer if it's not already big enough
+  // following code simply expands the buffer if it's not already big enough
+  // TODO, inline this in the accumulate loop, using some sensible size increment (x2?)
+  //       start with some thing large....
   if (_build_update_block_siz >= buflen)
     data = _build_update_block_buf;
   else {
@@ -368,14 +382,10 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   assert(NULL != data);
 
   char *offset = data;
-  // TDOD - there seems to be some unnecessary mallocing and freeing here,
-  //        why is the update set not built directly into the output buffer
-
-  for (i = 0; i < length; i++) {
-    offset = mempcpy(offset, vec[i].data, vec[i].length);
-    free(vec[i].data);
+  for (int i = 0; i < length; i++) {
+    offset = mempcpy(offset, update_list[i].data, update_list[i].length);
+    free(update_list[i].data);
   };
-  free(vec);
   return (struct bytestring){buflen, data};
 };
 
