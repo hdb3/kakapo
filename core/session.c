@@ -332,61 +332,63 @@ uint32_t *usn_path(int tidx) {
   return aspathbuild((uint32_t)tidx, TEN7 + usn % TEN7, TEN7 + usn / TEN7, 0);
 }
 
-static void *_build_update_block_buf = NULL;
-static size_t _build_update_block_siz = 0;
+static void *_build_update_block_base = NULL;
+static void *_build_update_block_top = NULL;
 
-// TODO switch to building write buffer directly by build_update_block() writing to the buffer.
-//       Enable buffer stretch by calculating update size in advance...
-//       Using formula in build_update_block(), :
-//         uint16_t payloadlength = nlri.length + withdrawn.length + pathattributes.length + 4;
-//         uint16_t messagelength = payloadlength + hdr.length; // yes hdr.length IS always 19...
+/*
+write buffer management
 
-struct bytestring *update_list = NULL;
-int length_carried = 0;
+The strategy is to allocate and reallocate a static buffer for use in building blocks of update messages,
+which block is then used as the source for a single socket write call.
+malloc() and realloc() are used, with an incremental extension when the needed buffer is larger than what currently exists.
+In order not to call realloc too often, the grow buffer increment is set to a reasonable size.  E.g., 1MB.
+
+This function is really an inline intended just for use by the client function build_update_block()
+We can expect that the function is fully inlined....
+
+call sequence/logic
+one each cycle the current buffer parameter and calculated next message size is used to determine whether the actual buffer is already large enough.
+If it is not large enough already then the buffer is grown and the size value increased.
+*/
+
+#define BUFFER_ALLOC_QUANTA (16 * 1024 * 1024)
+inline void buffer_extend(void **build_update_block_base, void **build_update_block_top, void *build_update_block_offset, uint16_t message_length) {
+  if (*build_update_block_base == NULL) {
+    *build_update_block_base = malloc(BUFFER_ALLOC_QUANTA);
+    *build_update_block_top = *build_update_block_base + BUFFER_ALLOC_QUANTA;
+  } else if (build_update_block_offset + message_length >= *build_update_block_top) {
+    *build_update_block_base = realloc(*build_update_block_base, BUFFER_ALLOC_QUANTA);
+    *build_update_block_top += BUFFER_ALLOC_QUANTA;
+  }
+}
 
 struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref, bool isEBGP) {
 
   assert(length <= TABLESIZE);
-  if (length > length_carried) {
-    update_list = realloc(update_list, sizeof(struct bytestring) * length);
-    length_carried = length;
-  }
-  size_t buflen = 0;
-  char *data;
+
+  // one off buffer initialisation
+  if (_build_update_block_base == NULL)
+    buffer_extend(&_build_update_block_base, &_build_update_block_top, NULL, 0);
+
+  void *offset = _build_update_block_base;
 
   for (int i = 0; i < length; i++) {
     uint32_t *path = usn_path(peer_index);
 
-    struct bytestring b = update(
-        nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE),
-        empty,
-        isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path)
-               : iBGPpath(localip, localpref + usn / TABLESIZE, path));
-    update_list[i] = b;
-    buflen += b.length;
+    struct bytestring nlri_bytes = nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE);
+    struct bytestring path_bytes = isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path) : iBGPpath(localip, localpref + usn / TABLESIZE, path);
+    uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
+
+    buffer_extend(&_build_update_block_base, &_build_update_block_top, offset, message_length);
+
+    struct bytestring b = update(nlri_bytes, empty, path_bytes);
+    assert(b.length == message_length);
+    offset = mempcpy(offset, b.data, b.length);
+    free(b.data);
   };
 
-  // following code simply expands the buffer if it's not already big enough
-  // TODO, inline this in the accumulate loop, using some sensible size increment (x2?)
-  //       start with some thing large....
-  if (_build_update_block_siz >= buflen)
-    data = _build_update_block_buf;
-  else {
-    if (NULL == _build_update_block_buf)
-      data = malloc(buflen);
-    else
-      data = realloc(_build_update_block_buf, buflen);
-    _build_update_block_buf = data;
-    _build_update_block_siz = buflen;
-  };
-  assert(NULL != data);
-
-  char *offset = data;
-  for (int i = 0; i < length; i++) {
-    offset = mempcpy(offset, update_list[i].data, update_list[i].length);
-    free(update_list[i].data);
-  };
-  return (struct bytestring){buflen, data};
+  size_t buflen = offset - _build_update_block_base;
+  return (struct bytestring){buflen, _build_update_block_base};
 };
 
 void send_update_block(int length, struct peer *p) {
