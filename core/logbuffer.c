@@ -28,9 +28,11 @@ void logbuffer_write(struct logbuffer *lb, struct log_record *lr) {
     lb->overrun_count++;
   else
     lb->logrecords[lb->write_cursor++] = *lr;
+  lb->write_cursor %= lb->buffer_size;
 };
 
 struct log_record *logbuffer_read(struct logbuffer *lb) {
+  lb->read_cursor %= lb->buffer_size;
   if (lb->read_cursor == lb->write_cursor)
     return NULL;
   else

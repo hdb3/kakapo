@@ -17,7 +17,7 @@ struct bytestring updatehdr(uint16_t length) {
   return (struct bytestring){19, b};
 };
 
-struct bytestring update(struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
+char *update_buffered(char *buf, struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
 
   uint16_t payloadlength = nlri.length + withdrawn.length + pathattributes.length + 4;
 
@@ -25,18 +25,25 @@ struct bytestring update(struct bytestring nlri, struct bytestring withdrawn, st
 
   uint16_t messagelength = payloadlength + hdr.length; // yes hdr.length IS always 19...
 
-  char *buf = malloc(messagelength);
-  assert(buf != NULL);
+  buf = mempcpy(buf, hdr.data, hdr.length);
+  *((uint16_t *)buf) = __bswap_16(withdrawn.length);
+  buf += 2;
+  buf = mempcpy(buf, withdrawn.data, withdrawn.length);
+  *((uint16_t *)buf) = __bswap_16(pathattributes.length);
+  buf += 2;
+  buf = mempcpy(buf, pathattributes.data, pathattributes.length);
+  buf = mempcpy(buf, nlri.data, nlri.length);
+  return buf;
+};
 
-  char *next = mempcpy(buf, hdr.data, hdr.length);
-  *((uint16_t *)next) = __bswap_16(withdrawn.length);
-  next += 2;
-  next = mempcpy(next, withdrawn.data, withdrawn.length);
-  *((uint16_t *)next) = __bswap_16(pathattributes.length);
-  next += 2;
-  next = mempcpy(next, pathattributes.data, pathattributes.length);
-  next = mempcpy(next, nlri.data, nlri.length);
-  return (struct bytestring){messagelength, buf};
+static char _buffer_for_update[65536];
+
+struct bytestring update(struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
+
+  uint16_t messagelength = nlri.length + withdrawn.length + pathattributes.length + 4 + 19; // yes hdr.length IS always 19...
+  // char *buf = malloc(messagelength);
+  update_buffered(_buffer_for_update, nlri, withdrawn, pathattributes);
+  return (struct bytestring){messagelength, _buffer_for_update};
 };
 
 struct bytestring iBGPpath(uint32_t nexthop, uint32_t localpref, uint32_t *asn) {

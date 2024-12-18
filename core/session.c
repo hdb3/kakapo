@@ -380,11 +380,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
 
     buffer_extend(&_build_update_block_base, &_build_update_block_top, offset, message_length);
-
-    struct bytestring b = update(nlri_bytes, empty, path_bytes);
-    assert(b.length == message_length);
-    offset = mempcpy(offset, b.data, b.length);
-    free(b.data);
+    offset = update_buffered(offset,nlri_bytes, empty, path_bytes);
   };
 
   size_t buflen = offset - _build_update_block_base;
@@ -412,20 +408,17 @@ void send_single_update(struct peer *p, struct prefix *pfx) {
       isEBGP ? eBGPpath(p->localip, 100, path)
              : iBGPpath(p->localip, 100, path));
   _send(p, b.data, b.length);
-  free(b.data);
 };
 
 void send_single_withdraw(struct peer *p, struct prefix *pfx) {
   struct bytestring b = update(empty, nlris(pfx->ip, pfx->length, 1, 0), empty);
   _send(p, b.data, b.length);
-  free(b.data);
 };
 
 void send_eor(struct peer *p) {
 
   struct bytestring b = update(empty, empty, empty);
   _send(p, b.data, b.length);
-  free(b.data);
 };
 
 void init(struct peer *p) {
