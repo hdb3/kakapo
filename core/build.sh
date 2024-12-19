@@ -2,6 +2,7 @@
 
 SOURCES="main.c session.c stats.c libutil.c parsearg.c"
 FLAGS="-g -pthread -O3"
+# FLAGS="-g -pthread -O3g -ggdb3 -fno-omit-frame-pointer"
 LFLAGS="-lm -luuid"
 
 DEFINES=("-D_GNU_SOURCE")

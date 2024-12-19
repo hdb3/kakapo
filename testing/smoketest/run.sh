@@ -22,6 +22,9 @@ get_psu_status() {
 		esac
 	fi
 }
+RATETIME=50
+PERFWRAPPER="perf record -g -F 99"
+# PERFWRAPPER="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0"
 
 PSU_STATUS=$(get_psu_status)
 PROG=${1-"bird2"} # default target: bird2
@@ -37,28 +40,20 @@ SINGLE_LARGE="$DEFAULTS $LARGE_GROUPS MODE=SINGLEONLY"
 MULTI_SMALL="$DEFAULTS $SMALL_GROUPS MODE=MULTI"
 SINGLE_SMALL="$DEFAULTS $SMALL_GROUPS MODE=SINGLEONLY"
 SINGLE_TINY="$DEFAULTS $TINY_GROUPS MODE=SINGLEONLY"
-# RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATETIMELIMIT=100 MODE=SINGLERATE"
-RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATETIMELIMIT=3600 MODE=SINGLERATE"
+RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATETIMELIMIT=$RATETIME MODE=SINGLERATE"
 
 # most common variant, replace _SMALL with _LARGE,
 # and/or, change value of REPEAT,
 # or, switch to RATE measurement
-KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
-# KAKAPO_ENV="MALLOC_CHECK_=2 $RATE"
-# KAKAPO_ENV="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0 $RATE"
+# KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
 KAKAPO_ENV="$RATE"
 
 SCRIPT_DIR=$(realpath $(dirname "$0"))
 CONFIG="$SCRIPT_DIR/conf/$PROG.conf"
 TESTING_DIR=$(realpath "$SCRIPT_DIR/..")
 KAKAPO_DIR=$(realpath "$TESTING_DIR/..")
-KAKAPO_BIN=${OVERRIDE:-"$KAKAPO_DIR/core/kakapo"}
+KAKAPO_BIN=${OVERRIDE:-"$PERFWRAPPER $KAKAPO_DIR/core/kakapo"}
 BIN_DIR="$TESTING_DIR/bin"
-
-# FRRLIB="$HOME/src/frr/lib/.libs"
-# FRRBGPD="$HOME/src/frr/bgpd/.libs/bgpd"
-# FRR="LD_LIBRARY_PATH=$FRRLIB $FRRBGPD"
-# FRR="$BIN_DIR/frr/bgpd"
 
 DOCKER_RUN="docker run --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host"
 
@@ -129,7 +124,6 @@ if [[ -f "$CONFIG" ]]; then
 	sleep 2.0
 	# echo "COMMAND = $(set_command "kakapo")"
 	eval $(set_command "kakapo")
-	# kill $PID
 	pkill $1
 else
 	echo "can't run, $CONFIG not exists"
