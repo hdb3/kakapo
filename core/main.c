@@ -1,6 +1,7 @@
 
 /* kakapo - a BGP traffic source and sink */
 
+#define _POSIX_C_SOURCE 200809L
 #include <arpa/inet.h>
 #include <assert.h>
 #include <bits/local_lim.h>
@@ -16,6 +17,7 @@
 #include <string.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include <uuid/uuid.h>
@@ -418,6 +420,34 @@ void rate_summarise(char *test_name) {
   json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, 0, 0, 0, 0, single_rate, multi_rate);
 }
 
+struct termios tcattr_saved;
+
+void restore_echo() {
+  tcsetattr(fileno(stdin), 0, &tcattr_saved);
+}
+
+void disable_echo() {
+  struct termios term;
+  tcgetattr(fileno(stdin), &tcattr_saved);
+  tcgetattr(fileno(stdin), &term);
+  term.c_lflag &= ~ECHO;
+  tcsetattr(fileno(stdin), 0, &term);
+}
+
+bool interrupted = false;
+
+void handler(int signum) {
+  BGP_EXIT_STATUS = "INTERRUPTED";
+  interrupted = true;
+}
+
+void set_signal_handler() {
+  disable_echo();
+  struct sigaction sa = {.sa_handler = handler};
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+}
+
 int main(int argc, char *argv[]) {
 
 #ifdef TRACE
@@ -457,6 +487,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "       Many options are controlled via environment variables like REPEAT, etc...\n");
     exit(1);
   }
+
+  set_signal_handler();
 
   0 == (sem_init(&semrxtx, 0, 0)) || die("semaphore create fail");
   SEEDPREFIX = toHostAddress(sSEEDPREFIX);
@@ -623,5 +655,6 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "notification complete for %d peers\n", argc - 1);
   fprintf(stderr, "kakapo exit\n");
 
+  restore_echo();
   exit(0);
 }

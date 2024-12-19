@@ -380,7 +380,7 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
 
     buffer_extend(&_build_update_block_base, &_build_update_block_top, offset, message_length);
-    offset = update_buffered(offset,nlri_bytes, empty, path_bytes);
+    offset = update_buffered(offset, nlri_bytes, empty, path_bytes);
   };
 
   size_t buflen = offset - _build_update_block_base;
@@ -888,7 +888,11 @@ void logging_thread(struct logbuffer *lb) {
     log_to_file = (0 == cycle_count % LOG_TO_FILE_RATIO);
     gettime(&ts_now);
 
-    lb->stop_flag = timespec_ge(ts_now, lb->deadline);
+    if (interrupted) {
+      fprintf(stderr, "\ninterrupt requested\n");
+      lb->stop_flag = true;
+    } else
+      lb->stop_flag = timespec_ge(ts_now, lb->deadline);
 
     ts_delay = timespec_sub(ts_target, ts_now);
     while (ts_delay.tv_sec > 0 || (ts_delay.tv_sec == 0 && ts_delay.tv_nsec > 0))
