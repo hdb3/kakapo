@@ -22,7 +22,7 @@ get_psu_status() {
 		esac
 	fi
 }
-RATETIME=50
+RATETIME=3600
 PERFWRAPPER="perf record -g -F 99"
 # PERFWRAPPER="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0"
 

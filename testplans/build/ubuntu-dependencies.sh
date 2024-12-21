@@ -1,7 +1,7 @@
 #!/bin/bash -e
-#libvirt-daemon libvirt-daemon-system dnsmasq dnsmasq-base qemu-utils qemu-kvm
 sudo apt update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  uuid-dev \
   net-tools \
   whois \
   git \
@@ -42,7 +42,3 @@ then
   alias docker='DOCKER_HOST=127.0.0.1 docker'
 fi
 sudo usermod -a $USER -G libvirt
-# mkdir -p ~/.local/bin
-# pushd nets
-# source install.sh
-# popd

@@ -1,0 +1,30 @@
+# preparing and using linux perf and flamegraphs
+
+# kernel.perf_event_paranoid blocks access to perf (PMU) events at all 
+sysctl  kernel.perf_event_paranoid=-1
+sudo bash -c  'echo  "kernel.perf_event_paranoid=-1" >> /etc/sysctl.d/10-kernel-hardening.conf'
+
+# when events are supported, the kernel symbols may not be available, so kernel traces are masked
+sudo bash -c "echo 0 > /proc/sys/kernel/kptr_restrict"
+sed -i -e '/^kernel.kptr_restrict/ s/4/0/' /etc/sysctl.d/10-kernel-hardening.conf
+
+# kernel perf tools are needed for perf script reports
+# (but plain perf report should work)
+
+# the 'flamegraph' report is defined in the kernel tools, but it has an external depdency too, which is the npm sourced thingy.
+
+#retrieve and unpack a kernel tree
+wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.1.120.tar.xz  -O - | tar xJ
+
+
+# make the scripts directory known to the perf tool
+export PERF_EXEC_PATH=/home/ubuntu/linux-6.1.120/tools/perf
+
+need npm just to get a couple of lousy files....
+sudo apt install npm
+npm install d3-flame-graph --save
+mkdir -p /usr/share/d3-flame-graph
+cp /home/ubuntu/node_modules/d3-flame-graph/dist/templates/d3-flamegraph-base.html  /usr/share/d3-flame-graph
+
+perf report
+perf script report flamegraph
