@@ -7,7 +7,7 @@
 #include "txwait.h"
 
 // limit wait for cases where the peer disconnected (e.g. when sending to dead peer or fast disconnecting peer)
-#define MAX_TXWAIT_COUNT 1000
+#define MAX_TXWAIT_COUNT 200000
 
 void txwait(int sock) {
   int error, value;
