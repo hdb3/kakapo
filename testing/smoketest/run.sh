@@ -22,11 +22,14 @@ get_psu_status() {
 		esac
 	fi
 }
-RATETIME=3600
-PERFWRAPPER="perf record -g -F 99"
-# PERFWRAPPER="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0"
-
 PSU_STATUS=$(get_psu_status)
+
+RATETIME=3600
+
+# PERFWRAPPER="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0"
+# PERFWRAPPER="perf record -g -F 99"
+PERFWRAPPER=""
+
 PROG=${1-"bird2"} # default target: bird2
 EXTRA_PARAMETERS="${*:2}"
 TINY_GROUPS="GROUPSIZE=1 TABLESIZE=2 MAXBURSTCOUNT=2"
@@ -45,8 +48,8 @@ RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATETIMELIMIT=$RATETIME MODE=SINGLERAT
 # most common variant, replace _SMALL with _LARGE,
 # and/or, change value of REPEAT,
 # or, switch to RATE measurement
-# KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
-KAKAPO_ENV="$RATE"
+KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
+# KAKAPO_ENV="$RATE"
 
 SCRIPT_DIR=$(realpath $(dirname "$0"))
 CONFIG="$SCRIPT_DIR/conf/$PROG.conf"

@@ -8,6 +8,7 @@ WORKDIR /build
 ARG BRANCH=yaml_config
 RUN apt -y -y --no-install-recommends install git pkg-config
 ADD https://github.com/hdb3/hBGP.git#${BRANCH} .
+RUN ghcup set ghc 9.10.1 && ghcup set cabal 3.12.1.0
 RUN cabal build
 
 #  NOTE - the following installs _all_ the versions of
