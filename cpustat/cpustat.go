@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"golang.org/x/exp/maps"
 	"os"
@@ -14,7 +15,10 @@ import (
 
 const (
 	expectedTickCounters = 10
-	tickIntervalMs = 500
+)
+
+var (
+	tickIntervalMs int
 )
 
 var (
@@ -75,7 +79,7 @@ func processProcStatInfo(infos [][]string) {
 		var sample [expectedTickCounters]uint32
 		for i, item := range info[1:] {
 			if n, err := strconv.Atoi(item); err != nil {
-				fmt.Fprintln(os.Stderr, "atoi failed:%s", item)
+				fmt.Fprintf(os.Stderr, "atoi failed:%s\n", item)
 				os.Exit(1)
 			} else {
 				sample[i] = uint32(n)
@@ -96,20 +100,25 @@ func processProcStatInfo(infos [][]string) {
 }
 
 func main() {
-	fmt.Println("hello word")
-	ticker := time.NewTicker(tickIntervalMs * time.Millisecond)
+	flag.IntVar(&tickIntervalMs, "interval", 200, "sampling interval")
+	flag.Parse()
+	fmt.Println("cpustat")
+	actionTicker := time.NewTicker(time.Duration(tickIntervalMs) * time.Millisecond)
+	displayTicker := time.NewTicker(251 * time.Millisecond)
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT)
-
+	samples := 0
 selectLoop:
 	for {
 		select {
 		case _ = <-sigc:
 			break selectLoop
-		case _ = <-ticker.C:
-			fmt.Fprint(os.Stderr, ".")
+		case _ = <-displayTicker.C:
+			fmt.Fprintf(os.Stderr, "\r%d", samples)
+		case _ = <-actionTicker.C:
 			doTickAction()
+			samples += 1
 		}
 	}
 	cpuCount := len(dataSeries)
