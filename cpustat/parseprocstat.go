@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"regexp"
+	"strconv"
 )
 
 var regexStatLine0 = regexp.MustCompile(`^cpu (?: [0-9]{1,10}){10}$`)
@@ -84,6 +84,15 @@ func ProcessProcStatInfo(infos []string) ([][expectedTickCounters]uint32, error)
 	}
 }
 
+func nCpusFromProcStatInfo() (rVal int) {
+	if data, err := ProcessProcStatInfo(getProcStat()); err != nil {
+		fmt.Fprintf(os.Stderr, "error %s reading ncpus from /proc/stat\n", err.Error())
+	} else {
+		rVal = len(data)
+	}
+	return
+}
+
 func getProcStat() (infos []string) {
 	if procFile, err := os.Open("/proc/stat"); err != nil {
 		fmt.Fprintln(os.Stderr, "unexpected error reading /proc/stat")
@@ -101,4 +110,8 @@ func getProcStat() (infos []string) {
 		}
 	}
 	return
+}
+
+func GetProcessProcStatInfo() ([][expectedTickCounters]uint32, error) {
+	return ProcessProcStatInfo(getProcStat())
 }

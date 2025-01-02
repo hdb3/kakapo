@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	expectedTickCounters = 10
+	expectedTickCounters         = 10
 	expectedExtraLinesInProcStat = 7
 )
 
@@ -23,8 +23,10 @@ var (
 )
 
 var (
-	dataSeries       map[int][][expectedTickCounters]uint32
-	cpuSet           []int
+	dataSeries    map[int][][expectedTickCounters]uint32
+	cpuSet        []int
+	rawData       [][][expectedTickCounters]uint32
+	rawDataHeight int
 )
 
 func doTickAction() {
@@ -58,6 +60,26 @@ func doTickAction() {
 		} else {
 			processProcStatInfo(cpuStatLines)
 		}
+	}
+}
+
+func doTickAction2(cpuSet []int) {
+	if cpuUsage, err := GetProcessProcStatInfo(); err != nil {
+		fmt.Fprintln(os.Stderr, "unexpected error reading /proc/stat")
+		os.Exit(1)
+	} else {
+		if rawData == nil {
+			rawDataHeight = len(cpuSet)
+		} else if rawDataHeight != len(cpuSet) {
+			fmt.Fprintf(os.Stderr, "ncpus in /proc/stat changed (%d -> %d)\n", rawDataHeight, len(cpuSet))
+			os.Exit(1)
+		}
+
+		var sample [][expectedTickCounters]uint32
+		for _, cpu := range cpuSet {
+			sample = append(sample, cpuUsage[cpu])
+		}
+		rawData = append(rawData, sample)
 	}
 }
 
@@ -114,7 +136,6 @@ func processProcStatInfo(infos [][]string) {
 				}
 			} else {
 				for i := range m {
-
 					cpuSet = append(cpuSet, i)
 				}
 			}
@@ -146,6 +167,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "invalid cpuset string: %s (%s)\n", *cpusetString, err.Error())
 			fmt.Fprintf(os.Stderr, "example: --cpuset=1,2,10-12\n")
 			os.Exit(1)
+		} else if cpuCount := nCpusFromProcStatInfo(); cpuset[len(cpuset)-1] > cpuCount {
+			fmt.Fprintf(os.Stderr, "invalid cpuset, requested CPU (%d) > ncpus (%d))\n", cpuset[len(cpuset)-1], cpuCount)
+			os.Exit(1)
 		} else {
 			cpuSet = cpuset
 		}
@@ -166,6 +190,7 @@ selectLoop:
 			fmt.Fprintf(os.Stderr, "\r%d", samples)
 		case _ = <-actionTicker.C:
 			doTickAction()
+			doTickAction2(cpuSet)
 			samples += 1
 		}
 	}
@@ -175,4 +200,7 @@ selectLoop:
 	sampleCount := len(aRandomSample)
 	fmt.Fprintf(os.Stderr, "\nexiting with %d cpus monitored, %d samples\n", cpuCount, sampleCount)
 	fmt.Fprint(os.Stderr, "\n*** raw data***]\n", dataSeries)
+
+	fmt.Fprintf(os.Stderr, "\nexiting with %d cpus monitored, %d samples\n", len(cpuSet), len(rawData))
+	fmt.Fprint(os.Stderr, "\n*** raw data***]\n", rawData)
 }
