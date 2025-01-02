@@ -16,8 +16,9 @@ const (
 )
 
 var (
-	rawData       [][][expectedTickCounters]uint32
-	rawDataHeight int
+	rawData         [][][expectedTickCounters]uint32
+	rawDataBaseLine [][expectedTickCounters]uint32
+	rawDataHeight   int
 )
 
 func doTickAction(cpuSet []int) {
@@ -36,7 +37,20 @@ func doTickAction(cpuSet []int) {
 		for _, cpu := range cpuSet {
 			sample = append(sample, cpuUsage[cpu])
 		}
-		rawData = append(rawData, sample)
+
+		// perform delta translation at point of collection.....
+
+		if rawDataBaseLine == nil {
+			rawDataBaseLine = sample
+		} else {
+			for i := range sample {
+				for j := range sample[i] {
+					// should assert that sample[i][j] >= rawDataBaseLine[i][j]
+					sample[i][j] -= rawDataBaseLine[i][j]
+				}
+			}
+			rawData = append(rawData, sample)
+		}
 	}
 }
 
