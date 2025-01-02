@@ -15,6 +15,7 @@ import (
 
 const (
 	expectedTickCounters = 10
+	expectedExtraLinesInProcStat = 7
 )
 
 var (
@@ -22,7 +23,6 @@ var (
 )
 
 var (
-	cpuCountDetected int
 	dataSeries       map[int][][expectedTickCounters]uint32
 	cpuSet           []int
 )
@@ -41,7 +41,7 @@ func doTickAction() {
 			if key, found := strings.CutPrefix(words[0], "cpu"); found {
 
 				if key == "" {
-					// ignore summary line,which incidentally is not well formatted (double space between forts two words)
+					// ignore summary line,which incidentally is not well formatted (double space between first two words)
 				} else if len(words) != expectedTickCounters+1 {
 					fmt.Fprintf(os.Stderr, "invalid format error:%v, %d != %d \n", words, len(words), expectedTickCounters+1)
 					os.Exit(1)
@@ -101,15 +101,6 @@ func processProcStatInfo(infos [][]string) {
 		// on first run, check that the requested set of cpus is consistent with actual
 		// and, initialise the sample store
 		if firstRun {
-			// var cpusInData []int
-			// because the source should always be contiguous starting at zero, we can easily check the exact CPU set in the data set
-			// for i := range m {
-			// 	if uint32(i) != m[uint32(i)][0] {
-			// 		fmt.Fprintf(os.Stderr, "invalid sample, bad CPU index at: %d, expected %d got %d\n", i, i, m[i][0])
-			// 		os.Exit(1)
-			// 	}
-			// 	cpusInData = append(cpusInData, i)
-			// }
 			// Now the first input sample is confirmed sane, check that the highest requested CPU index is less than or equal that in the set
 			// since cpuSet is sorted, the highest is the last.
 			// If cpuSet is empty skip the check and simply use the input sample keys as the CPU set.
@@ -123,13 +114,9 @@ func processProcStatInfo(infos [][]string) {
 				}
 			} else {
 				for i := range m {
-					// if uint32(i) != m[uint32(i)][0] {
-					// 	fmt.Fprintf(os.Stderr, "invalid sample, bad CPU index at: %d, expected %d got %d\n", i, i, m[i][0])
-					// 	os.Exit(1)
-					// }
+
 					cpuSet = append(cpuSet, i)
 				}
-				// cpuSet = cpusInData
 			}
 
 			dataSeries = map[int][][expectedTickCounters]uint32{}
@@ -157,7 +144,7 @@ func main() {
 	if *cpusetString != "" {
 		if cpuset, err := parseCpuSet(*cpusetString); err != nil {
 			fmt.Fprintf(os.Stderr, "invalid cpuset string: %s (%s)\n", *cpusetString, err.Error())
-			fmt.Fprintf(os.Stderr, "example: --cpuset=1,2,10-12\n", *cpusetString, err.Error())
+			fmt.Fprintf(os.Stderr, "example: --cpuset=1,2,10-12\n")
 			os.Exit(1)
 		} else {
 			cpuSet = cpuset

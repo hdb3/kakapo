@@ -70,16 +70,20 @@ func TestParseCpuSetExtendedCases(t *testing.T) {
 		{"0-3,4", []int{0, 1, 2, 3, 4}},
 		{"0-3,4,5", []int{0, 1, 2, 3, 4, 5}},
 		{"0-3,4,9-13", []int{0, 1, 2, 3, 4, 9, 10, 11, 12, 13}},
-		{"5-9,0-3", []int{0, 1, 2, 3, 5, 6, 7, 8, 9	}},
+		{"5-9,0-3", []int{0, 1, 2, 3, 5, 6, 7, 8, 9}},
 	}
 
 	for _, tt := range cases {
 		r, e := parseCpuSet(tt.s)
-		es := ""
-		if e != nil {
-			es = e.Error()
-		}
-		assert.Assert(t, e == nil, "test case: %v (%s)", tt, es)
-		assert.Assert(t, slices.Equal(tt.want, r), "test case: %v != %v (%s)", tt, r, es)
+		assert.Assert(t, e == nil, "test case: %v (%s)", tt, ew(e))
+		assert.Assert(t, slices.Equal(tt.want, r), "test case: %v != %v (%s)", tt, r, ew(e))
+	}
+}
+
+func ew(err error) string {
+	if err == nil {
+		return "No Error"
+	} else {
+		return err.Error()
 	}
 }
