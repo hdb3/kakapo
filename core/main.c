@@ -382,6 +382,34 @@ void json_log_start(FILE *f, int sender_count) {
   fflush(f);
 };
 
+void json_log_exit(FILE *f, int signum) {
+  struct timespec now;
+  const char *signame = sigabbrev_np(signum);
+  gettime(&now);
+
+  fprintf(f, "{ ");
+
+  fprintf(f, "\"type\":\"exit\",");
+
+  fprintf(f, "\"signal\":\"%s\"", signame);
+
+  fprintf(f, "\"signum\":\"%d\"", signum);
+
+  fprintf(f, "\"unixtime\":%ld,", now.tv_sec);
+
+  fprintf(f, "\"time\":\"%s\",", showtime(&now));
+
+  fprintf(f, "\"UUID\":\"%s\"", UUID);
+
+  fprintf(f, "},\n");
+
+  fflush(f);
+};
+
+void log_exit(int signum) {
+  json_log_exit(logjson, signum);
+}
+
 void summarise(char *test_name, double *r) {
   struct timespec now;
   gettime(&now);
@@ -441,11 +469,29 @@ void handler(int signum) {
   interrupted = true;
 }
 
+void abrt_handler(int signum) {
+  BGP_EXIT_STATUS = "INTERRUPTED";
+  interrupted = true;
+  fprintf(stderr, "kakapo forced exit\n");
+  restore_echo();
+  log_exit(signum);
+  exit(1);
+}
+
 void set_signal_handler() {
   disable_echo();
+
+  // these signal request an orderly exit
   struct sigaction sa = {.sa_handler = handler};
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
+  // following signals are not restartable, e.g. assert() triggered
+  // possibly the source of some assert signals could be changed instead.
+  // But, reinstate tty is always good.
+  // It might be good to attempt to write some kind of closing record...
+  struct sigaction sax = {.sa_handler = abrt_handler};
+  sigaction(SIGQUIT, &sax, NULL);
+  sigaction(SIGABRT, &sax, NULL);
 }
 
 int main(int argc, char *argv[]) {
