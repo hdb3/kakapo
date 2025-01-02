@@ -58,11 +58,13 @@ func main() {
 	var (
 		cpuSet         []int
 		tickIntervalMs int
+		dockerMonitor  *dockerMonitor
 	)
 
 	flag.IntVar(&tickIntervalMs, "interval", 200, "sampling interval")
 	flag.IntVar(&tickIntervalMs, "i", 200, "sampling interval")
 	cpusetString := flag.String("cpuset", "", "CPUs to monitor")
+	dockerDaemonName := flag.String("docker", "", "docker daemon to monitor")
 	flag.Parse()
 	if *cpusetString != "" {
 		if cpuset, err := parseCpuSet(*cpusetString); err != nil {
@@ -76,6 +78,11 @@ func main() {
 			cpuSet = cpuset
 		}
 	}
+
+	if *dockerDaemonName != "" {
+		dockerMonitor = initDockerMonitor(*dockerDaemonName)
+	}
+
 	fmt.Println("cpustat")
 	actionTicker := time.NewTicker(time.Duration(tickIntervalMs) * time.Millisecond)
 	displayTicker := time.NewTicker(251 * time.Millisecond)
@@ -92,6 +99,9 @@ selectLoop:
 			fmt.Fprintf(os.Stderr, "\r%d", samples)
 		case _ = <-actionTicker.C:
 			doTickAction(cpuSet)
+			if dockerMonitor != nil {
+				dockerMonitor.doTickAction()
+			}
 			samples += 1
 		}
 	}
