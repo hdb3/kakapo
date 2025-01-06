@@ -84,15 +84,6 @@ func ProcessProcStatInfo(infos []string) ([][expectedTickCounters]uint32, error)
 	}
 }
 
-func nCpusFromProcStatInfo() (rVal int) {
-	if data, err := ProcessProcStatInfo(getProcStat()); err != nil {
-		fmt.Fprintf(os.Stderr, "error %s reading ncpus from /proc/stat\n", err.Error())
-	} else {
-		rVal = len(data)
-	}
-	return
-}
-
 func getProcStat() (infos []string) {
 	if procFile, err := os.Open("/proc/stat"); err != nil {
 		fmt.Fprintln(os.Stderr, "unexpected error reading /proc/stat")

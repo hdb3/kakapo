@@ -43,7 +43,15 @@ type dockerMonitor struct {
 }
 
 type containerStats struct {
-	anon, inactive_anon, active_anon uint
+	anon, inactive_anon, active_anon uint // TDOD - as this is measured in pages is it not at most uint32?
+}
+
+func (containerStats containerStats) show() string {
+	return fmt.Sprintf("\t%d\t%d\t%d", containerStats.anon, containerStats.active_anon, containerStats.inactive_anon)
+}
+
+func (containerStats containerStats) hdr() string {
+	return "\tanon\tactive_anon\tinactive_anon"
 }
 
 func initDockerMonitor(daemonName string) *dockerMonitor {
@@ -92,7 +100,7 @@ func (monitor *dockerMonitor) read() *containerStats {
 	return &stats
 }
 
-func (monitor *dockerMonitor) doTickAction() {
+func (monitor *dockerMonitor) doTickAction() (stats *containerStats) {
 	switch monitor.state {
 	case StateWait:
 		// in initial state StateWait, check if the container has started by calling the 'inspect' method
@@ -101,13 +109,15 @@ func (monitor *dockerMonitor) doTickAction() {
 			fmt.Fprintf(os.Stderr, "container is started\n")
 		}
 	case StateRunning:
-		if stats := monitor.read(); stats != nil {
+		if stats = monitor.read(); stats != nil {
+			// no action needed, stats is the returned value in the default case
 		} else {
 			monitor.state = StateEnded
 			fmt.Fprintf(os.Stderr, "container is stopped\n")
 		}
 	case StateEnded:
 	}
+	return
 }
 
 type dockerState int
