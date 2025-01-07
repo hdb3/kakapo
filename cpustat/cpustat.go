@@ -108,7 +108,7 @@ func (dataLogger *dataLogger) writeRawFile() {
 
 func (log *dataLogger) logItem(cpuStats cpuStats, memStats containerStats) {
 	log.rawData = append(log.rawData, dataItem{
-		timestamp:      time.Now().UnixMicro() / 1000000.0,
+		timestamp:      time.Now().UnixMicro(),
 		cpuStats:       cpuStats,
 		containerStats: memStats,
 	})

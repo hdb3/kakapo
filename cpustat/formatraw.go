@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"os"
-	"strconv"
+	// "strconv"
 	"time"
 )
 
@@ -68,16 +68,18 @@ func formatRawFileName() string {
 	return fmt.Sprintf("%s-%d.data", shortFormatName, formatRawHeaderStartTime.Unix())
 }
 
-// func formatTimestamp(t time.Time) string {
-// 	return strconv.FormatFloat(float64(t.UnixMicro())/1000000.0, 'g', 6, 64)
-// }
+func humanFormatTimestamp(t time.Time) string {
+	micros := t.UnixMicro() - t.Unix()*1000000
+	dateTime := t.Format(time.DateTime)
+	return fmt.Sprintf("%s.%06d", dateTime, micros)
+}
 
 func formatTimestamp(t time.Time) string {
 	return formatTimestamp64(t.UnixMicro())
 }
 
 func formatTimestamp64(i64 int64) string {
-	return strconv.FormatFloat(float64(i64)/1000000.0, 'g', 6, 64)
+	return fmt.Sprintf("%8.06f", float64(i64)/1000000.0)
 }
 
 func formatRawHeader(writer io.Writer, now time.Time) {
@@ -89,7 +91,7 @@ func formatRawHeader(writer io.Writer, now time.Time) {
 	formatRawHeaderLine(writer, "version", formatVersion)
 	formatRawHeaderLine(writer, "description", formatDescription)
 	formatRawHeaderLine(writer, "create", "%s", formatTimestamp(formatRawHeaderStartTime))
-	formatRawHeaderLine(writer, "createx", "%s", formatRawHeaderStartTime) // TODO experiment with dropping the "%s"
+	formatRawHeaderLine(writer, "createx", "%s", humanFormatTimestamp(formatRawHeaderStartTime))
 	formatRawHeaderLine(writer, "hostname", "%s", hostname)
 	formatRawHeaderLine(writer, "uuid", "%s", uuid)
 	if externalUUID != nil {
@@ -100,7 +102,7 @@ func formatRawHeader(writer io.Writer, now time.Time) {
 func formatRawTrailer(writer io.Writer, now time.Time) {
 
 	formatRawHeaderLine(writer, "end", "%s", formatTimestamp(now))
-	formatRawHeaderLine(writer, "endx", "%s", now) // TODO experiment with dropping the "%s"
+	formatRawHeaderLine(writer, "endx", "%s", humanFormatTimestamp(now)) // TODO experiment with dropping the "%s"
 	duration := now.Sub(formatRawHeaderStartTime)
 	formatRawHeaderLine(writer, "duration", "%s", duration)
 }
