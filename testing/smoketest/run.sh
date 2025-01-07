@@ -8,7 +8,7 @@ kakapo          - KAKAPO_DIR
 -- -- smoketest - SCRIPT_DIR
 -- -- -- conf   - SCRIPT_DIR/conf
 '
-export DOCKER_BUILDKIT=1 DOCKER_HOST=127.0.0.1
+# export DOCKER_BUILDKIT=1 DOCKER_HOST=127.0.0.1
 
 get_psu_status() {
 	if [[ ! -f "/sys/class/power_supply/AC/online" ]]; then
@@ -48,7 +48,7 @@ RATE="$DEFAULTS $SMALL_GROUPS WINDOW=5000 RATETIMELIMIT=$RATETIME MODE=SINGLERAT
 # most common variant, replace _SMALL with _LARGE,
 # and/or, change value of REPEAT,
 # or, switch to RATE measurement
-KAKAPO_ENV="$SINGLE_LARGE REPEAT=10"
+KAKAPO_ENV="$SINGLE_SMALL REPEAT=10000"
 # KAKAPO_ENV="$RATE"
 
 SCRIPT_DIR=$(realpath $(dirname "$0"))
@@ -58,7 +58,7 @@ KAKAPO_DIR=$(realpath "$TESTING_DIR/..")
 KAKAPO_BIN=${OVERRIDE:-"$PERFWRAPPER $KAKAPO_DIR/core/kakapo"}
 BIN_DIR="$TESTING_DIR/bin"
 
-DOCKER_RUN="docker run --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host"
+DOCKER_RUN="docker run --cap-add NET_ADMIN --cap-add SYS_ADMIN --network host"
 
 set_command() {
 	local COMMAND
@@ -93,7 +93,7 @@ kill9() {
 pkill() {
 	case $1 in
 	kakapo) : ;;
-	hbgp | bgpd | gobgp | bird2 | bird | frr) docker kill $1 ;;
+	hbgp | bgpd | gobgp | bird2 | bird | frr) docker kill $1 ;  docker rm $1 ;;
 	relay) kill9 relay2 ;;
 	libvirt) : ;;
 	gobgpV2) kill9 gobgpd ;;
@@ -117,6 +117,7 @@ else
 fi
 
 docker kill bird bird2 relay gobgp hbgp frr bgpd &>/dev/null || :
+docker rm bird bird2 relay gobgp hbgp frr bgpd &>/dev/null || :
 
 if [[ -f "$CONFIG" ]]; then
 	CMND=$(set_command $1)
