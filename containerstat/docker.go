@@ -117,7 +117,7 @@ func (monitor *dockerMonitor) read() *containerStats {
 	}
 }
 
-func (monitor *dockerMonitor) doTickAction() (stats *containerStats) {
+func (monitor *dockerMonitor) doTickAction() (stats *containerStats, state dockerState) {
 	switch monitor.state {
 	case StateWait:
 		// in initial state StateWait, check if the container has started by calling the 'inspect' method
@@ -134,6 +134,7 @@ func (monitor *dockerMonitor) doTickAction() (stats *containerStats) {
 		}
 	case StateEnded:
 	}
+	state = monitor.state
 	return
 }
 

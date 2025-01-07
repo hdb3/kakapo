@@ -139,9 +139,14 @@ selectLoop:
 			fmt.Fprintf(os.Stderr, "\r%d", ticks)
 		case _ = <-actionTicker.C:
 			if dockerMonitor != nil {
-				memStats := dockerMonitor.doTickAction()
-				if memStats != nil {
-					logger.logItem(doTickAction(cpuStatCollector), *memStats)
+				memStats, state := dockerMonitor.doTickAction()
+				switch state {
+				case StateRunning:
+					if memStats != nil {
+						logger.logItem(doTickAction(cpuStatCollector), *memStats)
+					}
+				case StateEnded:
+					break selectLoop
 				}
 			} else {
 				logger.logItem(doTickAction(cpuStatCollector), containerStats{})
