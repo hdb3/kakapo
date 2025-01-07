@@ -79,16 +79,28 @@ func initDockerMonitor(daemonName string) *dockerMonitor {
 	return monitor
 }
 
-func (monitor *dockerMonitor) inspect() bool {
+func dockerInspect(daemon, term string) (string, error) {
+	cmd := exec.Command("docker", "container", "inspect", daemon, "--format", "{{ "+term+" }}")
+	if stdout, err := cmd.Output(); err != nil {
+		return "", err
+	} else {
+		// remove a single trailing newline from the stdout string (maybe could use strings.trim())
+		return string(stdout[:len(stdout)-1]), nil
+	}
+}
+
+func (monitor *dockerMonitor) getContainerId() bool {
 	// could instead return the container Id and let the caller manage state
 	// $ docker container inspect $NAME --format '{{ .Id }}'
 
-	cmd := exec.Command("docker", "container", "inspect", monitor.daemonName, "--format", "{{ .Id }}")
-	if stdout, err := cmd.Output(); err != nil {
+	if id, err := dockerInspect(monitor.daemonName, ".Id"); err != nil {
+		return false
+	} else if running, err := dockerInspect(monitor.daemonName, ".State.Running"); err != nil {
+		return false
+	} else if running != "true" {
 		return false
 	} else {
-		// remove a single trailing newline from the stdout string (maybe could use strings.trim())
-		monitor.containerId = string(stdout[:len(stdout)-1])
+		monitor.containerId = id
 		fmt.Fprintf(os.Stderr, "container id for %s : %s\n", monitor.daemonName, monitor.containerId)
 		return true
 	}
@@ -96,15 +108,20 @@ func (monitor *dockerMonitor) inspect() bool {
 
 func (monitor *dockerMonitor) read() *containerStats {
 	contents := getContainerStat(monitor.containerId)
-	stats := stringToContainerStats(contents)
-	return &stats
+	// todo switch to have stringToContainerStats() return pointer, and so simplify
+	if contents == "" {
+		return nil
+	} else {
+		stats := stringToContainerStats(contents)
+		return &stats
+	}
 }
 
 func (monitor *dockerMonitor) doTickAction() (stats *containerStats) {
 	switch monitor.state {
 	case StateWait:
 		// in initial state StateWait, check if the container has started by calling the 'inspect' method
-		if monitor.inspect() {
+		if monitor.getContainerId() {
 			monitor.state = StateRunning
 			fmt.Fprintf(os.Stderr, "container is started\n")
 		}
@@ -148,7 +165,8 @@ func getContainerStat(containerId string) (infos string) {
 
 	if contents, err := os.ReadFile(path); err != nil {
 		fmt.Fprintf(os.Stderr, "unexpected error reading %s\n", path)
-		os.Exit(1)
+		// should check that the problem is just that the container has exited
+		// os.Exit(1)
 		return ""
 	} else {
 		return string(contents)

@@ -140,7 +140,9 @@ selectLoop:
 		case _ = <-actionTicker.C:
 			if dockerMonitor != nil {
 				memStats := dockerMonitor.doTickAction()
-				logger.logItem(doTickAction(cpuStatCollector), *memStats)
+				if memStats != nil {
+					logger.logItem(doTickAction(cpuStatCollector), *memStats)
+				}
 			} else {
 				logger.logItem(doTickAction(cpuStatCollector), containerStats{})
 			}
