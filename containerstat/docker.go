@@ -50,7 +50,7 @@ func (containerStats containerStats) show() string {
 	return fmt.Sprintf("\t%d\t%d\t%d", containerStats.anon, containerStats.active_anon, containerStats.inactive_anon)
 }
 
-func (containerStats containerStats) hdr() string {
+func (containerStats) hdr() string {
 	return "\tanon\tactive_anon\tinactive_anon"
 }
 

@@ -57,7 +57,7 @@ var formatRawHeaderStartTime time.Time
 func init()                { formatRawHeaderInit() }
 func formatRawHeaderInit() { formatRawHeaderStartTime = time.Now() }
 func formatRawHeaderLine(writer io.Writer, key string, format string, a ...any) {
-	fmt.Fprintf(writer, "#%s: ", key)
+	fmt.Fprintf(writer, "# %s: ", key)
 	fmt.Fprintf(writer, format, a...)
 	fmt.Fprintln(writer)
 

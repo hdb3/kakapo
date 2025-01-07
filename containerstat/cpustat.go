@@ -141,6 +141,7 @@ func doTickAction(st *cpuStatsState) (sample cpuStats) {
 			}
 			sample = append(sample, row)
 		}
+		st.baseLine = &stats
 	}
 	return
 }

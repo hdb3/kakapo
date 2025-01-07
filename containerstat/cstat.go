@@ -4,19 +4,25 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"github.com/google/uuid"
 )
-
 
 func formatRawDataItem(writer io.Writer, item *dataItem) {
 	fmt.Fprint(writer, formatTimestamp64(item.timestamp))
 	formatRawDataContainerStats(writer, &item.containerStats)
 	formatRawDataCpuStats(writer, &item.cpuStats)
+	fmt.Fprintln(writer)
+}
+
+func formatRawDataHeader(writer io.Writer, cpuStatsState *cpuStatsState) {
+	fmt.Fprint(writer, "time")
+	formatRawDataContainerStatsHeader(writer)
+	formatRawDataCpuStatsHeader(writer, cpuStatsState)
 	fmt.Fprintln(writer)
 }
 
@@ -28,8 +34,16 @@ func formatRawDataCpuStats(writer io.Writer, stats *cpuStats) {
 	fmt.Fprint(writer, s)
 }
 
+func formatRawDataCpuStatsHeader(writer io.Writer, cpuStatsState *cpuStatsState) {
+	fmt.Fprint(writer, cpuStatsState.header())
+}
+
 func formatRawDataContainerStats(writer io.Writer, item *containerStats) {
 	fmt.Fprint(writer, item.show())
+}
+
+func formatRawDataContainerStatsHeader(writer io.Writer) {
+	fmt.Fprint(writer, containerStats{}.hdr())
 }
 
 type dataItem struct {
@@ -45,7 +59,7 @@ type dataLogger struct {
 func initDataLogger() dataLogger {
 	return dataLogger{}
 }
-func (dataLogger *dataLogger) writeRawFile() {
+func (dataLogger *dataLogger) writeRawFile(cpuStatsState *cpuStatsState) {
 	fname := formatRawFileName()
 	if file, err := os.Create(fname); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open log file %s: %s\n", fname, err.Error())
@@ -54,6 +68,7 @@ func (dataLogger *dataLogger) writeRawFile() {
 		now := time.Now()
 		writer := bufio.NewWriter(file)
 		formatRawHeader(writer, now)
+		formatRawDataHeader(writer, cpuStatsState)
 		dataLogger.formatRawData(writer)
 		formatRawTrailer(writer, now)
 		writer.Flush()
@@ -76,9 +91,7 @@ func (log *dataLogger) formatRawData(writer io.Writer) {
 	}
 }
 
-var (
-	externalUUID *uuid.UUID
-)
+var externalUUID *uuid.UUID
 
 func main() {
 	var (
@@ -137,5 +150,5 @@ selectLoop:
 
 	fmt.Fprintf(os.Stderr, "\nexiting with %d cpus monitored, %d samples\n", cpuStatCollector.cpuSetSize, len(logger.rawData))
 	// fmt.Fprint(os.Stderr, "\n*** raw data***]\n", logger.rawData, "\n\n")
-	logger.writeRawFile()
+	logger.writeRawFile(cpuStatCollector)
 }
