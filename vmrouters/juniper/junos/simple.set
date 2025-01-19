@@ -1,0 +1,2 @@
+set system host-name simple
+set interfaces vtnet0 unit 0 family inet address 192.168.120.100/24

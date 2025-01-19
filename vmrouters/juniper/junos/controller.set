@@ -1,0 +1,13 @@
+
+/* remove previously defined default policy */
+delete policy-options policy-statement internal
+delete policy-options policy-statement external
+set policy-options policy-statement internal term 1 then accept
+set policy-options policy-statement external term 1 from route-filter 172.16.0.0/20 orlonger accept
+set policy-options policy-statement external then reject
+
+set protocols bgp group controller type internal
+set protocols bgp group controller export external
+set protocols bgp group controller import external
+
+set protocols bgp group controller neighbor 192.168.120.99 family inet unicast add-path receive send path-count 5

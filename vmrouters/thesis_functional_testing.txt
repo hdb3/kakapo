@@ -1,0 +1,58 @@
+Functional testing of Programmable IDR / BGP
+
+The general goals in testing instances of PIR are:
+- verify that 'normal' BGP routing is seen in default conditions
+- verify that under specified exceptions that the PIR instance correctly mitigates the routing attack
+- verify that under the same specified exceptions a conventional BGP instance does not mitigate the routing attack
+- verify that the same PIR instance continues to provide acceptable performance and stability while mitigating the attack
+
+Two distinct variants of PIR  are proposed and evaluated:
+- in the first case the PIR router is operating itself as the active forwarding agent, i.e. it is a standalone implementation
+- in the second case the PIR router is acting in a controller role - so that the forwarding role is taken by a conventional router, and the PIR controller exerts control using some form of BGP protocol interaction.
+
+The approach for validating the function aspects is similar in both application test cases, and takes two forms:
+1 - observation of advertised routes
+2 - forwarding plane detection
+
+The required topology is similar, for both the observational test and the forwarding plane checks.  The only difference is that for observational verification a monitored passive BGP speaker is required, while the data-plane verification requires additionally two client endpoints in ASes connected to the router or routing system under test.
+
+Elements of test topology
+All test topologies implement a multi-AS system, in which the router/routing system under test is connected to three other ASes, with three distinct roles:
+- AS source of valid route
+- AS source of invalid/malicious/bad route
+- downstream AS, observing routing, or monitoring reachability, to the valid route
+
+In the 'observability' test scenario, the received route advertisements at the downstream AS determine success or failure.  In the 'connectivity' test scenario, the availability of an end-to-end path between the valid AS and the downstream AS determine success or failure, proven by e.g. ping between connected client hosts.
+
+Methodology
+Initially, the routing system is started without an invalid route advertisement, but with all routers and ASes active, including the advertisement of the 'good' route.  The SUT is configured to prefer routes from the AS which may source the 'bad' route - that AS should be already connected in the BGP mesh, but should not initially source a 'bad' route.
+Test system initialisation is complete when the receiving AS detects the good route, either by connectivity check (ping), or by observation.  If by observation then it should be specific to the exact expected AS path, since the 'bad' route may even advertise the same origin AS. Successful initialisation provides the basic check that the SUT is correctly implementing BGP!
+The second test stage requires the preferred to start advertising a 'bad' route.  The precise definition of 'bad' will be explained later, but it must of course be an advertisement of a the same route prefix as the existing good route.
+
+Now, it is expected that the observing AS either:
+- receives the newly advertised 'bad' route in replacement for the good route
+- receives the newly advertised 'bad' route for a short period of time, but then the good route is reinstated (attack mitigated)
+- never receives the 'bad' route
+Outcomes 2) or 3) represent success - ideally, 3), but 2) may be the best that can be achieved in some cases.
+
+Test Orchestration
+The test system must be capable of:
+- emitting a 'bad' route at the preferred AS
+- detecting 'bad' routes, permanently or temporarily, at the observer AS.
+Advertising a route and detecting a specific route can be done either by automating an existing router, perhaps by CLI scripts, or, by implementing a programmable BGP router for the same outcome.  The end-to-end connectivity check is more easily achieved by using 'ping', as long as the test topology incorporates hosts with appropriate addresses.
+
+Defining a 'bad' route
+Since this evaluation goal is demonstration of correct mitigation, rather than proof of complex 'bad' route detection strategies, the 'bad' route can be defined simply as one having some specific 'black-listed' AS in its path.  The fact that even standard routers can be configured with static rules to reject such a 'bad' route does not invalidate the premise.
+
+Verifying concurrent Effective Mitigation and performance
+
+Concurrent mitigation and performance evaluation can be achieved by executing 'kakapo' test suite concurrent with the functional tests.
+
+The hbgp variants
+hbgp is a BGP speaker with valuable properties of extensibility and flexibility.
+The objective is to demonstrate independently different possible extensions of the core function of a standard BGP speaker, and especially to show how simple certain classes of extension can be.  Three distinct functional extensions are:
+- asynchronous route evaluation and re-evaluation
+- a controller mode which enables a central or adjacent BGP to mitigate attacks at BRs without replacing or modifying them
+
+The controller mode extensions can be applied independently of the chosen exception detection logic.  For the purposes of simpler testing of controller mode operation a trivial evaluation static function is used when evaluating the controller operation - the applied rule is hardwired to treat any route containing and AS number '666' in its path as a 'bad' route.
+The complementary evaluation of asynchronous route evaluation and re-evaluation high lights this other complementary flexibility.  A version combining the asynchronous evaluator and the controller mode mitigation has been built and compiled, but not extensively tested, due to the complexity of automating the test system (and lack of time).

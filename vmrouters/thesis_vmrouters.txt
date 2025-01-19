@@ -1,0 +1,53 @@
+Proprietary software routers are used in various aspects of investigation, for example:
+for comparison in benchmarking with other open-source pure software routers
+as components in the validation of thesis derived propositions, applications, architectures and designs.
+
+Here is described the ways in which these proprietary routers are built, managed and integrated into the wider experimental contexts of the thesis.
+
+The two proprietary vendor systems deployed are:
+- Cisco 'vIOS', also called, 'IOSv'.
+- Juniper vMX
+Other vendors also offer vrouters, e.g.: Nokia VSR, VyOS,... but have not been evaluated here.
+
+Both of the virtual routers are provided as virtual machine images, which are expected to be run under hypervisors such as qemu/KVM, Xen, or vmware.  The VMs themselves are largely agnostic of which hypervisor is used, but are dependent on having available compatible virtualised network devices to implement the VM router forwarding plane.  IN the case of Juniper vMX, the virtualised driver required is 'virtio', Cisco vIOS only supports the older 'e1000' virtual interface.
+Juniper vMX runs over a base OS of freeBSD (release 11.0 in the version used here.)  Cisco IOS, and virtualised versions called IOSv, are an entirely proprietary operating system.  The OS 'model' required to support IOSv is the same as that for Juniper vMX: 'freebsd12.0'.
+
+The term 'vrouter' is used here to denote either or both of Juniper vMX and Cisco vIOS.
+The term 'native' router means, in full, 'native linux x86'.  It includes all other routers used for this work, including the new hBGP/PIR router.
+
+In order to effectively use vrouters for experimentation, a deployment and configuration system is required, so that the vrouters can be integrated into the same experimental frameworks also used for native routers.  In most cases native routers are deployed using Docker containers: Docker enables a common management and operational profile for all used native routers; additionally, Docker enables independence between the host experimental OS context, and the many variations in OS, OS release and required software libraries required by the different routers.  In this way, every native router, once packaged as a docker container, behaves identically to every other native router container.
+
+For vrouters, the issues of OS, OS release and required software libraries are solved differently, by hardware virtualisation -  the challenge for VM based vrouters is to implement a configuration and operation scheme for theme which is closely equivalent to that used for the containerised native routers.
+
+There are several aspects to making a vrouter behave like the native routers:
+- management of network interfaces
+- configuration, and especially configuration variations
+- lifecycle management
+
+In the dockerised native router case all of these issues have common solutions:
+- management of network interfaces: containers run in host network and are unaware of interface identity; the configuration is a pure 'L3' configuration, and even the L3 context is set already before starting the container
+- configuration, and especially configuration variations: each container image is designed to read its configuration from a fixed and common 'volume' path; when the container is started, the required configuration file is provided as part of the 'docker start' command.
+- lifecycle management: the docker functions 'start', 'kill' and 'rm' are effective and reliable for cleanly starting and stopping routers on demand.
+
+For VM based routers, the docker approach is not easily copied over:
+- management of network interfaces: unlike Docker containers, VMs cannot run in host network context - the VM environment must provide as many interfaces as are configured in the vrouter config file.
+- configuration, and especially configuration variations: unlike Docker containers, VMs cannot easily be provided with some dynamically variable configuration file.
+- lifecycle management: similar functions to docker 'start', 'kill' and 'rm' are available, e.g. 'virsh start', 'virsh destroy'; the main constraint is that 'virsh start' does not provide a mechanism for configuring an image with a specific file.
+
+NB: there are some (many!) techniques for injecting configuration into VMs, however in general the require the base VM images to be aware of the configuration injection technique, and unfortunately neither Juniper vMX nor Cisco vIOS have such a feature (later versions of vrouters may have implemented some solution for this, but none is known at the time of writing.)
+
+The resolution required is to either adapt the experimental framework to be more flexible to either VM or container cases, or to 'wrap' the VM specifics in a docker image or images.  Similar analysis is required in either case, because either the framework or the customised image has to address the underlying requirement of how to configure a VM for a specific use, and how to specify and implement network compatible network configurations for both VM and container cases.
+
+Network configuration for container and VM cases
+There are two distinct requirement for network configuration:
+- 'kakapo' performance characterisation and stress testing
+- PIR functional testing
+In the first case -  'kakapo' test cases - the L2 and L3 topology consists of a single L3 subnet with L2 'bridged' attributes - the system-under-test (SUT) should occupy one L3 address as a BGP instance, and the kakapo test toll uses as many additional L3 addresses as needed to support the test scenario - typically a single BGP listening function and one or multiple BGP senders.  Logically, the SUT sits 'between' the kakapo listener and the kakapo sources, but at network level all BGP endpoints are mutually directly reachable from their respective assigned L3 addresses.  Note: in kakapo tests there is only ever control plane (BGP) traffic, no 'routed' user plane - hence, the required topology is simpler than e.g. the PIR functional style tests, where actual reachability between L3 'user' addresses has to be confirmed at various stages of functional testing.  If these PIR functional tests were in a single connected network then there could be no validation of the BGP administered forwarding plane, because user packets would simply 'leak' around any intended isolation of domains.
+
+In the PIR functional tests it might still be admissible to allow all control plane traffic to be via directly connected paths, i.e. local or bridged.  However, the simplest and default style of routing architecture is to require the control plane and user plane to share the same paths, therefore in PIR testing the topology constructed is driven by user plane semantics - i.e. where validating inter-AS routing, the connected client endpoints must certainly occupy isolate L3 domains, and also be isolated from any connecting AS other than by explicitly routed L3 traffic.  In a physical network, the isolation is provided by the physical link arrangements: connected user endpoints reside on physically distinct interfaces of distinct routers, so that the traffic path between them transits at least three routers and two 'WAN' links.  The virtualised equivalent must follow the same topology - that is, isolated network namespaces, into which interfaces of virtual routers are inserted, so that the only viable network paths between namespaces are provided by transiting the virtual routers.
+
+The approach adopted in this work is:
+- kakapo - all tests run in host network; as many additional L3 addresses as needed for SUT and kakapo test agent are created by simply adding secondary addresses to the local host loopback interface, using the iproute2 command 'ip address add'.
+- PIR functional
+
+For this thesis work

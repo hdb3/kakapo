@@ -1,0 +1,48 @@
+The requirement is given already elsewhere.
+The design addresses:
+1) how is the bad route originated
+2) how is the bad route detected
+3) how are the elements integrated, to report on outcomes including:
+- - route is not affected
+- - route is temporarily affected (and report the delay before and duration of interruption)
+- - route is permanently affected (and report the delay before interruption)
+- - route is affected after some expected delay
+NB: c) and d) are similar, but case d) should wait potentially longer before reporting the outcome.
+The same observation applies for a) and b)
+
+Bad route source
+The 'bad' route is defined as a replacement for some existing route in which the AS number '666' is introduced.
+Two sources of routes have been used for this purpose: bird, and hbgp.
+Hbgp was extended to allow explicitly configured routes to be advertised in a single command.
+A conventional router can achieve the same result, but with considerably greater complexity, and generally cannot set and modify an arbitrary origin AS.
+The alternate approach using conventional routers is to attach another AS, and originate the 'bad' route in the usual way, using 'AS prepend' configuration statements to insert the black-listed AS number '666'.
+An even simpler way, if only requiring AS-666 to be somewhere in the path including origin, is to use '666' as the AS for the actual AS of the bad route source.
+This works for simple demonstration purposes, as long as the experiment does not seek to verify that 'normal' routes from this AS are not also dropped.
+However, a problem arises when using conventional routers, which is that if the experiment verification uses the 'ping' approach then the source of the 'bad' route must be explicitly blocked from responding to ping requests.  If the ping test uses independent connected endpoint hosts this is not a problem, but routes originated as loopback addresses (/32s) have to be explicitly ping disabled, which can be a source of error in experimentation.
+Summarising - bad route can be implemented either by command insertion in the immediate AS adjacent router, or by starting an additional router instance which originates the bad route by default.
+The last option is the simplest, but may take a little longer to take effect.  In general, only the hbgp based solution can avoid having to configure the test system with elements of the bad route itself.  This is problematic when evaluating more complex behaviours related to bad route detection.
+
+Bad Route detection
+Two approaches are already defined: observability and reachability.  Observability is harder to automate/orchestrate, and arguably less rigorous, although the combination of both is preferable, since experimental design flaws can easily induce false positive or negative outcomes.  Both approaches have been implemented - observability embeds router specific CLI, reachability may require the test topology to incorporate additional elements. However, if the advertised routes are implemented as connected interfaces in the base topology, the required elements of a 'ping' check may be present without need for further configuration.  An alternative connectivity check is possible if the target test system routers support CLI commands to enable 'ping' between internal 'loopback' addresses, and if these 'loopback' addresses are used as the actual 'bad'/'good' routes.  The
+problem with loopback based connectivity check is that it is susceptible to false positives, and that it must be carefully configured to ensure that the 'bad' route does not appear 'good'.  For these reasons, loopback based reachability has not been used in later work.
+Summary - Bad Route detection
+'ping' is used universally, with connected 'hosts' - actually in most cases loopback linux addresses (not router loopbacks).  A final observation: there is an issue with concurrent performance testing and bad route detection when reachability tests are used for bad route detection, which is that performance testing any router which is pushing its BGP routes into the local FIB generally leads to very much poorer measured preference, and often enough actual failure of the FIB to be correctly managed.  THis is not unexpected, and does not invalidate the significance of BGP route performance as an important metric, because forwarding plane is expected to be highly decoupled from the BGP route table in any realistic network, especially where the BGP speaker is being used effectively or actually as a Route Reflector.  For example, the ISPs using bird are never using bird as a forwarding plane, even though in principle it does have that capability, and users of FRR as a forwarding plane use very specific configurations involving 'FPM', in part at least because of the limitations of the default Linux (netlink) FP system.
+
+Orchestration of Bad Route detection
+The orchestration of Bad Route detection has two operational modes: observability and reachability.
+In observability mode the focus is on providing a visual and interactive representation of the actions and events which make up the experiment; in reachability mode the focus is on automated verification, with simpler visual feedback, the emphasis is on showing outcomes rather than process.
+However, the underlying experimental eleemnts are common - the network and VM or container context has to be established, measutrements started, trigger actions triggered, and events or outcomes collected.
+
+| build topology |
+| perform initial integrity/correctness check (smoketest) |
+| start any measurement or observation processes |
+| apply trigger action |
+| run time limited event detection |
+| repeat trigger and check/observe stages |
+| close any long-lived measurement process |
+| display/log final / summary results |
+| destroy topology |
+
+When the stages are executed with _focus_ on observability mode, different windows may be used to display the ongoing processes - in particular, distinct topology elements (routers, ping clients) may be started and maintained in different windows/panes - but, the actions are not different, except that observability mode demands that verification stage is visual, or is accompanied by visual feed back.
+Similarly, for reachability focussed verification, the same actions and triggers are required, but it is required that the verification is underpinned by reachability _and_ that the outcome is explicitly reported amd/or logged.
+In summary, only monitors may be different between modes, but, in principle, as long as both monitor modes are in effect, the only distinction between modes is presentational.

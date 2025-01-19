@@ -1,0 +1,106 @@
+the requirement is defined elsewhere, however refeined here.
+The requirement is a ping like tool which can be used to confirm patterns of connectivity and interrupted connectivity.
+One assumption is that the connectivity state is either 'on' or 'off' consistently for significant durations, so that few changes of state are observed during the execution of the function.
+Another assumption is that the initial state should always be 'connected', so that the requirement can be restated as measuring the delay until first interruption, and delay until resumption of connectivity.
+When the overall time window is provided, the assummption/refined requirement can be restated more precisiely:
+- a compliant/expected observed behaviour is one which
+-- within a defined interval becomes connected
+-- and either
+-- -- remains connected for the remaining duration of execution
+-- or,
+-- -- is disconnected after some duration, and then resumed for the remaining duration of execution
+-- or,
+-- -- is disconnected after some duration, and remains disconnected for the remaining duration of execution
+Non compliant behaviors either
+-- fail to become connected
+-- exhibit more than one disconnection
+
+Depending on the test scenario the expected outcome might be a) or b) for a 'correct' mitigation strategy, or c), where the test is a control case which does not have a designed mitigation capability.
+
+A common procedural solution might look like this:
+define configuration inputs
+- max delay before connection
+- max delay before disruption after connection
+- max delay before reconnection after disruption
+- max duration for execution
+But, fine tuning intermediate timers seems an unnecessary complexity, and source of possible methodological experimental errors.
+
+Another solution is to define only one configuration factor:
+- max duration for execution
+or, perhaps, two:
+- max delay before connection
+- max duration for execution
+this should be sufficient for all cases, assuming that the results provided are:
+- (observed delay before connection)
+- observed delay before disruption
+- observed delay before reconnection
+- (observed delay before repeated disconnection)
+Noting that any outcome at all can be represented, as long as for each delay report there is a representaion of the outcome 'did not occur'.
+If either all results are 'did not occur', or the last is not 'did not occur', then even the non-compliant cases are fully diagnosed, moreover, it becomes apparent that this also provides an excellent implementation strategy.
+Note, 'did not occur' may be valid for the first event, because the state is already connected when the mointor starts.  Also, some 'early exit' conditions are available without more complex configuration than simply the max duration and max wait for connection values:
+- early exit when not connected
+- early exit due to repeated disruption
+
+How to use the tool defined for the use cases expected:
+for a use case, the 'success' criteria depends on some subset of outcomes, so the success test is simply a logical function over the result set which the tool always provides:
+
+The output values for the monitor are labelled in this way:
+- tConnect ~ observed delay before connection
+- tDisrupt ~ observed delay before disruption
+- tResume ~ observed delay before reconnection
+- tRedisrupt ~ observed delay before repeated disconnection
+
+<< this section incomplete due to incomplete understanding of test case for asynschous control>>
+- case 1 - no disruption: tDisrupt == tResume == tRedisrupt ==0
+- case 2 - short lived disruption: tDisrupt != 0, tResume != 0 , tRedisrupt == 0
+         - in case 2 the 'performance metric' is the length of disruption, ( tResume - tDisrupt )
+- case 3 - delayed disruption tDisrupt != 0, tResume == tRedisrupt == 0
+         - in case 3 the 'performance metric' is the time before disruption
+         - NB, case 3 is applicable either where
+         - - the scenario is an 'online' analysis which eventually determines that the offered route should be rejected
+         - or
+         - - the scenario is an 'offline' analysis which eventually determines that the offered route should be rejected
+<< /this section incomplete... >>
+
+Success / Fail wrapper
+The wrapper(s) run the underlying core monitor and return success or fail condition.
+In the initial test cases the wrappers are:
+expect_no_disruption
+expect_transient_disruption  (report delay to resume after disruption)
+expect_disruption (report delay to disrupt)
+common exception cases apply to all, e.g. never connected, and repeated disruption.
+The default timers are one second for both connect and max duration, so only repeated disruption can exit earlier than one second from start.
+
+implementation pseudo-code
+
+- ping-till-reply with timeout cConnect
+- - on timeout exit 0,0,0,0
+- - on response record time as tConnect
+- ping-till-no-reply with timeout cComplete
+- - on timeout exit tConnect,0,0,0
+- - on no-response record time as tDisrupt
+- ping ping-till-reply with timeout cComplete
+- - on timeout exit tConnect,tDisrupt,0,0
+- - on response record time as tResume
+- ping-till-no-reply with timeout cComplete
+- - on no-response exit tConnect,tDisrupt,tResume,0
+- - on no-response record time as tRedisrupt, exit tConnect,tDisrupt,tResume,tRedisrupt
+
+note the two common patterns of 'ping':
+- ping-till-reply
+- ping-till-no-reply
+
+reference implementations of ping-till-reply and ping-till-no-reply
+
+based on 'fping'
+NB: 'success' defined as no timeout event, i.e. the looked for transition occurred
+
+- ping-till-reply(tTimeout): fping --retry=tTimeout/tLoop --timeout=tLoop
+- ping-till-no-reply(tTimeout):
+    tStart=timeNow()
+    while tTimeout > timeNow()-tStart && !fping --retry=1 --timeout=tLoop
+    do sleep tLoop
+    done
+    return tTimeout > timeNow()-tStart
+
+The main point being that 'fping' is functionally adequate and fast enough for the task...

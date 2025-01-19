@@ -1,0 +1,28 @@
+set system login user nic uid 2000
+set system login user nic class super-user
+#set system login user nic authentication encrypted-password "$1$a24cZwIn$PzADU4uWDgEJWpsjAT9Jb1"
+set system login user nic authentication encrypted-password "$6$tZeIEl0G$rH3.xhBkKoDC7PogLNE3pD3eyi42Civx87qOc1kQKGIvewsHgZj73I2apwOIsh4WulQn.hsD9R0jLfQUscYkC."; ## plain text == 'Password'
+
+set system login user nic authentication ssh-rsa "ssh-rsa ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcujCKHSRzmgzMeUNAFCVb4fVujn3jOCaPnY6jmRZHv2hNSf/gc+bqDUg9bCd9OG6DkNRJbUs8uWRvSwS/XCMoirYVd+Pt9aPmZU8DipmwC8iDhd7MCBkihP83H1v9FJPVPpqLg5vlT7/70aIXvx0WDIUg3x2bfdEwx2O0bv2IuQf+dE5Tdr8uyz+cFXzaua2un1cn51HCMTeqAQFW73qCOTfzwm9TtdttX89TC14WrEvNDHWEETQsFl8t/p3LY2cPnNRBvQ28QhwgdQ2YGJnODASDi8CdQsHgkf1XNvlTXY74fQBN7V9cOZGbaOBrbaUG7GZt1Ipd99MgxTg2l8xR user@vm"
+
+set system root-authentication ssh-rsa "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCqJfsRgjEmMgL7jAmXqlr9ejQGt7LEWTz4gIP2n6kAxWe8y1xoQSZCqslDbDJNQT/PRGCxeKPGQH6PSGsK7z9u4VAuDlGmUNsU5j25vQpklV6WS42hbY83CnhhLeHuv6yvSHYxX9daFL8bkT8Q4hlAsWS6BkhNl+zHcWWOpmpIyzJNK/nNvqDLPCn0AMJPhvJcs0kyPQY7+x4v7uyFkZUsCqUIT2frr4cBS1KNKiMOUFxzGX3jOkB51nukBhD3myVxnnUjAaZJ4/H5IM9uJupCFOPqm9HB3Ko1zbT+jdw96xjoESWKfznbFC0/lFh7eswIAn78ypIlZIAFIQDcxhLR nic@nic-Precision-Tower-3420"
+set system root-authentication encrypted-password "$1$a24cZwIn$PzADU4uWDgEJWpsjAT9Jb1"
+set system services ssh root-login allow
+
+set protocols bgp hold-time 0
+
+/* default policy - can be overridden in later config - if so must be done properly - probably with delete */
+
+# delete policy-options policy-statement internal
+# delete policy-options policy-statement external
+
+set policy-options policy-statement internal term 1 then accept
+set policy-options policy-statement external term 1 then accept
+
+set protocols bgp group internal-peers type internal
+set protocols bgp group internal-peers export internal
+set protocols bgp group internal-peers import internal
+
+set protocols bgp group external-peers type external
+set protocols bgp group external-peers export external
+set protocols bgp group external-peers import external

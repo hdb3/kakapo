@@ -1,0 +1,3 @@
+set policy-options policy-statement ps1 term t1 from protocol bgp
+set policy-options policy-statement ps1 term t1 then no-install-to-fib
+set routing-options forwarding-table default-export ps1
