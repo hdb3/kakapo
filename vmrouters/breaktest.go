@@ -22,7 +22,9 @@ func isValidIpV4(s string) bool {
 func fping(target string, retry, timeout int64) bool {
 	sRetry := fmt.Sprintf("%d", retry)
 	sTimeout := fmt.Sprintf("%d", timeout)
-	// fmt.Fprintf(os.Stderr, "command is: fping --quiet --retry %s --timeout %s %s\n", sRetry, sTimeout, target)
+	if verbose {
+		fmt.Fprintf(os.Stderr, "command is: fping --quiet --retry %s --timeout %s %s\n", sRetry, sTimeout, target)
+	}
 	cmd := exec.Command("fping", "--quiet", "--retry", sRetry, "--timeout", sTimeout, target)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
@@ -36,40 +38,38 @@ func fping(target string, retry, timeout int64) bool {
 		} else {
 			fmt.Fprintln(os.Stderr, "fping succeeded")
 		}
-		fmt.Fprintf(os.Stderr, "stdout: '%s'\n", stdout.String())
-		fmt.Fprintf(os.Stderr, "stderr: '%s'\n", stderr.String())
+		if s := stdout.String(); s != "" {
+			fmt.Fprintf(os.Stderr, "stdout: '%s'\n", s)
+		}
+		if s := stderr.String(); s != "" {
+			fmt.Fprintf(os.Stderr, "stderr: '%s'\n", s)
+		}
 		if cmd.ProcessState == nil {
 			fmt.Fprintln(os.Stderr, "panic, cmd.ProcessState == nil")
 			return false
 		} else {
 			fmt.Fprintf(os.Stderr, "exitCode: %d\n", cmd.ProcessState.ExitCode())
-			fmt.Fprintf(os.Stderr, "Success: %t\n", cmd.ProcessState.Success())
 			return cmd.ProcessState.Success()
 		}
 	}
 }
 
 func pingTillReply(ip string, timeout int64) bool {
-	// return true if the event happened, i.e. ping succeeded
-	//   - ping-till-reply(tTimeout): fping --retry=tTimeout/tLoop --timeout=tLoop
-	return fping(ip, timeout/tLoop, tLoop)
-
+	return pingUntil(ip, true, timeout)
 }
-func pingTillNoReply(ip string, timeout int64) bool {
-	start := time.Now()
 
+func pingTillNoReply(ip string, timeout int64) bool {
+	return pingUntil(ip, false, timeout)
+}
+
+func pingUntil(ip string, p bool, timeout int64) bool {
+	start := time.Now()
 	for time.Since(start).Milliseconds() < timeout {
-		if !fping(ip, 1, tLoop) {
-			if verbose {
-				fmt.Fprintln(os.Stderr, "pingTillNoReply - fping 'got no reply'")
-			}
+		if p == fping(ip, 1, tLoop) {
 			return true
 		} else {
 			time.Sleep(tLoop * time.Millisecond)
 		}
-	}
-	if verbose {
-		fmt.Fprintln(os.Stderr, "pingTillNoReply - fping always 'got reply'")
 	}
 	return false
 }
@@ -81,56 +81,28 @@ func core(target string, cConnect, cComplete int64) (tConnect, tDisrupt, tResume
 	}
 
 	if !pingTillReply(target, cConnect) {
-		fmt.Fprintf(os.Stderr, "failed to reach %s\n", target)
 		return
 	} else {
 		tConnect = elapsed()
-		fmt.Fprintf(os.Stderr, "reached %s\n", target)
 	}
 
 	if !pingTillNoReply(target, cComplete) {
-		fmt.Fprintln(os.Stderr, "exit with no disruption")
 		return
 	} else {
 		tDisrupt = elapsed()
-		fmt.Fprintf(os.Stderr, "disrupted after %d mS\n", tDisrupt)
 	}
 
 	if !pingTillReply(target, cComplete) {
-		fmt.Fprintln(os.Stderr, "exit with no resumption")
 		return
 	} else {
 		tResume = elapsed()
-		fmt.Fprintf(os.Stderr, "resumed after %d mS\n", tResume)
 	}
 
 	if !pingTillNoReply(target, cComplete) {
 		return
 	} else {
 		tRedisrupt = elapsed()
-		fmt.Fprintf(os.Stderr, "disrupted again after %d mS\n", tRedisrupt)
 	}
-
-	/*
-
-
-		- ping-till-reply with timeout cConnect
-		- - on timeout exit 0,0,0,0
-		- - on response record time as tConnect
-
-		- ping-till-no-reply with timeout cComplete
-		- - on timeout exit tConnect,0,0,0
-		- - on no-response record time as tDisrupt
-
-		- ping ping-till-reply with timeout cComplete
-		- - on timeout exit tConnect,tDisrupt,0,0
-		- - on response record time as tResume
-		- ping-till-no-reply with timeout cComplete
-		- - on no-response exit tConnect,tDisrupt,tResume,0
-		- - on no-response record time as tRedisrupt, exit tConnect,tDisrupt,tResume,tRedisrupt
-
-	*/
-
 	return
 }
 
@@ -148,11 +120,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "target not valid IPv4 address\n")
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stderr, "will ping target:%s with connect timeout %d mS and completion timeout %d mS\n", *targetIP, *cConnect, *cComplete)
+	fmt.Fprintf(os.Stderr, "breaktest - target:%s - connect timeout %dmS - completion timeout %dmS\n", *targetIP, *cConnect, *cComplete)
 
 	tConnect, tDisrupt, tResume, tRedisrupt := core(*targetIP, *cConnect, *cComplete)
-	fmt.Fprintf(os.Stderr, "tConnect\ttDisrupt\ttResume\tRedisrupt\n")
-	fmt.Fprintf(os.Stdout, "%d\t%d\t%d\t%d\n", tConnect, tDisrupt, tResume, tRedisrupt)
+	fmt.Fprintf(os.Stderr, "tConnect\ttDisrupt\ttResume\ttRedisrupt\n")
+	fmt.Fprintf(os.Stdout, "%d\t\t%d\t\t%d\t%d\n", tConnect, tDisrupt, tResume, tRedisrupt)
 }
 
 func init() {

@@ -104,3 +104,17 @@ NB: 'success' defined as no timeout event, i.e. the looked for transition occurr
     return tTimeout > timeNow()-tStart
 
 The main point being that 'fping' is functionally adequate and fast enough for the task...
+
+PS: fping has an issue: the retry fails when the address given is unreacable
+
+Testing reachbility tester
+
+The 'good' cases, apart from continuously good are:
+- short lived connectivity
+- short lived disconnectivity
+The main bad case:
+- multiple disconnections
+
+case 1 - set on - delay t0 - set off
+case 2 - set on - delay t0 - set off - delay t1 - set on
+case 3 - set on - delay t0 - set off - delay t1 - set on - delay t2 - set off
