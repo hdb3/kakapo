@@ -190,7 +190,6 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
     echo(p, msg_length);
     break;
   case 2:
-    // printf("peer %d, Update\n", p->peer_index);
     forward(p, msg_length);
     break;
   case 3:
@@ -198,7 +197,6 @@ void dpi(struct peer *p, uint8_t msg_type, uint16_t msg_length) {
     stop(p, msg_length);
     break;
   case 4:
-    printf("peer %d, Keepalive\n", p->peer_index);
     echo(p, msg_length);
     break;
   };

@@ -103,11 +103,14 @@ void startpeer(struct peer *p, char *s) {
   int peersock;
   int retries = 0;
   uint16_t port;
+
   if (0 == p->port)
     port = TCPPORT;
   else
     port = p->port;
-  fprintf(stderr, "connecting to %s:%hd (%hd) (%hd)\n", inet_ntoa((struct in_addr){p->remoteip}), htons(port), port, p->port);
+
+  fprintf(stderr, "connecting from %s to %s:%u (%hd) (%hd)\n", inet_ntoa((struct in_addr){p->localip}), inet_ntoa((struct in_addr){p->remoteip}), htons(port), port, p->port);
+
   struct sockaddr_in peeraddr = {AF_INET, htons(port), (struct in_addr){p->remoteip}};
   struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
 
