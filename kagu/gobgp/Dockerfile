@@ -6,7 +6,8 @@ WORKDIR /build
 
 # Original version of gobgp was 2.15.0, but under Docker this version segfaults, hence upgraded
 # ENV GOVER=2.15.0
-ENV GOVER=3.32.0
+# ENV GOVER=3.32.0
+ENV GOVER=3.35.0
 
 ADD https://github.com/osrg/gobgp/releases/download/v${GOVER}/gobgp_${GOVER}_linux_amd64.tar.gz .
 RUN  tar xf gobgp_${GOVER}_linux_amd64.tar.gz

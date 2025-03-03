@@ -24,11 +24,13 @@ get_psu_status() {
 }
 PSU_STATUS=$(get_psu_status)
 
-N_PEERS=10
+N_PEERS=25
 RATETIME=60
 DOCKER_CPUS="12-19"
-DOCKER_MEMORY="16g"
-DOCKER_CONSTRAINTS="--cpuset-cpus=$DOCKER_CPUS --memory=$DOCKER_MEMORY"
+DOCKER_NCPUS="8"
+DOCKER_MEMORY="24g"
+# DOCKER_CONSTRAINTS="--cpuset-cpus=$DOCKER_CPUS --cpus=$DOCKER_NCPUS --memory=$DOCKER_MEMORY"
+DOCKER_CONSTRAINTS="--cpus=$DOCKER_NCPUS --memory=$DOCKER_MEMORY"
 DOCKER_LOGTEXT="DOCKER_CPUS=$DOCKER_CPUS DOCKER_MEMORY=$DOCKER_MEMORY"
 
 # PERFWRAPPER="LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0"
@@ -90,6 +92,8 @@ DOCKER_RUN="docker run $DOCKER_CONSTRAINTS --rm --cap-add NET_ADMIN --cap-add SY
 set_command() {
   local COMMAND
   case $1 in
+
+    hbgp_) COMMAND="hbgp.info ${CONFIG}" ;;
 
     kakapo) COMMAND="${KAKAPO_ENV} $KAKAPO_BIN 172.18.0.13,172.18.0.19,64505 $PEERS" ;;
 

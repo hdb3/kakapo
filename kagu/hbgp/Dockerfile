@@ -14,4 +14,4 @@ RUN stack install
 
 ENV BGPD=/root/.local/bin/hbgp.info
 SHELL ["/bin/bash", "-c"]
-ENTRYPOINT $BGPD /config/bgpd.conf
+ENTRYPOINT $BGPD +RTS -maxN8 -RTS /config/bgpd.conf
