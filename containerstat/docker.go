@@ -38,8 +38,8 @@ import (
 )
 
 type dockerMonitor struct {
-	state                   dockerState
-	daemonName, containerId string
+	state                                      dockerState
+	daemonName, containerId, containerStatPath string
 }
 
 type containerStats struct {
@@ -101,13 +101,14 @@ func (monitor *dockerMonitor) getContainerId() bool {
 		return false
 	} else {
 		monitor.containerId = id
+		monitor.setContainerStatPath()
 		fmt.Fprintf(os.Stderr, "container id for %s : %s\n", monitor.daemonName, monitor.containerId)
 		return true
 	}
 }
 
 func (monitor *dockerMonitor) read() *containerStats {
-	contents := getContainerStat(monitor.containerId)
+	contents := monitor.getContainerStat()
 	// todo switch to have stringToContainerStats() return pointer, and so simplify
 	if contents == "" {
 		return nil
@@ -122,8 +123,10 @@ func (monitor *dockerMonitor) doTickAction() (stats *containerStats, state docke
 	case StateWait:
 		// in initial state StateWait, check if the container has started by calling the 'inspect' method
 		if monitor.getContainerId() {
-			monitor.state = StateRunning
-			fmt.Fprintf(os.Stderr, "container is started\n")
+			if monitor.read() != nil {
+				monitor.state = StateRunning
+				fmt.Fprintf(os.Stderr, "container is started\n")
+			}
 		}
 	case StateRunning:
 		if stats = monitor.read(); stats != nil {
@@ -156,21 +159,34 @@ func (ds dockerState) String() string {
 	return stateName[ds]
 }
 
-func getContainerStat(containerId string) (infos string) {
+func (monitor *dockerMonitor) setContainerStatPath() {
 
 	// path in some cases (modern ubuntu, docker installed from docker not distro),
 	//  is /sys/fs/cgroup/system.slice/docker-${ID}.scope/memory.stat
 	// see https://docs.docker.com/engine/containers/runmetrics/ in case of issues.
 
-	path := "/sys/fs/cgroup/system.slice/docker-" + containerId + ".scope/memory.stat"
+	path := "/sys/fs/cgroup/system.slice/docker-" + monitor.containerId + ".scope/memory.stat"
+	altPath := "/sys/fs/cgroup/memory/docker/" + monitor.containerId + "/memory.stat"
+	if _, err := os.ReadFile(path); err == nil {
+		monitor.containerStatPath = path
+	} else if _, err := os.ReadFile(altPath); err == nil {
+		monitor.containerStatPath = altPath
+	} else {
+		fmt.Fprintf(os.Stderr, "unexpected error reading both %s and %s\n", path, altPath)
+		// should check that the problem is just that the container has exited
+		os.Exit(1)
+	}
+}
 
-	if contents, err := os.ReadFile(path); err != nil {
-		fmt.Fprintf(os.Stderr, "unexpected error reading %s\n", path)
+func (monitor *dockerMonitor) getContainerStat() (infos string) {
+
+	if contents, err := os.ReadFile(monitor.containerStatPath); err == nil {
+		return string(contents)
+	} else {
+		fmt.Fprintf(os.Stderr, "unexpected error reading %s\n", monitor.containerStatPath)
 		// should check that the problem is just that the container has exited
 		// os.Exit(1)
 		return ""
-	} else {
-		return string(contents)
 	}
 }
 
