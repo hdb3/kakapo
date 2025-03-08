@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-var regexStatLine0 = regexp.MustCompile(`^cpu (?: [0-9]{1,10}){10}$`)
+var regexStatLine0 = regexp.MustCompile(`^cpu (?: [0-9]{1,12}){10}$`)
 
 func processProcStatLine0(s string) error {
 	if regexStatLine0.FindStringIndex(s) == nil {
