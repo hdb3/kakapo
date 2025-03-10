@@ -21,3 +21,73 @@ The main use of the framework is the evaluation of proposed novel solutions for 
 In this test group the devices under test are typically limited, due to the fact that most non-commercial 'project' BGP implementations are not feature rich enough to support the BGP capabilities needed, specifically, the 'Add Path' BGP extension.
 
 To execute a full evaluation of an 'Add-Path based Controller, the following scripts are invoked:
+
+---------------------------------
+
+implmentationy stuff
+
+file suffix conventions
+
+.target
+.run
+.conf
+.script
+.test
+
+.target
+   bgpd bird2 erl exabgp frr gobgp hbgp junos relay rust vios
+
+.run
+   bgpd bird2 erl frr gobgp rust
+
+.conf
+   agent1 agent2 agent3 bgpd control2 frr frr-ris gobgp hbgp-kakapo slave
+
+.script
+    testplans/scripts/
+        allsorts base bgpagent bgpping bgprelay-kakapo exabgp-kakapo ios-be-3 junos-be-3 kakapo-silent null slave3 slave
+    testplans/
+        addpath bestex classfull controller exa null
+
+.test
+   controller kakapo
+
+common
+------
+common.sh
+layouts.sh
+local.sh
+run.sh
+
+other
+-----
+exabgp.sh
+kakapo-bgprelay.sh
+kakapo.sh
+kakapo-test.sh
+start.sh
+test2.sh
+test3.sh
+ ---------------------
+
+ script analysis
+
+## addpath
+use:
+- simple-prefix-addpath/hbgp x control2.conf
+- master/hbgp x [ agent1-3.conf, slave.conf ]
+- test2.sh
+## bestex
+as: addpath, but
+- controller/hbgp x control2.conf
+
+## classfull
+as: addpath, but
+- controller/hbgp x control2.conf
+- classfulPT/hbgp x [ agent1-3.conf, slave.conf ]
+- test2.sh
+
+
+controller
+exa
+null

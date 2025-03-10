@@ -211,7 +211,7 @@ func stringToContainerStats(s string) (cs containerStats) {
 		}
 
 	} else {
-		fmt.Fprintf(os.Stderr, "regexAnon mismatched: %v\n", matches)
+		fmt.Fprintf(os.Stderr, "regexAnon mismatched: %v in [%s]\n", matches,s)
 	}
 	return
 }
