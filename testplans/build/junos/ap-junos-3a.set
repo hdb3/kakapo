@@ -2,6 +2,10 @@ set system host-name jbr3a
 
 set interfaces vtnet0 unit 0 family inet address 192.168.120.2/24
 set interfaces vtnet1 unit 0 family inet address 7.0.0.1/30
+set interfaces vtnet2 unit 0 family inet address 7.0.0.5/30
+
+set routing-options static route 7.0.1.0/24 next-hop 192.168.120.3
+set routing-options static route 7.0.2.0/24 next-hop 192.168.120.4
 
 set routing-options autonomous-system 65000
 
@@ -11,3 +15,13 @@ set protocols bgp group internal-peers neighbor 192.168.120.3
 set protocols bgp group internal-peers neighbor 192.168.120.4
 
 set protocols bgp group external-peers neighbor 7.0.0.2 peer-as 65001
+
+set protocols bgp accept-remote-nexthop
+
+set policy-options policy-statement t1 term sl1 from neighbor 7.0.0.6
+set policy-options policy-statement t1 term sl1 then local-preference 200
+set policy-options policy-statement t2 term sl2 then local-preference 200
+set protocols bgp group external-peersx type external
+set protocols bgp group external-peersx import t2
+set protocols bgp group external-peersx neighbor 7.0.0.6 peer-as 65001
+

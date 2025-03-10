@@ -24,3 +24,8 @@ set protocols bgp group internal-peers import internal
 set protocols bgp group external-peers type external
 set protocols bgp group external-peers export external
 set protocols bgp group external-peers import external
+
+
+set protocols bgp group controller type internal
+set protocols bgp group controller export external
+set protocols bgp group controller import external
