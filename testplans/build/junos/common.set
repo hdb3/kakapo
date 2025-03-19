@@ -9,18 +9,17 @@ set system services ssh root-login allow
 
 set protocols bgp hold-time 0
 
-/* default policy - can be overridden in later config - if so must be done properly - probably with delete */
-
-# delete policy-options policy-statement internal
-# delete policy-options policy-statement external
-
-set policy-options policy-statement internal term 1 then accept
-set policy-options policy-statement external term 1 then accept
+set policy-options policy-statement open term 1 then accept
 
 set protocols bgp group internal-peers type internal
-set protocols bgp group internal-peers export internal
-set protocols bgp group internal-peers import internal
+set protocols bgp group internal-peers export open
+set protocols bgp group internal-peers import open
 
 set protocols bgp group external-peers type external
-set protocols bgp group external-peers export external
-set protocols bgp group external-peers import external
+set protocols bgp group external-peers export open
+set protocols bgp group external-peers import open
+
+
+set protocols bgp group controller type internal
+set protocols bgp group controller export open
+set protocols bgp group controller import open

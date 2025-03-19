@@ -1,0 +1,11 @@
+<network>
+  <name>default3</name>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr3' stp='on' delay='0'/>
+  <ip address='172.19.0.2' netmask='255.255.255.0'/>
+</network>
+

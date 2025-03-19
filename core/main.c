@@ -394,9 +394,9 @@ void json_log_exit(FILE *f, int signum) {
 
   fprintf(f, "\"type\":\"exit\",");
 
-  fprintf(f, "\"signal\":\"%s\"", signame);
+  fprintf(f, "\"signal\":\"%s\",", signame);
 
-  fprintf(f, "\"signum\":\"%d\"", signum);
+  fprintf(f, "\"signum\":\"%d\",", signum);
 
   fprintf(f, "\"unixtime\":%ld,", now.tv_sec);
 

@@ -1,0 +1,8 @@
+set system host-name jexternal2
+
+set interfaces vtnet0 unit 0 family inet address 172.19.1.1/24
+set interfaces vtnet1 unit 0 family inet address 7.0.1.2/30
+
+set routing-options autonomous-system 65002
+
+set protocols bgp group external-peers neighbor 7.0.1.1 peer-as 65000
