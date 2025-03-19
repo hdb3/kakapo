@@ -1,0 +1,15 @@
+raw 'json' files are not valid JSON, rather, sequences of valid JSON objects.
+
+They can be made valid JSON by conversion to lists, by adding brackets and removing extraneous trailing commas.
+The sed form of this is:
+
+$ sed -e '1 i \ [' -e '$ s/,$/\]/'
+
+Note: two separate expressions here:
+- -e '1 i \ ['
+- -e '$ s/,$/\]/'
+
+Some older 'JSON' data was written invalidly - there were missing commas between objects.
+The following sed fixes this up, safely.
+
+$ sed -i -e 's/""/","/g'
