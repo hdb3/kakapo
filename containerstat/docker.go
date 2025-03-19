@@ -195,7 +195,7 @@ var regexAnon = regexp.MustCompile(`(?m)^(?:anon|inactive_anon|active_anon) ([0-
 func stringToContainerStats(s string) (cs containerStats) {
 	if matches := regexAnon.FindAllStringSubmatch(s, -1); matches == nil {
 		fmt.Fprintf(os.Stderr, "regexAnon did not match\n")
-	} else if len(matches) == 3 {
+	} else if len(matches) == 2 || len(matches) == 3 {
 		for i := range matches {
 			n, _ := strconv.Atoi(matches[i][1])
 			switch strim(matches[i][0]) {
@@ -211,7 +211,7 @@ func stringToContainerStats(s string) (cs containerStats) {
 		}
 
 	} else {
-		fmt.Fprintf(os.Stderr, "regexAnon mismatched: %v\n", matches)
+		fmt.Fprintf(os.Stderr, "regexAnon mismatched: %v in [%s]\n", matches,s)
 	}
 	return
 }
