@@ -1,6 +1,7 @@
 import json
 from sys import argv
 from dt import string_to_datetime
+from logtext import parse_logtext
 
 sections = {}
 files = {}
@@ -43,6 +44,15 @@ def process_raw_item(fn, jitem):
             sections[uuid]["end_time"] = time
         if time < sections[uuid]["start_time"]:
             sections[uuid]["start_time"] = time
+
+    if "LOGTEXT" in jitem:
+        if "logtext" in sections[uuid]:
+            if jitem["LOGTEXT"] != sections[uuid]["logtext"]:
+                print(f"not replacing logtext in {fn}:{uuid}")
+                # sections[uuid]["logtext"] = jitem["LOGTEXT"]
+        else:
+            logtext = parse_logtext(fn, uuid, jitem["LOGTEXT"])
+            sections[uuid] |= logtext
 
     match jitem["type"]:
         case "start":
@@ -93,6 +103,36 @@ def report_files():
         print(fn.ljust(15), f"count {fdata['count']}  start {fdata['start']}  end {fdata['end']}")
 
 
+common_keys = ["type", "start_time", "end_time", "UUID", "file_name", "LOGTEXT"]
+
+keys = {}
+
+
+def process_summary(fn, item):
+
+    if "LOGTEXT" in item:
+        uuid = item["UUID"]
+        logtext = parse_logtext(fn, uuid, item["LOGTEXT"])
+        item |= logtext
+    for k, v in item.items():
+        if not k in common_keys:
+            if not k in keys:
+                keys[k] = {}
+            try:
+                hash(v)
+                if not v in keys[k]:
+                    keys[k][v] = 0
+                else:
+                    keys[k][v] += 1
+            except Exception as ex:
+                print(f"for key {k} can't use {v} as key")
+
+
+def report_summaries():
+    for k, vx in keys.items():
+        print(f"key: {k} len(vx): {len(vx)}")
+
+
 def process_sections():
     count = 0
     file_data = {}
@@ -108,10 +148,11 @@ def process_sections():
         else:
             file_data[fn]["use"] += 1
             count += 1
+            process_summary(fn, item["summary"])
     print(f"got {count} summaries")
     for fn, counts in file_data.items():
         fdata = files[fn]
-        print(fn.ljust(15), f"use {counts['use']:4}  ignore {counts['ignore']:4}  exit {counts['exit']:4} start {fdata['start']}  end {fdata['end']}")
+        print(fn.ljust(15), f"use {counts['use']:4}  ignore {counts['ignore']:4}  exit {counts['exit']:4} start {fdata['start'].date()}  end {fdata['end'].date()}")
 
 
 def main():
@@ -130,6 +171,7 @@ def main():
 
     # report_files()
     process_sections()
+    report_summaries()
 
 
 if __name__ == "__main__":
