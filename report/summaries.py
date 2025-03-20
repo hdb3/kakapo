@@ -1,5 +1,6 @@
 import json
 from sys import argv
+from datetime import datetime
 from dt import string_to_datetime
 from logtext import parse_logtext
 import matplotlib.pyplot as plt
@@ -55,15 +56,15 @@ def report_summaries(sx):
         print(f"key: {k} len(vx): {len(vx)}")
 
 
-def group_projector(item):
+def group_select_target(item):
     return item["target"]
 
 
-def y_value(item):
+def select_multi_rate(item):
     return item["multi_rate"]
 
 
-def x_value(item):
+def select_sender_count(item):
     return item["sender_count"]
 
 
@@ -78,7 +79,7 @@ def filter_1(item):
     return item["target"] in ["bird2", "frr"]
 
 
-def make_plot(px, filters):
+def make_plot(px, filters=[], select_x=select_sender_count, select_y=select_multi_rate):
 
     # the top level data structure constructed is a set of groups, indexed by group name
     # Each group is a set of 'y' values indexed by 'x' value.
@@ -97,9 +98,9 @@ def make_plot(px, filters):
             for fp in filters:
                 if fp(p):
                     continue
-            group = group_projector(p)
-            y = y_value(p)
-            x = x_value(p)
+            group = group_select_target(p)
+            y = select_y(p)
+            x = select_x(p)
 
             if group not in groups:
                 groups[group] = {}
@@ -172,6 +173,10 @@ def plot_groups(gx):
 def main():
 
     fn = argv[1]
+    opt = ""
+    if len(argv) > 2:
+        opt = argv[2]
+
     try:
         with open(fn, "r") as f:
             jdata = json.load(f)
@@ -185,11 +190,21 @@ def main():
 
     report_summaries(summaries)
 
-    filterx = lambda item: item["target"] in ["bird2", "frr", "hbgp"]
-    filtery = lambda item: item["target"] not in ["gobgp","gobgpV2"]
-    # make_plot(summaries, [filterx])
-    # make_plot(summaries, [filter_1])
-    group_data = make_plot(summaries, [filtery])
+    # conditioning_duration
+    select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
+
+    recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
+    bad_targets = lambda item: item["target"] not in ["gobgpV2"]
+
+    filters = [recent, bad_targets]
+
+    match opt:
+        case "cd" | "conditioning_duration":
+            y_selector = select_conditioning_duration
+        case _:
+            y_selector = select_multi_rate
+
+    group_data = make_plot(summaries, filters=filters, select_y=y_selector)
     plot_groups(group_data)
 
 
