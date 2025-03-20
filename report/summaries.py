@@ -1,4 +1,5 @@
 import json
+import os
 from sys import argv
 from datetime import datetime
 from dt import string_to_datetime
@@ -159,14 +160,19 @@ def unpack(x_y):
     return xs, ys
 
 
-def plot_groups(gx):
+def plot_groups(gx, plot_text):
     plt.rcParams.update({"font.size": 22})
+    plt.rcParams["savefig.directory"] = os.path.dirname(__file__)
+
     fig, ax = plt.subplots(figsize=(12, 8), layout="constrained")
 
     for group, x_y in gx.items():
         xs, ys = unpack(x_y)
         ax.plot(xs, ys, label=group)
     ax.legend()
+    ax.set_title(plot_text["title"])
+    ax.set_ylabel(plot_text["y_axis"])
+    ax.set_xlabel(plot_text["x_axis"])
     plt.show()
 
 
@@ -198,14 +204,18 @@ def main():
 
     filters = [recent, bad_targets]
 
+    plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second"}
+
     match opt:
         case "cd" | "conditioning_duration":
             y_selector = select_conditioning_duration
+            plot_text["y_axis"] = "mean conditioning duration (secs.)"
         case _:
             y_selector = select_multi_rate
 
     group_data = make_plot(summaries, filters=filters, select_y=y_selector)
-    plot_groups(group_data)
+
+    plot_groups(group_data, plot_text)
 
 
 if __name__ == "__main__":
