@@ -2,6 +2,7 @@ import json
 from sys import argv
 from dt import string_to_datetime
 from logtext import parse_logtext
+import matplotlib.pyplot as plt
 
 
 def process_summary(item):
@@ -66,35 +67,106 @@ def x_value(item):
     return item["sender_count"]
 
 
+# filters are true to allow / accept
+
+
 def prefilter(item):
     return item["type"] == "summary"
 
 
-def make_plot(px):
+def filter_1(item):
+    return item["target"] in ["bird2", "frr"]
+
+
+def make_plot(px, filters):
+
+    # the top level data structure constructed is a set of groups, indexed by group name
+    # Each group is a set of 'y' values indexed by 'x' value.
+    # In the form here 'y' values are lists, to allow duplicates
+    # A transformation might be required to produce plottable 'y' values,
+    # e.g. single valued, or error bars, or for scatter plot.
+    # A default transformation is defined later - tail: 'take the last value seen'.
+
     groups = {}
     xs = {}
     for p in px:
-        if prefilter(p):
+        cond = prefilter(p)
+        for fp in filters:
+            cond = cond and fp(p)
+        if cond:
+            for fp in filters:
+                if fp(p):
+                    continue
             group = group_projector(p)
             y = y_value(p)
             x = x_value(p)
 
             if group not in groups:
                 groups[group] = {}
+
             if x not in xs:
                 xs[x] = {}
 
             if x not in groups[group]:
-                groups[group][x] = 1
+                groups[group][x] = [y]
             else:
-                groups[group][x] += 1
+                groups[group][x].append(y)
 
+    # The x values were accumulated independently, to ensure a single complete list, for the following sanity check
+    # Sanity check - verify, for every group, whether all possible 'x' values are represented.
+
+    missing_cells = set()
+    duplicate_cells = set()
     for gg, xx in groups.items():
         for x in xs:
-            if x not in xx:
+            if x in xx:
+                if len(xx[x]) > 1:
+                    print(f"duplicate x:{x} in group:{gg}")
+                    duplicate_cells.add(gg)
+            else:
                 print(f"missing x:{x} in group:{gg}")
-            elif xx[x] > 1:
-                print(f"duplicate x:{x} in group:{gg}")
+                missing_cells.add(gg)
+
+    if len(missing_cells) == 0:
+        print("***can plot!!!")
+    else:
+        print(f"*** missing cells from {missing_cells}, cannot plot !!!")
+
+    if len(duplicate_cells) == 0:
+        print("***no duplicate cells")
+    else:
+        print(f"*** duplicate cells in {duplicate_cells}")
+
+    # flatten the lists for simple plotting
+
+    tail = lambda ax: ax[-1]
+
+    for group in groups.values():
+        for x, y_item in group.items():
+            group[x] = tail(y_item)
+
+    return groups
+
+
+def unpack(x_y):
+    # unpack a dictionary of form x:y into plottable lists
+    xs = sorted(x_y.keys())
+    ys = []
+
+    for x in xs:
+        ys.append(x_y[x])
+    return xs, ys
+
+
+def plot_groups(gx):
+    plt.rcParams.update({"font.size": 22})
+    fig, ax = plt.subplots(figsize=(12, 8), layout="constrained")
+
+    for group, x_y in gx.items():
+        xs, ys = unpack(x_y)
+        ax.plot(xs, ys, label=group)
+    ax.legend()
+    plt.show()
 
 
 def main():
@@ -113,7 +185,12 @@ def main():
 
     report_summaries(summaries)
 
-    make_plot(summaries)
+    filterx = lambda item: item["target"] in ["bird2", "frr", "hbgp"]
+    filtery = lambda item: item["target"] not in ["gobgp","gobgpV2"]
+    # make_plot(summaries, [filterx])
+    # make_plot(summaries, [filter_1])
+    group_data = make_plot(summaries, [filtery])
+    plot_groups(group_data)
 
 
 if __name__ == "__main__":
