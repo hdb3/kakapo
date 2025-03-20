@@ -1,0 +1,51 @@
+report strategy
+
+The objective is to produce data sets that can be graphed.
+The type of graph may affect the structure of a data set.
+Two types of graph are considered here.
+x-y graph with multiple plot-lines
+bar chart, optionally with multiple levels in a bar.
+
+The x-y graph has two variants - common x axis values, and discrete x-y plots.
+In the first variant the data structure can be columns identified as x, y(0), y(1), ... , y(N).
+The alternate form is (x(0), y(0)), (x(1), y(1)), ... , (x(N), y(N)).
+For bar chart the form of the first x-y graph can be adopted:
+x, y(0), y(1), ... , y(N)
+With the difference that 'x' is a text label rather than a numeric value.
+
+For the source data sets in question (kakapo.json), a graph is composed as follows:
+
+An individual 'y' datapoint corresponds to a single numeric value derived from a record.
+For example, from a 'summary' record a value which is directly present in the map:   or "multi_rate".
+Other values could be derived from the record, e.g.  "conditioning_duration" / "sender_count"
+
+'x' value is similarly derived from the record, but in general should be some control variable rather than a measured value, e.g. "sender_count".
+
+The graph is assembled by grouping and filtering the records used to produce plot values.
+A simple way to do this is to specify a control value as the group basis.
+For some data sets this is sufficient to produce a complete and single valued data-set.
+For other datasets the outcome may either
+- not produce all values for the product of group value set and 'x' values set;
+- produce more than a single value for some combinations.
+
+In this case, and in general, it may be appropriate to define a filter to be applied before attempting to construct a plottable data-set.
+
+Summarising
+A plottable data-set is constructed from a raw data set by a set of functions on the raw data points:
+
+1 - a filter expression - predicate
+2 - a group expression - should produce a small finite set of values
+3 - a value ('y') expression
+4 - a control ('x') expression - (numeric for x-y plots)
+
+Given these three such functions on data-points, the following results are possible:
+
+- determine the M x N size of the dataset
+- determine if there are missing or duplicate elements in the matrix
+- write a plottable data-file from the data
+
+Strategies available for handling duplicate cells
+- use the last value in the raw data set
+- take an average
+The report of duplicates should show the variation in the data.
+The report should also indicate if other values than the source data are variant in the sample set.
