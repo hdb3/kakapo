@@ -5,6 +5,10 @@ from datetime import datetime
 from dt import string_to_datetime
 from logtext import parse_logtext
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+import matplotlib.ticker as ticker
+from linestyle import linestyle_tuple
+import matplotlib.colors as mcolors
 
 
 def process_summary(item):
@@ -31,11 +35,9 @@ def process_json_list(jdata):
         else:
             ignore_count += 1
         count += 1
-    # print(f"process_json_list skipped {ignore_count}/{count}")
     return rval
 
 
-# common_keys = ["type", "start_time", "end_time", "UUID", "file_name", "LOGTEXT"]
 common_keys = ["type", "file_name", "LOGTEXT"]
 
 
@@ -54,125 +56,184 @@ def report_summaries(sx):
                     keys[k][v] += 1
 
     for k, vx in keys.items():
-        print(f"key: {k} len(vx): {len(vx)}")
+        print(f"key: {k} len(vx): {len(vx)}", end="")
+
+        if len(vx) < 10:
+            print(" [", end="")
+            for v in vx:
+                print(f'"{v}",', end="")
+            print(" ]")
+        else:
+            print()
 
 
-def group_select_target(item):
+def select_target(item):
     return item["target"]
 
 
+def select_ncpus(item):
+    return int(item["DOCKER_NCPUS"])
+
+
 def select_multi_rate(item):
-    return item["multi_rate"]
+    return int(item["multi_rate"])
 
 
 def select_sender_count(item):
-    return item["sender_count"]
+    return int(item["sender_count"])
 
 
 # filters are true to allow / accept
 
 
 def prefilter(item):
-    return item["type"] == "summary"
+    return item["type"] == "summary" and "DOCKER_NCPUS" in item
 
 
-def filter_1(item):
-    return item["target"] in ["bird2", "frr"]
+def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=select_target, select_group=select_ncpus):
 
-
-def make_plot(px, filters=[], select_x=select_sender_count, select_y=select_multi_rate):
-
-    # the top level data structure constructed is a set of groups, indexed by group name
-    # Each group is a set of 'y' values indexed by 'x' value.
-    # In the form here 'y' values are lists, to allow duplicates
-    # A transformation might be required to produce plottable 'y' values,
-    # e.g. single valued, or error bars, or for scatter plot.
-    # A default transformation is defined later - tail: 'take the last value seen'.
-
-    groups = {}
-    xs = {}
+    base = {}
+    group_set = set()
+    subgroup_set = set()
+    x_set = set()
     for p in px:
-        cond = prefilter(p)
+        cond = True
         for fp in filters:
-            cond = cond and fp(p)
+            try:
+                cond = cond and fp(p)
+            except KeyError:
+                print(f"KeyError in {p}")
         if cond:
             for fp in filters:
                 if fp(p):
                     continue
-            group = group_select_target(p)
-            y = select_y(p)
+            group = select_group(p)
+            subgroup = select_subgroup(p)
             x = select_x(p)
+            x_set.add(x)
+            subgroup_set.add(subgroup)
+            group_set.add(group)
 
-            if group not in groups:
-                groups[group] = {}
+            if group not in base:
+                base[group] = {}
 
-            if x not in xs:
-                xs[x] = {}
+            if subgroup not in base[group]:
+                base[group][subgroup] = {}
 
-            if x not in groups[group]:
-                groups[group][x] = [y]
+            if x not in base[group][subgroup]:
+                base[group][subgroup][x] = [p]
             else:
-                groups[group][x].append(y)
-
-    # The x values were accumulated independently, to ensure a single complete list, for the following sanity check
-    # Sanity check - verify, for every group, whether all possible 'x' values are represented.
+                base[group][subgroup][x].append(p)
 
     missing_cells = set()
     duplicate_cells = set()
-    for gg, xx in groups.items():
-        for x in xs:
-            if x in xx:
-                if len(xx[x]) > 1:
-                    print(f"duplicate x:{x} in group:{gg}")
-                    duplicate_cells.add(gg)
+
+    # NB - the following procedure guarantees that the ordering of subgroups is constant over all groups
+    # This guarantee is required to ensure that when plotting groups that the subgroup identities are maintained over the entire plot.
+    # The essential property is that iterating over subgroup_set is consistent between groups.
+    # Where a subgroup is not present in a specific group then an empty subgroup is inserted.
+    # In future, where the subgroup or group is of known type then another consistent ordering, could be implemented.
+    ordered_base = {}
+    group_list = sorted(group_set, reverse=True)
+    subgroup_list = sorted(subgroup_set)
+    x_list = sorted(x_set)
+    for group in group_list:
+        ordered_base[group] = {}
+        for subgroup in subgroup_list:
+            ordered_base[group][subgroup] = {}
+            if subgroup not in base[group]:
+                missing_cells.add(f"missing subgroup:{subgroup} in group:{group}")
+                # base[group][subgroup] = {}
             else:
-                print(f"missing x:{x} in group:{gg}")
-                missing_cells.add(gg)
+                for x in x_list:
+                    if x not in base[group][subgroup]:
+                        missing_cells.add(f"missing x in {group}:{subgroup}")
+                        # print(f"missing x:{x} in {group}:{subgroup}")
+                    else:
+                        if len(base[group][subgroup][x]) > 1:
+                            duplicate_cells.add(f"duplicate x in {group}:{subgroup}")
+                        ordered_base[group][subgroup][x] = base[group][subgroup][x]
+
+                        # print(f"duplicate x:{x} in {group}:{subgroup}")
 
     if len(missing_cells) == 0:
-        print("***can plot!!!")
+        print("***no missing cells!!!")
     else:
-        print(f"*** missing cells from {missing_cells}, cannot plot !!!")
+        print(f"*** missing cells from {missing_cells} !!!")
 
     if len(duplicate_cells) == 0:
         print("***no duplicate cells")
     else:
         print(f"*** duplicate cells in {duplicate_cells}")
 
-    # flatten the lists for simple plotting
-
-    tail = lambda ax: ax[-1]
-
-    for group in groups.values():
-        for x, y_item in group.items():
-            group[x] = tail(y_item)
-
-    return groups
+    return ordered_base
 
 
-def unpack(x_y):
-    # unpack a dictionary of form x:y into plottable lists
-    xs = sorted(x_y.keys())
-    ys = []
+def sort_on_x(base):
+    # input - two-level grouped collection with underlying xs[x]=item structure
+    # output - same high level shaped collection with underlying sorted (x,item) structure
 
-    for x in xs:
-        ys.append(x_y[x])
-    return xs, ys
+    tuple_sort = lambda xs: sorted((xs.items()), key=lambda x: x[0])
+
+    newbase = {}
+    for group, subgroups in base.items():
+        newbase[group] = {}
+        for subgroup, xs in subgroups.items():
+            newbase[group][subgroup] = tuple_sort(xs)
+    return newbase
 
 
-def plot_groups(gx, plot_text):
+tail = lambda ax: ax[-1]
+average = lambda ax: sum(ax) / len(ax)
+
+
+def project_y(base, select_y=select_multi_rate, plan=tail):
+    # input - two-level grouped collection with underlying sorted (x,item) structure
+    # output - same shaped two-level grouped collection with underlying sorted ([x],[y]) structure
+
+    newbase = {}
+    for group, subgroups in base.items():
+        newbase[group] = {}
+        for subgroup, subgroup_vec in subgroups.items():
+            vec_x = []
+            vec_y = []
+            for x, px in subgroup_vec.items():
+                yx = list(map(select_y, px))
+                # print(f"<<<{group}:{subgroup}:{x}:{yx}>>>")
+                vec_x.append(x)
+                vec_y.append(plan(yx))
+            newbase[group][subgroup] = (vec_x, vec_y)
+    return newbase
+
+
+def plot_groups(gxx, plot_text):
+    styles = iter(linestyle_tuple)
+    next_style = lambda: (next(styles))[1]
     plt.rcParams.update({"font.size": 22})
     plt.rcParams["savefig.directory"] = os.path.dirname(__file__)
+    # new_colours = lambda : iter(mpl.color_sequences["tab10"])
+    new_colours = lambda: iter(
+        mcolors.TABLEAU_COLORS,
+    )
 
-    fig, ax = plt.subplots(figsize=(12, 8), layout="constrained")
+    _, ax = plt.subplots(figsize=(12, 8), layout="constrained")
+    first_pass = True
+    for group, subgroups in gxx.items():
+        linestyle = next_style()
+        colours = new_colours()
+        for subgroup, (xs, ys) in subgroups.items():
+            color = next(colours)
+            print(f"<<<{group}:{subgroup}:{color}>>>")
+            ax.plot(xs, ys, label=subgroup, linestyle=linestyle, color=color)
 
-    for group, x_y in gx.items():
-        xs, ys = unpack(x_y)
-        ax.plot(xs, ys, label=group)
-    ax.legend()
-    ax.set_title(plot_text["title"])
-    ax.set_ylabel(plot_text["y_axis"])
-    ax.set_xlabel(plot_text["x_axis"])
+        if first_pass:
+            first_pass = False
+            ax.legend()
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+            ax.set_title(plot_text["title"])
+            ax.set_ylabel(plot_text["y_axis"])
+            ax.set_xlabel(plot_text["x_axis"])
+
     plt.show()
 
 
@@ -196,13 +257,13 @@ def main():
 
     report_summaries(summaries)
 
-    # conditioning_duration
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
 
     recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
     bad_targets = lambda item: item["target"] not in ["gobgpV2"]
+    has_ncpus = lambda item: "DOCKER_NCPUS" in item
 
-    filters = [recent, bad_targets]
+    filters = [recent, bad_targets, has_ncpus]
 
     plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second"}
 
@@ -212,10 +273,11 @@ def main():
             plot_text["y_axis"] = "mean conditioning duration (secs.)"
         case _:
             y_selector = select_multi_rate
+    group_data = group_select(summaries, filters=filters)
+    # group_data = make_plot(summaries, filters=filters + [n_cpus_filter(16)], select_y=y_selector)
+    # group_data = make_plot(summaries, filters=filters.append(n_cpus_filter(2)), select_y=y_selector)
 
-    group_data = make_plot(summaries, filters=filters, select_y=y_selector)
-
-    plot_groups(group_data, plot_text)
+    plot_groups(project_y(group_data, plan=max), plot_text)
 
 
 if __name__ == "__main__":
