@@ -9,6 +9,8 @@ import matplotlib as mpl
 import matplotlib.ticker as ticker
 from linestyle import linestyle_tuple
 import matplotlib.colors as mcolors
+from matplotlib.lines import Line2D
+from matplotlib.legend import Legend
 
 
 def process_summary(item):
@@ -73,6 +75,10 @@ def select_target(item):
 
 def select_ncpus(item):
     return int(item["DOCKER_NCPUS"])
+
+
+def select_ratetime(item):
+    return int(item["RATETIMELIMIT"])
 
 
 def select_multi_rate(item):
@@ -143,7 +149,6 @@ def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=s
             ordered_base[group][subgroup] = {}
             if subgroup not in base[group]:
                 missing_cells.add(f"missing subgroup:{subgroup} in group:{group}")
-                # base[group][subgroup] = {}
             else:
                 for x in x_list:
                     if x not in base[group][subgroup]:
@@ -167,20 +172,6 @@ def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=s
         print(f"*** duplicate cells in {duplicate_cells}")
 
     return ordered_base
-
-
-def sort_on_x(base):
-    # input - two-level grouped collection with underlying xs[x]=item structure
-    # output - same high level shaped collection with underlying sorted (x,item) structure
-
-    tuple_sort = lambda xs: sorted((xs.items()), key=lambda x: x[0])
-
-    newbase = {}
-    for group, subgroups in base.items():
-        newbase[group] = {}
-        for subgroup, xs in subgroups.items():
-            newbase[group][subgroup] = tuple_sort(xs)
-    return newbase
 
 
 tail = lambda ax: ax[-1]
@@ -207,33 +198,67 @@ def project_y(base, select_y=select_multi_rate, plan=tail):
 
 
 def plot_groups(gxx, plot_text):
-    styles = iter(linestyle_tuple)
-    next_style = lambda: (next(styles))[1]
-    plt.rcParams.update({"font.size": 22})
+    plt.rcParams.update({"font.size": 18})
     plt.rcParams["savefig.directory"] = os.path.dirname(__file__)
-    # new_colours = lambda : iter(mpl.color_sequences["tab10"])
-    new_colours = lambda: iter(
-        mcolors.TABLEAU_COLORS,
+    fig, ax = plt.subplots(figsize=(12, 8), layout="constrained")
+
+    colours = iter(mcolors.TABLEAU_COLORS)
+    styles = iter(linestyle_tuple)
+
+    group_linestyle = {}
+    group_legend_lines = []
+    group_labels = []
+    subgroup_legend_lines = []
+    subgroup_labels = []
+    subgroup_colour = {}
+    for group, subgroups in gxx.items():
+        style = (next(styles))[1]
+        group_linestyle[group] = style
+        group_legend_lines.append(Line2D([0], [0], linestyle=style))
+        group_labels.append(group)
+
+        for subgroup in subgroups:
+            if subgroup not in subgroup_colour:
+                colour = next(colours)
+                subgroup_legend_lines.append(Line2D([0], [0], color=colour))
+                subgroup_labels.append(subgroup)
+                subgroup_colour[subgroup] = colour
+
+    ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+    ax.set_title(plot_text["title"])
+    ax.set_ylabel(plot_text["y_axis"])
+    ax.set_xlabel(plot_text["x_axis"])
+
+    for group, subgroups in gxx.items():
+        for subgroup, (xs, ys) in subgroups.items():
+            print(f"<<<{group}:{subgroup}:{subgroup_colour[subgroup]}>>>")
+            ax.plot(xs, ys, label=subgroup, linestyle=group_linestyle[group], color=subgroup_colour[subgroup])
+
+    ax.legend(
+        subgroup_legend_lines,
+        subgroup_labels,
+        loc="upper left",
+        title=plot_text["subgroup_title"],
+        fontsize=14,
+        framealpha=1,
+    )
+    ax.add_artist(
+        Legend(
+            ax,
+            group_legend_lines,
+            group_labels,
+            title=plot_text["group_title"],
+            loc="upper right",
+            ncols=2,
+            fontsize=14,
+            framealpha=1,
+        )
     )
 
-    _, ax = plt.subplots(figsize=(12, 8), layout="constrained")
-    first_pass = True
-    for group, subgroups in gxx.items():
-        linestyle = next_style()
-        colours = new_colours()
-        for subgroup, (xs, ys) in subgroups.items():
-            color = next(colours)
-            print(f"<<<{group}:{subgroup}:{color}>>>")
-            ax.plot(xs, ys, label=subgroup, linestyle=linestyle, color=color)
+    # fig.legend( subgroup_legend_lines, subgroup_labels, loc="upper right",title="subgroups" ,frameon=False,fontsize=14)
+    # fig.add_artist(Legend(fig, group_legend_lines, group_labels, loc="upper left",title="groups" ,frameon=False,fontsize=14))
 
-        if first_pass:
-            first_pass = False
-            ax.legend()
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
-            ax.set_title(plot_text["title"])
-            ax.set_ylabel(plot_text["y_axis"])
-            ax.set_xlabel(plot_text["x_axis"])
-
+    fig.show()  # needed to force change in figure layout to accommodate legends
     plt.show()
 
 
@@ -262,10 +287,14 @@ def main():
     recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
     bad_targets = lambda item: item["target"] not in ["gobgpV2"]
     has_ncpus = lambda item: "DOCKER_NCPUS" in item
+    tagged = lambda tag: lambda item: "TAG" in item and tag == item["TAG"]
 
-    filters = [recent, bad_targets, has_ncpus]
+    rtl = lambda item: int(item["RATETIMELIMIT"]) in [50, 100, 150, 200, 250]
 
-    plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second"}
+    # filters = [recent, bad_targets, has_ncpus, tagged("TRIAL3")]
+    filters = [recent, bad_targets, has_ncpus, rtl]
+
+    plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second", "group_title": "cycle duration", "subgroup_title": "target"}
 
     match opt:
         case "cd" | "conditioning_duration":
@@ -273,11 +302,11 @@ def main():
             plot_text["y_axis"] = "mean conditioning duration (secs.)"
         case _:
             y_selector = select_multi_rate
-    group_data = group_select(summaries, filters=filters)
+    group_data = group_select(summaries, filters=filters, select_group=select_ratetime)
     # group_data = make_plot(summaries, filters=filters + [n_cpus_filter(16)], select_y=y_selector)
     # group_data = make_plot(summaries, filters=filters.append(n_cpus_filter(2)), select_y=y_selector)
 
-    plot_groups(project_y(group_data, plan=max), plot_text)
+    plot_groups(project_y(group_data, plan=average), plot_text)
 
 
 if __name__ == "__main__":
