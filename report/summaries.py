@@ -47,7 +47,6 @@ def report_summaries(sx):
     keys = {}
     print(f"got {len(sx)} items")
     for s in sx:
-        uuid = s["UUID"]
         for k, v in s.items():
             if not k in common_keys:
                 if not k in keys:
@@ -58,15 +57,15 @@ def report_summaries(sx):
                     keys[k][v] += 1
 
     for k, vx in keys.items():
-        print(f"key: {k} len(vx): {len(vx)}", end="")
+        if len(vx) < len(sx) and len(vx) > 1:
 
-        if len(vx) < 10:
-            print(" [", end="")
-            for v in vx:
-                print(f'"{v}",', end="")
-            print(" ]")
-        else:
-            print()
+            if len(vx) < 20:
+                print(f"key: {k} [", end="")
+                for v in vx:
+                    print(f'"{v}",', end="")
+                print(" ]")
+            else:
+                print(f"key: {k} (N={len(vx)})")
 
 
 def select_target(item):
@@ -102,6 +101,7 @@ def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=s
     group_set = set()
     subgroup_set = set()
     x_set = set()
+    reject_count = 0
     for p in px:
         cond = True
         for fp in filters:
@@ -130,6 +130,10 @@ def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=s
                 base[group][subgroup][x] = [p]
             else:
                 base[group][subgroup][x].append(p)
+        else:
+            reject_count += 1
+
+    print(f"*** rejected {reject_count}/{len(px)} !!!")
 
     missing_cells = set()
     duplicate_cells = set()
@@ -181,6 +185,8 @@ average = lambda ax: sum(ax) / len(ax)
 def project_y(base, select_y=select_multi_rate, plan=tail):
     # input - two-level grouped collection with underlying sorted (x,item) structure
     # output - same shaped two-level grouped collection with underlying sorted ([x],[y]) structure
+    item_count = 0
+    raw_item_count = 0
 
     newbase = {}
     for group, subgroups in base.items():
@@ -189,11 +195,14 @@ def project_y(base, select_y=select_multi_rate, plan=tail):
             vec_x = []
             vec_y = []
             for x, px in subgroup_vec.items():
+                item_count += 1
+                raw_item_count += len(px)
                 yx = list(map(select_y, px))
                 # print(f"<<<{group}:{subgroup}:{x}:{yx}>>>")
                 vec_x.append(x)
                 vec_y.append(plan(yx))
             newbase[group][subgroup] = (vec_x, vec_y)
+    print(f"*** {item_count} elements in plot (raw={raw_item_count}) (@project_y)")
     return newbase
 
 
@@ -237,26 +246,30 @@ def plot_groups(gxx, plot_text):
     ax.legend(
         subgroup_legend_lines,
         subgroup_labels,
-        loc="upper left",
+        loc="upper right",
         title=plot_text["subgroup_title"],
         fontsize=14,
         framealpha=1,
     )
-    ax.add_artist(
-        Legend(
-            ax,
-            group_legend_lines,
-            group_labels,
-            title=plot_text["group_title"],
-            loc="upper right",
-            ncols=2,
-            fontsize=14,
-            framealpha=1,
+    if len(gxx) > 1:
+        ax.add_artist(
+            Legend(
+                ax,
+                group_legend_lines,
+                group_labels,
+                title=plot_text["group_title"],
+                loc="upper left",
+                ncols=2,
+                fontsize=14,
+                framealpha=1,
+            )
         )
-    )
 
     # fig.legend( subgroup_legend_lines, subgroup_labels, loc="upper right",title="subgroups" ,frameon=False,fontsize=14)
     # fig.add_artist(Legend(fig, group_legend_lines, group_labels, loc="upper left",title="groups" ,frameon=False,fontsize=14))
+    if not ("yfloat" in plot_text and plot_text["yfloat"]):
+        ax.set_ylim(bottom=0)
+    ax.set_xlim(left=1)
 
     fig.show()  # needed to force change in figure layout to accommodate legends
     plt.show()
@@ -269,6 +282,10 @@ def main():
     if len(argv) > 2:
         opt = argv[2]
 
+    tags = ""
+    if len(argv) > 3:
+        tags = argv[3].split(",")
+
     try:
         with open(fn, "r") as f:
             jdata = json.load(f)
@@ -279,34 +296,55 @@ def main():
                 print(f"Error JSON was not list in file {fn}")
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Error loading JSON data from {fn}: {e}")
+        exit(1)
 
     report_summaries(summaries)
 
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
 
     recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
-    bad_targets = lambda item: item["target"] not in ["gobgpV2"]
+    exclude_targets = lambda targets: lambda item: item["target"] not in targets
+    include_targets = lambda targets: lambda item: item["target"] in targets
     has_ncpus = lambda item: "DOCKER_NCPUS" in item
     tagged = lambda tag: lambda item: "TAG" in item and tag == item["TAG"]
+    filter_on_tags = lambda item: tags == "" or ("TAG" in item and item["TAG"] in tags)
 
     rtl = lambda item: int(item["RATETIMELIMIT"]) in [50, 100, 150, 200, 250]
 
-    # filters = [recent, bad_targets, has_ncpus, tagged("TRIAL3")]
-    filters = [recent, bad_targets, has_ncpus, rtl]
+    filters = [recent, exclude_targets(["gobgpV2"]), has_ncpus, filter_on_tags]
 
+    # defaults
     plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second", "group_title": "cycle duration", "subgroup_title": "target"}
+    select_group = select_ncpus
+    plot_text["group_title"] = "# cpus"
 
+    y_selector = select_multi_rate
+    plan = average
+
+    # overrides
     match opt:
         case "cd" | "conditioning_duration":
             y_selector = select_conditioning_duration
             plot_text["y_axis"] = "mean conditioning duration (secs.)"
+        case "cpu" | "ncpus":
+            select_group = select_ncpus
+            filters = [recent, include_targets(["bird2", "hbgp", "gobgp"]), has_ncpus]
+            plot_text["group_title"] = "# cpus"
+            plan = average
+        case "rtl":
+            filters += [rtl]
+            select_group = select_ratetime
+            plot_text["yfloat"] = True
+        case "" | "tags":
+            pass
         case _:
-            y_selector = select_multi_rate
-    group_data = group_select(summaries, filters=filters, select_group=select_ratetime)
+            print(f"*** UNKNOWN option'{opt}'")
+
+    group_data = group_select(summaries, filters=filters, select_group=select_group)
     # group_data = make_plot(summaries, filters=filters + [n_cpus_filter(16)], select_y=y_selector)
     # group_data = make_plot(summaries, filters=filters.append(n_cpus_filter(2)), select_y=y_selector)
 
-    plot_groups(project_y(group_data, plan=average), plot_text)
+    plot_groups(project_y(group_data, select_y=y_selector, plan=plan), plot_text)
 
 
 if __name__ == "__main__":
