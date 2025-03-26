@@ -270,6 +270,8 @@ def plot_groups(gxx, plot_text):
     if not ("yfloat" in plot_text and plot_text["yfloat"]):
         ax.set_ylim(bottom=0)
     ax.set_xlim(left=1)
+    if ("logscalex" in plot_text):
+        ax.set_xscale('log')
 
     fig.show()  # needed to force change in figure layout to accommodate legends
     plt.show()
@@ -300,7 +302,13 @@ def main():
 
     report_summaries(summaries)
 
+# 'y' value projectors
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
+
+# group selectors
+    select_window = lambda item : item["WINDOW"]
+
+# define some useful filters
 
     recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
     exclude_targets = lambda targets: lambda item: item["target"] not in targets
@@ -308,14 +316,15 @@ def main():
     has_ncpus = lambda item: "DOCKER_NCPUS" in item
     tagged = lambda tag: lambda item: "TAG" in item and tag == item["TAG"]
     filter_on_tags = lambda item: tags == "" or ("TAG" in item and item["TAG"] in tags)
-
     rtl = lambda item: int(item["RATETIMELIMIT"]) in [50, 100, 150, 200, 250]
 
     filters = [recent, exclude_targets(["gobgpV2"]), has_ncpus, filter_on_tags]
 
     # defaults
     plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second", "group_title": "cycle duration", "subgroup_title": "target"}
-    select_group = select_ncpus
+    select_x=select_sender_count
+    select_subgroup=select_target
+    select_group=select_ncpus
     plot_text["group_title"] = "# cpus"
 
     y_selector = select_multi_rate
@@ -335,12 +344,19 @@ def main():
             filters += [rtl]
             select_group = select_ratetime
             plot_text["yfloat"] = True
+        case "w" | "window":
+            select_x = select_window
+            plot_text["x_axis"] = "rate window size"
+            # plot_text["logscalex"] = True
+            plan=max
+            filters+=[lambda item: item["WINDOW"]<11]
+
         case "" | "tags":
             pass
         case _:
             print(f"*** UNKNOWN option'{opt}'")
 
-    group_data = group_select(summaries, filters=filters, select_group=select_group)
+    group_data = group_select(summaries, filters=filters, select_x=select_x, select_subgroup=select_subgroup,select_group=select_group)
     # group_data = make_plot(summaries, filters=filters + [n_cpus_filter(16)], select_y=y_selector)
     # group_data = make_plot(summaries, filters=filters.append(n_cpus_filter(2)), select_y=y_selector)
 
