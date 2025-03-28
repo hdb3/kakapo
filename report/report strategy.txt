@@ -49,3 +49,30 @@ Strategies available for handling duplicate cells
 - take an average
 The report of duplicates should show the variation in the data.
 The report should also indicate if other values than the source data are variant in the sample set.
+
+==========================================================================
+
+plotting related data-sets
+--------------------------
+
+premise - a set of plots by group
+extension - several such sets, with the same dimensions, wanting to show super-imposed, subsequent plots, keeping the relation of colour to group, distinguishing subsequent plots by line style.
+
+data structure - baseline is [group][x]:value - extended is [set][group][x]:value.
+
+core solution - repeated plots with some reset or container to induce colour repetition?
+
+terminology
+  groups and sub-groups
+
+
+=========================================
+sorting
+plots require points sorted on x-coordinates
+plots require separate aligned vectors of 'x' and 'y' values.
+For datasets using dictionaries to correlate 'x' and 'y' values,  two strategies for unpacking and sorting before plotting are:
+1 - obtain the 'x' values (xs.keys()), sort, and then use sorted list to readout 'y' values.
+2 - readout 'x','y' from dict (xs.items()), sort on column 0.
+
+Startegy 2:
+sort = lambda xs : sorted((xs.items()),key=lambda (x,_):x)
