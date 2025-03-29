@@ -1,72 +1,12 @@
 #!/usr/bin/env python3
-import json
 import os
-from sys import argv
 from datetime import datetime
-from dt import string_to_datetime
-from logtext import parse_logtext
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import matplotlib.ticker as ticker
 from linestyle import linestyle_tuple
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from matplotlib.legend import Legend
-
-
-def process_summary(item):
-
-    logtext = parse_logtext("", item["UUID"], item["LOGTEXT"])
-    item |= logtext
-    time = string_to_datetime(item["time"])
-    item["time"] = time
-    del item["LOGTEXT"]
-    return item
-
-
-def process_json_list(jdata):
-    rval = []
-    ignore_count = 0
-    count = 0
-    for item in jdata:
-        if not isinstance(item, dict):
-            print(f"in got improper item, is not dict (object)")
-        elif not "type" in item:
-            print(f"in got improper item, has no type")
-        elif item["type"] == "summary":
-            rval.append(process_summary(item))
-        else:
-            ignore_count += 1
-        count += 1
-    return rval
-
-
-common_keys = ["type", "file_name", "LOGTEXT"]
-
-
-def report_summaries(sx):
-    keys = {}
-    print(f"got {len(sx)} items")
-    for s in sx:
-        for k, v in s.items():
-            if not k in common_keys:
-                if not k in keys:
-                    keys[k] = {}
-                if not v in keys[k]:
-                    keys[k][v] = 0
-                else:
-                    keys[k][v] += 1
-
-    for k, vx in keys.items():
-        if len(vx) < len(sx) and len(vx) > 1:
-
-            if len(vx) < 20:
-                print(f"key: {k} [", end="")
-                for v in vx:
-                    print(f'"{v}",', end="")
-                print(" ]")
-            else:
-                print(f"key: {k} (N={len(vx)})")
 
 
 def select_target(item):
@@ -278,19 +218,6 @@ def plot_groups(gxx, plot_text):
     plt.show()
 
 
-def handle_json_file_variants(fn):
-    try:
-        with open(fn, "r") as f:
-            jdata = json.load(f)
-            if isinstance(jdata, list):
-                return jdata
-            else:
-                print(f"Error JSON was not list in file {fn}")
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error loading JSON data from {fn}: {e}")
-        exit(1)
-
-
 def graph(summaries, opt, tags):
 
     # 'y' value projectors
@@ -349,25 +276,3 @@ def graph(summaries, opt, tags):
 
     group_data = group_select(summaries, filters=filters, select_x=select_x, select_subgroup=select_subgroup, select_group=select_group)
     plot_groups(project_y(group_data, select_y=y_selector, plan=plan), plot_text)
-
-
-def main():
-
-    fn = argv[1]
-
-    opt = ""
-    if len(argv) > 2:
-        opt = argv[2]
-
-    tags = ""
-    if len(argv) > 3:
-        tags = argv[3].split(",")
-
-    jdata = handle_json_file_variants(fn)
-    summaries = process_json_list(jdata)
-    report_summaries(summaries)
-    graph(summaries, opt, tags)
-
-
-if __name__ == "__main__":
-    main()
