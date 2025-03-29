@@ -25,13 +25,23 @@ def process_json_list(jdata):
 def handle_json_file_variants(fn):
     try:
         with open(fn, "r") as f:
-            jdata = json.load(f)
-            if isinstance(jdata, list):
-                return jdata
-            else:
-                print(f"Error JSON was not list in file {fn}")
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+            s = f.read()
+    except FileNotFoundError as e:
         print(f"Error loading JSON data from {fn}: {e}")
+
+    try:
+        jdata = json.loads(s)
+    except json.JSONDecodeError as e:
+        try:
+            jdata = json.loads("[" + s[:-2] + "]")
+        except json.JSONDecodeError:
+            print(f"Error loading JSON data from {fn}: {e}")
+            exit(1)
+
+    if isinstance(jdata, list):
+        return jdata
+    else:
+        print(f"Error JSON was not list in file {fn}")
         exit(1)
 
 
