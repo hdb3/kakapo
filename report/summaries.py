@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import json
 import os
 from sys import argv
@@ -277,30 +278,20 @@ def plot_groups(gxx, plot_text):
     plt.show()
 
 
-def main():
-
-    fn = argv[1]
-    opt = ""
-    if len(argv) > 2:
-        opt = argv[2]
-
-    tags = ""
-    if len(argv) > 3:
-        tags = argv[3].split(",")
-
+def handle_json_file_variants(fn):
     try:
         with open(fn, "r") as f:
             jdata = json.load(f)
             if isinstance(jdata, list):
-                summaries = process_json_list(jdata)
-                print(f"got {len(summaries)} summaries")
+                return jdata
             else:
                 print(f"Error JSON was not list in file {fn}")
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Error loading JSON data from {fn}: {e}")
         exit(1)
 
-    report_summaries(summaries)
+
+def graph(summaries, opt, tags):
 
     # 'y' value projectors
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
@@ -357,10 +348,25 @@ def main():
             print(f"*** UNKNOWN option'{opt}'")
 
     group_data = group_select(summaries, filters=filters, select_x=select_x, select_subgroup=select_subgroup, select_group=select_group)
-    # group_data = make_plot(summaries, filters=filters + [n_cpus_filter(16)], select_y=y_selector)
-    # group_data = make_plot(summaries, filters=filters.append(n_cpus_filter(2)), select_y=y_selector)
-
     plot_groups(project_y(group_data, select_y=y_selector, plan=plan), plot_text)
+
+
+def main():
+
+    fn = argv[1]
+
+    opt = ""
+    if len(argv) > 2:
+        opt = argv[2]
+
+    tags = ""
+    if len(argv) > 3:
+        tags = argv[3].split(",")
+
+    jdata = handle_json_file_variants(fn)
+    summaries = process_json_list(jdata)
+    report_summaries(summaries)
+    graph(summaries, opt, tags)
 
 
 if __name__ == "__main__":
