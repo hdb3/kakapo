@@ -29,6 +29,7 @@ extern char *BGP_EXIT_STATUS; // exit status for most bgp tests, e.g. rate test.
 extern FILE *tracefile;
 extern int pid;
 extern bool interrupted;
+extern bool txerror;
 extern int tflag;
 extern uint32_t PEERMAXRETRIES;
 extern uint32_t TCPPORT;

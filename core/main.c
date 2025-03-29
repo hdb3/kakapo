@@ -109,7 +109,8 @@ void startpeer(struct peer *p, char *s) {
   else
     port = p->port;
 
-  fprintf(stderr, "connecting from %s to %s:%u (%hd) (%hd)\n", inet_ntoa((struct in_addr){p->localip}), inet_ntoa((struct in_addr){p->remoteip}), htons(port), port, p->port);
+  fprintf(stderr, "connecting from %s to ", inet_ntoa((struct in_addr){p->localip})); // cannot use inet_ntoa() twice without consuming the result!
+  fprintf(stderr, "%s:%u (%hd) (%hd)\n", inet_ntoa((struct in_addr){p->remoteip}), htons(port), port, p->port);
 
   struct sockaddr_in peeraddr = {AF_INET, htons(port), (struct in_addr){p->remoteip}};
   struct sockaddr_in myaddr = {AF_INET, 0, (struct in_addr){p->localip}};
@@ -300,6 +301,8 @@ void json_log(FILE *f, char *test_name, struct timespec *now, double elapsed_tim
 
   fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
 
+  fprintf(f, "\"RATETIMELIMIT\":%d,", RATETIMELIMIT);
+
   fprintf(f, "\"single_rate\":%d,", single_rate);
 
   fprintf(f, "\"multi_rate\":%d,", multi_rate);
@@ -387,7 +390,9 @@ void json_log_start(FILE *f, int sender_count) {
 
 void json_log_exit(FILE *f, int signum) {
   struct timespec now;
-  const char *signame = sigabbrev_np(signum);
+  // older linux/libc does not support signal number-name lookup with sigabbrev_np()
+  // const char *signame = sigabbrev_np(signum);
+  const char *signame = "UNKNOWN";
   gettime(&now);
 
   fprintf(f, "{ ");
@@ -466,6 +471,7 @@ void disable_echo() {
 }
 
 bool interrupted = false;
+bool txerror = false;
 
 void handler(int signum) {
   BGP_EXIT_STATUS = "INTERRUPTED";
