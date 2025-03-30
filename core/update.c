@@ -17,8 +17,9 @@ struct bytestring updatehdr(uint16_t length) {
   return (struct bytestring){19, b};
 };
 
-char *update_buffered(char *buf, struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
+size_t update_buffered(char *buf, struct bytestring nlri, struct bytestring withdrawn, struct bytestring pathattributes) {
 
+  char *base_buf = buf;
   uint16_t payloadlength = nlri.length + withdrawn.length + pathattributes.length + 4;
 
   struct bytestring hdr = updatehdr(payloadlength);
@@ -33,7 +34,7 @@ char *update_buffered(char *buf, struct bytestring nlri, struct bytestring withd
   buf += 2;
   buf = mempcpy(buf, pathattributes.data, pathattributes.length);
   buf = mempcpy(buf, nlri.data, nlri.length);
-  return buf;
+  return buf - base_buf;
 };
 
 static char _buffer_for_update[65536];

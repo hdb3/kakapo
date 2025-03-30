@@ -332,9 +332,6 @@ uint32_t *usn_path(int tidx) {
   return aspathbuild((uint32_t)tidx, TEN7 + usn % TEN7, TEN7 + usn / TEN7, 0);
 }
 
-static void *_build_update_block_base = NULL;
-static void *_build_update_block_top = NULL;
-
 /*
 write buffer management
 
@@ -352,25 +349,20 @@ If it is not large enough already then the buffer is grown and the size value in
 */
 
 #define BUFFER_ALLOC_QUANTA (16 * 1024 * 1024)
-inline void buffer_extend(void **build_update_block_base, void **build_update_block_top, void *build_update_block_offset, uint16_t message_length) {
-  if (*build_update_block_base == NULL) {
-    *build_update_block_base = malloc(BUFFER_ALLOC_QUANTA);
-    *build_update_block_top = *build_update_block_base + BUFFER_ALLOC_QUANTA;
-  } else if (build_update_block_offset + message_length >= *build_update_block_top) {
-    *build_update_block_base = realloc(*build_update_block_base, BUFFER_ALLOC_QUANTA);
-    *build_update_block_top += BUFFER_ALLOC_QUANTA;
-  }
-}
+static void *_build_update_block_base = NULL;
+static size_t _build_update_block_size = 0;
 
 struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref, bool isEBGP) {
 
   assert(length <= TABLESIZE);
 
-  // one off buffer initialisation
-  if (_build_update_block_base == NULL)
-    buffer_extend(&_build_update_block_base, &_build_update_block_top, NULL, 0);
+  if (_build_update_block_base == NULL) {
+    _build_update_block_base = malloc(BUFFER_ALLOC_QUANTA);
+    assert(_build_update_block_base != NULL);
+    _build_update_block_size += BUFFER_ALLOC_QUANTA;
+  }
 
-  void *offset = _build_update_block_base;
+  size_t offset = 0;
 
   for (int i = 0; i < length; i++) {
     uint32_t *path = usn_path(peer_index);
@@ -379,12 +371,15 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
     struct bytestring path_bytes = isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path) : iBGPpath(localip, localpref + usn / TABLESIZE, path);
     uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
 
-    buffer_extend(&_build_update_block_base, &_build_update_block_top, offset, message_length);
-    offset = update_buffered(offset, nlri_bytes, empty, path_bytes);
+    if (offset + message_length >= _build_update_block_size) {
+      _build_update_block_size += BUFFER_ALLOC_QUANTA;
+      _build_update_block_base = realloc(_build_update_block_base, _build_update_block_size);
+      assert(_build_update_block_base != NULL);
+    }
+    offset += update_buffered(_build_update_block_base + offset, nlri_bytes, empty, path_bytes);
   };
 
-  size_t buflen = offset - _build_update_block_base;
-  return (struct bytestring){buflen, _build_update_block_base};
+  return (struct bytestring){offset, _build_update_block_base};
 };
 
 void send_update_block(int length, struct peer *p) {
