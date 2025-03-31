@@ -8,17 +8,26 @@ from summary import process_summary, report_summaries
 def process_json_list(jdata):
     rval = []
     ignore_count = 0
+    error_count = 0
     count = 0
     for item in jdata:
         if not isinstance(item, dict):
             print(f"in got improper item, is not dict (object)")
+            error_count += 1
         elif not "type" in item:
             print(f"in got improper item, has no type")
+            error_count += 1
         elif item["type"] == "summary":
-            rval.append(process_summary(item))
+            summary_item = process_summary(item)
+            if summary_item:
+                rval.append(summary_item)
+            else:
+                error_count += 1
         else:
             ignore_count += 1
         count += 1
+    if error_count:
+        print(f"process_json_list - {len(rval)} summaries returned, {count} items read, {ignore_count} non-summary, {error_count} errors")
     return rval
 
 

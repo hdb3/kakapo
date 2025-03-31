@@ -6,6 +6,9 @@ from logtext import parse_logtext
 
 def process_summary(item):
 
+    if "LOGTEXT" not in item or item["LOGTEXT"] == "":
+        print(f"bad item: {item}")
+        return None
     logtext = parse_logtext("", item["UUID"], item["LOGTEXT"])
     item |= logtext
     time = string_to_datetime(item["time"])
