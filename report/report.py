@@ -62,14 +62,22 @@ def main():
     if len(argv) > 2:
         opt = argv[2]
 
-    tags = ""
+    tags = []
+    targets = []
     if len(argv) > 3:
-        tags = argv[3].split(",")
+        for arg in argv[3:]:
+            match arg.split("="):
+                case [a] | ["tags", a]:
+                    tags = a.split(",")
+                case ["targets", a]:
+                    targets = a.split(",")
+                case _:
+                    print(f"'{arg}' not expected")
 
     jdata = handle_json_file_variants(fn)
     summaries = process_json_list(jdata)
     report_summaries(summaries)
-    graph(summaries, opt, tags)
+    graph(summaries, opt, tags, targets)
 
 
 if __name__ == "__main__":

@@ -222,7 +222,7 @@ def plot_groups(gxx, plot_text):
     plt.show()
 
 
-def graph(summaries, opt, tags):
+def graph(summaries, opt, tags, targets):
 
     # 'y' value projectors
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
@@ -240,8 +240,9 @@ def graph(summaries, opt, tags):
     filter_on_tags = lambda item: tags == "" or ("TAG" in item and item["TAG"] in tags)
     rtl = lambda item: int(item["RATETIMELIMIT"]) in [50, 100, 150, 200, 250]
     with_tags = lambda tags: lambda item: "TAG" in item and item["TAG"] in tags
+    default_target_filter = include_targets(targets) if targets else exclude_targets(["gobgpV2"])
 
-    filters = [recent, exclude_targets(["gobgpV2"]), has_ncpus, filter_on_tags]
+    filters = [recent, default_target_filter, has_ncpus, filter_on_tags]
 
     # defaults
     plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second", "group_title": "cycle duration", "subgroup_title": "target"}
