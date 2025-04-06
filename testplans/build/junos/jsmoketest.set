@@ -6,8 +6,8 @@ set interfaces vtnet1 unit 0 family inet address 172.18.0.13/24
 set routing-options autonomous-system 64504
 
 set protocols bgp group external-peers neighbor 172.18.0.19 peer-as 64505
-set protocols bgp group internal-peers neighbor 172.18.0.20 peer-as 64504
+set protocols bgp group internal-peers allow 172.18.0.0/24 peer-as 64504
 
-set policy-options policy-statement ps1 term t1 from protocol bgp
-set policy-options policy-statement ps1 term t1 then no-install-to-fib
-set routing-options forwarding-table default-export ps1
+set routing-options forwarding-table export no-install-bgp      
+set policy-options policy-statement no-install-bgp  term disable-bgp-install from protocol bgp
+set policy-options policy-statement no-install-bgp  term disable-bgp-install then reject
