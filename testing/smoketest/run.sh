@@ -99,7 +99,7 @@ set_command() {
 
     kakapo) COMMAND="${KAKAPO_ENV} $KAKAPO_BIN 172.18.0.13,172.18.0.19,64505 $PEERS" ;;
 
-    bgpd | bird | bird2 | gobgp | hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
+    bgpd | bird1 | bird2 | bird3 | gobgp | hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
     frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
@@ -126,7 +126,7 @@ kill9() {
 pkill() {
   case $1 in
     kakapo) : ;;
-    hbgp | bgpd | gobgp | bird2 | bird | frr)
+    hbgp | bgpd | gobgp | bird1 | bird2 | bird3 | bird | frr)
       docker kill $1 &>/dev/null
       docker rm $1 &>/dev/null
     ;;
