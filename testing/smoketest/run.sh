@@ -17,7 +17,7 @@ PSU_STATUS=$(get_psu_status)
 
 : "${TAG:=\"UNSET\"}"
 : "${N_PEERS:=1}"
-: "${RATETIME:=60}"
+: "${RATETIME:=20}"
 : "${WINDOW:=5000}"
 : "${TABLESIZE:=100000}"
 : "${REPEAT:=1}"

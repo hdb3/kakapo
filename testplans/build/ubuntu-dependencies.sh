@@ -30,7 +30,9 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   qemu-kvm
 if ! which docker > /dev/null
 then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io
+  curl -fsSL https://get.docker.com -o install-docker.sh
+  sudo sh install-docker.sh
+  # sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io
 fi
 
 if ! grep 2375 /usr/lib/systemd/system/docker.service > /dev/null
