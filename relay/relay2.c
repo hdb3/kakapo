@@ -25,7 +25,7 @@
 #define SOCKADDRSZ (sizeof(struct sockaddr_in))
 #define BUFSIZE (1024 * 1024 * 64)
 #define MINREAD 4096
-#define MAXPEERS 100
+#define MAXPEERS 1000
 #define MAXPENDING 2 // Max connection requests
 
 char VERSION[] = "2.0.0";
