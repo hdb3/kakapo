@@ -3,6 +3,7 @@ import json
 from sys import argv
 from graph import graph
 from summary import process_summary, report_summaries
+from pymongo import MongoClient
 
 
 def process_json_list(jdata):
@@ -28,6 +29,31 @@ def process_json_list(jdata):
         count += 1
     if error_count:
         print(f"process_json_list - {len(rval)} summaries returned, {count} items read, {ignore_count} non-summary, {error_count} errors")
+    return rval
+
+def process_mongo_list(mdata):
+    rval = []
+    ignore_count = 0
+    error_count = 0
+    count = 0
+    for item in mdata:
+        if not isinstance(item, dict):
+            print(f"in got improper item, is not dict (object)")
+            error_count += 1
+        elif not "type" in item:
+            print(f"in got improper item, has no type")
+            error_count += 1
+        elif item["type"] == "summary":
+            summary_item = process_summary(item)
+            if summary_item:
+                rval.append(summary_item)
+            else:
+                error_count += 1
+        else:
+            ignore_count += 1
+        count += 1
+    if error_count:
+        print(f"process_mongo_list - {len(rval)} summaries returned, {count} items read, {ignore_count} non-summary, {error_count} errors")
     return rval
 
 
@@ -64,6 +90,7 @@ def main():
 
     tags = []
     targets = []
+    host=""
     if len(argv) > 3:
         for arg in argv[3:]:
             match arg.split("="):
@@ -71,13 +98,21 @@ def main():
                     tags = a.split(",")
                 case ["targets", a]:
                     targets = a.split(",")
+                case ["host", s]:
+                    host = s
                 case _:
                     print(f"'{arg}' not expected")
-
-    jdata = handle_json_file_variants(fn)
-    summaries = process_json_list(jdata)
+    if fn=="mongo":
+        client = MongoClient()
+        db = client["kakapo"]
+        collection = db["raw"]
+        mdata=collection.find({"type":"summary"})
+        summaries = process_mongo_list(mdata)
+    else:
+        jdata = handle_json_file_variants(fn)
+        summaries = process_json_list(jdata)
     report_summaries(summaries)
-    graph(summaries, opt, tags, targets)
+    graph(summaries, opt, tags, targets,host)
 
 
 if __name__ == "__main__":
