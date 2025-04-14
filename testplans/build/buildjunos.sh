@@ -22,7 +22,7 @@ function build {
     shift 2
     intnet="--network network=default2,model=virtio"
     extnet="--network network=default1,model=virtio"
-    vmspec="--os-variant freebsd12.0 --memory 4096"
+    vmspec="--os-variant freebsd11.0 --memory 4096 --machine pc-i440fx-6.2"
     networks="$intnet"
     for i in $( seq 1 $netn ) 
         do networks="$networks $extnet"
