@@ -34,6 +34,7 @@ then
   curl -fsSL https://get.docker.com -o install-docker.sh
   sudo sh install-docker.sh
   # sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io
+  sudo usermod -aG docker $USER
 fi
 
 if ! grep 2375 /usr/lib/systemd/system/docker.service > /dev/null
@@ -44,4 +45,6 @@ then
   echo "alias docker='DOCKER_HOST=127.0.0.1 docker'" >> ~/.bash_aliases
   alias docker='DOCKER_HOST=127.0.0.1 docker'
 fi
+newgrp docker
 sudo usermod -a $USER -G libvirt
+newgrp libvirt

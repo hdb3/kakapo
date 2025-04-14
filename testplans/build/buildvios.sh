@@ -27,10 +27,11 @@ function build {
   sudo chown libvirt-qemu:kvm ${imagedir}/$vm.qcow2
   virt-install --quiet --noreboot --noautoconsole $vmspec --name $vm --import --disk ${imagedir}/$vm.qcow2 $networks
   $scriptd/vios.ex $vm $scriptd/ios/$vm.startup.cfg
-  virsh -q start $vm &>/dev/null || :
-  fping -q -r 100 $vm
-  cissh $vm <$scriptd/ios/nobanner.cfg
-  virsh destroy $vm &>/dev/null || :
+  # # following depends on the VM acquiring an address via DHCP...
+  # virsh -q start $vm &>/dev/null || :
+  # fping -q -r 100 $vm
+  # cissh $vm <$scriptd/ios/nobanner.cfg
+  # virsh destroy $vm &>/dev/null || :
 }
 
 imagedir=$HOME/vmimages
@@ -46,6 +47,7 @@ elif check_net "default1" && check_net "default2"; then
     echo "no config file for target $TARGET ("${scriptd}/ios/$TARGET.startup.cfg")"
   fi
 
+  echo "VIOS build complete"
   exit 0
   # build complete set is optional
 

@@ -1,0 +1,3 @@
+sudo apt install libnss-libvirt
+sudo sed -i -E '/^hosts:/ { /\<libvirt\>/! s/$/ libvirt/ }' /etc/nsswitch.conf
+sudo sed -i -E '/^hosts:/ { /\<libvirt_guest/\>/! s/$/ libvirt_guest/ }' /etc/nsswitch.conf
