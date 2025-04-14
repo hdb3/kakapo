@@ -6,6 +6,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   whois \
   git \
   tmux \
+  fping \
   openssh-server \
   build-essential \
   virt-manager \
