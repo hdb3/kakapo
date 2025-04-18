@@ -35,16 +35,16 @@ then
   sudo sh install-docker.sh
   # sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io
   sudo usermod -aG docker $USER
+  newgrp docker
 fi
 
-if ! grep 2375 /usr/lib/systemd/system/docker.service > /dev/null
-then
-  sudo sed -i -e '/^ExecStart/ s/$/ -H tcp:\/\/127.0.0.1:2375/' /usr/lib/systemd/system/docker.service
-  sudo systemctl daemon-reload
-  sudo systemctl restart docker
-  echo "alias docker='DOCKER_HOST=127.0.0.1 docker'" >> ~/.bash_aliases
-  alias docker='DOCKER_HOST=127.0.0.1 docker'
-fi
-newgrp docker
+# if ! grep 2375 /usr/lib/systemd/system/docker.service > /dev/null
+# then
+#   sudo sed -i -e '/^ExecStart/ s/$/ -H tcp:\/\/127.0.0.1:2375/' /usr/lib/systemd/system/docker.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart docker
+#   echo "alias docker='DOCKER_HOST=127.0.0.1 docker'" >> ~/.bash_aliases
+#   alias docker='DOCKER_HOST=127.0.0.1 docker'
+# fi
 sudo usermod -a $USER -G libvirt
 newgrp libvirt
