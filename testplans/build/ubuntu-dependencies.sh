@@ -1,6 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash -ex
+APTINSTALL="DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends"
 sudo apt update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+sudo $APTINSTALL \
   uuid-dev \
   net-tools \
   whois \
@@ -29,22 +30,19 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   dnsmasq-base \
   qemu-utils \
   qemu-kvm
-if ! which docker > /dev/null
-then
-  curl -fsSL https://get.docker.com -o install-docker.sh
-  sudo sh install-docker.sh
-  # sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io
-  sudo usermod -aG docker $USER
-  newgrp docker
-fi
-
-# if ! grep 2375 /usr/lib/systemd/system/docker.service > /dev/null
-# then
-#   sudo sed -i -e '/^ExecStart/ s/$/ -H tcp:\/\/127.0.0.1:2375/' /usr/lib/systemd/system/docker.service
-#   sudo systemctl daemon-reload
-#   sudo systemctl restart docker
-#   echo "alias docker='DOCKER_HOST=127.0.0.1 docker'" >> ~/.bash_aliases
-#   alias docker='DOCKER_HOST=127.0.0.1 docker'
-# fi
 sudo usermod -a $USER -G libvirt
-newgrp libvirt
+
+sudo $APTINSTALL ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" |
+  sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+sudo apt-get update
+sudo $APTINSTALL docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo usermod -aG docker $USER
+sg docker "docker --version"
+sg docker "docker run hello-world"
