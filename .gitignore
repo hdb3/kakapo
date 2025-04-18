@@ -3,6 +3,8 @@ core/kakapo
 core/logbuffer-test
 relay/relay
 relay/relay2
+setup
+vmsetup
 *.xxx
 *.log
 # Prerequisites
