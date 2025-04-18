@@ -8,6 +8,10 @@ groups:
 	for group in libvirt docker ; do sudo groupadd $group ; sudo usermod -a -G $group $USERNAME ; done
 	touch groups
 
+vmimages:
+	scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r 172.16.102.32:vrouter_images .
+	mv vrouter_images vmimages
+
 setup:
 	testplans/build/ubuntu-dependencies.sh && \
 	touch setup
