@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ex
 
 # single use script to define the libvirt network environment for BGP testing
 
