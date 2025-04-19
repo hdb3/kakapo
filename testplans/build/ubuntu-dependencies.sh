@@ -31,6 +31,7 @@ sudo $APTINSTALL \
   qemu-utils \
   qemu-kvm
 sudo usermod -a $USER -G libvirt
+echo 'uri_default = "qemu:///system"' > /etc/libvirt/libvirt.conf
 
 sudo $APTINSTALL ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
