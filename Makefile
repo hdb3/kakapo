@@ -10,7 +10,7 @@ vmimages:
 	mv vrouter_images vmimages
 
 setup:
-	testplans/build/ubuntu-dependencies.sh && \
+	testplans/build/ubuntu-dependencies.sh
 
 kagu:
 	cd kagu && sg docker ./image_build.sh
@@ -19,7 +19,7 @@ vmsetup:
 	testplans/build/bootstrap.sh && \
 	testplans/build/build-nets.sh create && \
 	testplans/build/buildjunos.sh jsmoketest && \
-	testplans/build/buildvios.sh csmoketest && \
+	testplans/build/buildvios.sh csmoketest
 
 core:
 	cd core && ./build.sh && ./install.sh
