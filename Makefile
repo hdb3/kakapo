@@ -4,8 +4,7 @@ SHELL := /bin/bash
 export LIBVIRT_DEFAULT_URI=qemu:///system
 
 
-all: setup core relay vmsetup
-#all: setup core relay vmsetup kagu
+all: setup core relay vmsetup kagu
 
 vmimages:
 	scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r 172.16.102.32:vrouter_images .

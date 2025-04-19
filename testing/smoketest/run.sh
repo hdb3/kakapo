@@ -21,7 +21,7 @@ PSU_STATUS=$(get_psu_status)
 : "${WINDOW:=5000}"
 : "${TABLESIZE:=100000}"
 : "${REPEAT:=1}"
-: "${DOCKER_NCPUS:=10}"
+: "${DOCKER_NCPUS:=8}"
 
 HOSTNAME=$(hostname)
 
