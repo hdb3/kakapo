@@ -16,10 +16,10 @@ kagu:
 	cd kagu && sg docker ./image_build.sh
 
 vmsetup:
-	testplans/build/bootstrap.sh && \
-	testplans/build/build-nets.sh create && \
-	testplans/build/buildjunos.sh jsmoketest && \
-	testplans/build/buildvios.sh csmoketest
+	sg libvirt testplans/build/bootstrap.sh
+	sg libvirt "testplans/build/build-nets.sh create"
+	sg libvirt "testplans/build/buildjunos.sh jsmoketest"
+	sg libvirt "testplans/build/buildvios.sh csmoketest"
 
 core:
 	cd core && ./build.sh && ./install.sh
