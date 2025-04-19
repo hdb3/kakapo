@@ -17,7 +17,7 @@ proc sendfile {fn} {
 
   ts "sending $fn "
   set fd [open $fn r]
-  set send_slow {10 .001}
+  set send_slow {1 .001}
 
   while {[gets $fd line] != -1} {
     send -s "$line\r"
