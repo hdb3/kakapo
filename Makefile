@@ -1,6 +1,8 @@
 .DEFAULT_GOAL := all
 .PHONY: kagu core relay vmsetup setup
 SHELL := /bin/bash
+export LIBVIRT_DEFAULT_URI=qemu:///system
+
 
 all: setup core relay vmsetup
 #all: setup core relay vmsetup kagu
