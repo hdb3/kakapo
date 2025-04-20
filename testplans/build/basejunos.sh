@@ -8,7 +8,7 @@ function base {
      vm=$1
      intnet="--network network=default2,model=virtio"
      extnet="--network network=default1,model=virtio"
-     vmspec="--os-variant freebsd12.0 --memory 2048"
+     vmspec="--os-variant freebsd12.0 --memory 2048 --cpu host"
      # vmspec="--os-variant freebsd12.0 --graphics none --memory 2048"
      networks="$intnet"
      if (( $# < 2 )) ; then netn=1 ; else netn=$2 ; fi
