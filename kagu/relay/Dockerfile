@@ -1,3 +1,2 @@
-FROM kakapo
-COPY run.sh /root
-ENTRYPOINT ["/bin/bash", "-e", "/root/run.sh"]
+FROM kakapo:latest
+ENTRYPOINT ["/usr/sbin/relay2"]

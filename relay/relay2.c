@@ -261,8 +261,9 @@ void run() {
     // for (n = 0; n < peer_count; p = &peer_table[n++]) {
     for (n = 0; n < peer_count; n++) {
       p = peer_table + n;
-      close(p->sock);
-      free(p->buf);
+      // // block early close of sockets to allow peer to terminate gracefully
+      // close(p->sock);
+      // free(p->buf);
       peer_report(p);
     };
     nfds = 0;
@@ -364,8 +365,12 @@ int main(int argc, char *argv[]) {
 
   if (argc == 2) {
     version(argv[1]);
-  } else if (argc == 3)
+  } else if (argc == 3) {
     server(argv[1], argv[2]);
-  else
+
+    // arbitrary delay to allow peer to terminate gracefully
+    sleep(3);
+    
+  } else
     die("expecting just one or two arguments");
 };
