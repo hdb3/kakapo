@@ -118,8 +118,10 @@ run_kakapo() {
       export ${envvar}
     fi
   done
-
-  KAKAPO_COMMAND="$DOCKER_RUN_BASE -it $ENVSTR --name kakapo kakapo 172.18.0.13,172.18.0.19,64505 $PEERS"
+  CURDIR="$(realpath $PWD)"
+  touch $CURDIR/kakapo.json
+  MAP_KAKAPO_JSON="--volume $CURDIR/kakapo.json:/kakapo.json"
+  KAKAPO_COMMAND="$DOCKER_RUN_BASE -it $ENVSTR $MAP_KAKAPO_JSON --name kakapo kakapo 172.18.0.13,172.18.0.19,64505 $PEERS"
   # echo "kakapo command is $KAKAPO_COMMAND"
   eval "$KAKAPO_COMMAND"
 }
