@@ -6,3 +6,8 @@ sudo apt-get install -y mongodb-org mongodb-mongosh
 sudo systemctl enable mongod.service --now
 sed -e '1 i \ [' -e '$ s/,$/\]/' < ../kakapo.json > tmp.json
 mongoimport --db db_x --collection coll_x --file tmp.json --jsonArray
+
+source activate
+pip install matplotlib pymongo
+./report.py mongo a
+
