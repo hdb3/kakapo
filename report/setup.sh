@@ -1,6 +1,6 @@
 if ! grep -q venv ~/.profile
 then echo 'install venv'
-sudo apt install pipx
+sudo apt -y install pipx
 python3 -m venv ~/.venv
 echo -e 'PATH=$HOME/.venv/bin:$PATH' >> ~/.profile
 export PATH=$HOME/.venv/bin:$PATH

@@ -31,7 +31,7 @@ set_docker_vars() {
     DOCKER_MEMORY="96g"
     DOCKER_NCPUS="16"
     ;;
-  "dell" | "xps9320" | "saturn")
+  "dell" | "xps9320" | "noble")
     DOCKER_MEMORY="16g"
     DOCKER_NCPUS="4"
     ;;
