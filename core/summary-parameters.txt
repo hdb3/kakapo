@@ -108,7 +108,7 @@ default: 0 (false?)
 ref: stats.c:163,178: in statsreport() called by stats.c:statsrunner() which updates screen with stats 1/second.
 
 
-WINDOW
+RATEWINDOW
 default: 1000
 ref: main.c:429,..
 Used as parameter(2) on calls to single_peer_rate_test(), multi_peer_rate_test(), landing in int rate_test(.., int window).
