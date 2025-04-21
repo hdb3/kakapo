@@ -18,7 +18,7 @@ PSU_STATUS=$(get_psu_status)
 : "${TAG:=\"UNSET\"}"
 : "${N_PEERS:=1}"
 : "${RATETIME:=20}"
-: "${WINDOW:=5000}"
+: "${RATEWINDOW:=5000}"
 : "${TABLESIZE:=100000}"
 : "${REPEAT:=1}"
 : "${DOCKER_NCPUS:=8}"
@@ -67,7 +67,7 @@ if [[ "$PROG" == "libvirt" ]]; then
   fi
 fi
 
-KVARS="TIMEOUT RATEBLOCKSIZE MAXBLOCKINGFACTOR REPEAT IDLETHR SEEDPREFIX CANARYSEED SEEDPREFIXLEN GROUPSIZE WINDOW TABLESIZE MAXBURSTCOUNT RATECOUNT RATETIMELIMIT PEERMAXRETRIES REPEATDELAY TCPPORT SHOWRATE HOLDTIME LOGFILE LOGPATH LOGTEXT SENDFILENAME MODE"
+KVARS="TIMEOUT RATEBLOCKSIZE MAXBLOCKINGFACTOR REPEAT IDLETHR SEEDPREFIX CANARYSEED SEEDPREFIXLEN GROUPSIZE RATEWINDOW TABLESIZE MAXBURSTCOUNT RATECOUNT RATETIMELIMIT PEERMAXRETRIES REPEATDELAY TCPPORT SHOWRATE HOLDTIME LOGFILE LOGPATH LOGTEXT SENDFILENAME MODE"
 
 CONTAINERS="kakapo bird1 bird2 bird3 relay gobgp hbgp frr bgpd"
 
@@ -82,7 +82,7 @@ SINGLE_LARGE="$DEFAULTS $LARGE_GROUPS MODE=SINGLEONLY"
 MULTI_SMALL="$DEFAULTS $SMALL_GROUPS MODE=MULTI"
 SINGLE_SMALL="$DEFAULTS $SMALL_GROUPS MODE=SINGLEONLY"
 SINGLE_TINY="$DEFAULTS $TINY_GROUPS MODE=SINGLEONLY"
-RATE="$DEFAULTS $SMALL_GROUPS WINDOW=$WINDOW RATETIMELIMIT=$RATETIME MODE=RATE"
+RATE="$DEFAULTS $SMALL_GROUPS RATEWINDOW=$RATEWINDOW RATETIMELIMIT=$RATETIME MODE=RATE"
 
 # most common variant, replace _SMALL with _LARGE,
 # and/or, change value of REPEAT,
@@ -100,15 +100,12 @@ else
 fi
 TESTING_DIR=$(realpath "$SCRIPT_DIR/..")
 KAKAPO_DIR=$(realpath "$TESTING_DIR/..")
-KAKAPO_BIN=${OVERRIDE:-"$PERFWRAPPER $KAKAPO_DIR/core/kakapo"}
-BIN_DIR="$TESTING_DIR/bin"
 
 for n in $(seq 20 $((N_PEERS + 19))); do
   PEERS="$PEERS 172.18.0.13,172.18.0.${n},64504"
 done
 
 set_docker_vars
-# echo "DOCKER_RUN is: \"$DOCKER_RUN\""
 
 run_kakapo() {
   eval "${KAKAPO_ENV}"
@@ -121,14 +118,14 @@ run_kakapo() {
     fi
   done
 
-  # for p in ${KAKAPO_ENV}; do
-  #   echo "p: ${p}"
-  # done
-  # echo "kakapo env is $KAKAPO_ENV"
-
   KAKAPO_COMMAND="$DOCKER_RUN_BASE -it $ENVSTR --name kakapo kakapo 172.18.0.13,172.18.0.19,64505 $PEERS"
-  echo "kakapo command is $KAKAPO_COMMAND"
+  # echo "kakapo command is $KAKAPO_COMMAND"
   eval "$KAKAPO_COMMAND"
+}
+
+docker_clean() {
+  docker kill $CONTAINERS &>/dev/null || :
+  docker rm $CONTAINERS &>/dev/null || :
 }
 
 set_command() {
@@ -164,11 +161,8 @@ else
   $SCRIPT_DIR/add_loopbacks.sh add lo $((N_PEERS + 1)) &>/dev/null
 fi
 
-docker kill $CONTAINERS &>/dev/null || :
-docker rm $CONTAINERS &>/dev/null || :
-
+docker_clean
 CMND=$(set_command $1)
-echo "target command is: \"$CMND\""
-# bash -c "${CMND}"
-# sleep 2.0
+bash -c "${CMND}"
 run_kakapo
+docker_clean
