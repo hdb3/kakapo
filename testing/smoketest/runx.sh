@@ -137,7 +137,7 @@ set_command() {
 
   frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
-  relay) COMMAND="$KAKAPO_DIR/relay/relay2 172.18.0.13 172.18.0.19" ;;
+  relay | relay2) COMMAND="$DOCKER_RUN --entrypoint=/usr/sbin/relay2 --name relay kakapo 172.18.0.13 172.18.0.19" ;;
 
   libvirt) COMMAND="echo \"check VM started...\"" ;;
 
