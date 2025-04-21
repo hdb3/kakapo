@@ -129,6 +129,16 @@ docker_clean() {
   docker rm $CONTAINERS &>/dev/null || :
 }
 
+docker_stop_wait() {
+  docker kill $1 &>/dev/null || :
+  docker rm $1 &>/dev/null || :
+  while docker container inspect --format '{{.ID}}' $1 &>/dev/null; do
+    echo -n '.'
+    sleep 1.0
+  done
+  echo "killed $1"
+}
+
 set_command() {
 
   local COMMAND
@@ -138,7 +148,7 @@ set_command() {
 
   frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
-  relay | relay2) COMMAND="$DOCKER_RUN --name relay relay 172.18.0.13 172.18.0.19" ;;
+  relay) COMMAND="$DOCKER_RUN --name relay relay 172.18.0.13 172.18.0.19" ;;
 
   libvirt) COMMAND="echo \"check VM started...\"" ;;
 
@@ -166,4 +176,5 @@ docker_clean
 CMND=$(set_command $1)
 bash -c "${CMND}"
 run_kakapo
+docker_stop_wait $1
 docker_clean

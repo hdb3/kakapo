@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := all
-.PHONY: kagu core relay vmsetup setup
+.PHONY: kagu core relay vmsetup setup prove_docker
 SHELL := /bin/bash
 export LIBVIRT_DEFAULT_URI=qemu:///system
 
@@ -27,3 +27,6 @@ core:
 
 relay:
 	cd relay && ./build.sh && ./install.sh
+
+prove_docker: kagu
+	for t in bird1 bird2 bird3 relay gobgp hbgp frr bgpd ; do testing/smoketest/runx.sh $$t ; done

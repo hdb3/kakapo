@@ -82,7 +82,10 @@ def handle_json_file_variants(fn):
 
 def main():
 
-    fn = argv[1]
+    if len(argv) > 1:
+        fn = argv[1]
+    else:
+        fn="mongo"
 
     opt = ""
     if len(argv) > 2:
