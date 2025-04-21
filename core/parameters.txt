@@ -127,7 +127,7 @@ Its used at socket level, e.g. in a call to setsocktimeout().
 Units unclear, I guess seconds?  I assume that it limits the time spent in a call to read().
 
 
-WINDOW
+RATEWINDOW
 default: 1000
 ref: main.c:429,..
 Used as parameter(2) on calls to single_peer_rate_test(), multi_peer_rate_test(), landing in int rate_test(.., int window).

@@ -228,7 +228,7 @@ def graph(summaries, opt, tags, targets,host):
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
 
     # group selectors
-    select_window = lambda item: item["WINDOW"]
+    select_window = lambda item: item["RATEWINDOW"]
 
     # define some useful filters
 
@@ -276,7 +276,7 @@ def graph(summaries, opt, tags, targets,host):
             plot_text["x_axis"] = "rate window size"
             # plot_text["logscalex"] = True
             plan = max
-            filters += [lambda item: item["WINDOW"] < 11]
+            filters += [lambda item: item["RATEWINDOW"] < 11]
         case "m" | "max":
             plan = max
         case "min":

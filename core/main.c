@@ -59,7 +59,7 @@ uint32_t PEERMAXRETRIES = -1; // -1 ~ retry forever
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3;
-uint32_t WINDOW = 1000;
+uint32_t RATEWINDOW = 1000;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3;
 uint32_t RATEBLOCKSIZE = 1000000;
@@ -297,7 +297,7 @@ void json_log(FILE *f, char *test_name, struct timespec *now, double elapsed_tim
 
   fprintf(f, "\"REPEAT\":%d,", REPEAT);
 
-  fprintf(f, "\"WINDOW\":%d,", WINDOW);
+  fprintf(f, "\"RATEWINDOW\":%d,", RATEWINDOW);
 
   fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
 
@@ -371,7 +371,7 @@ void json_log_start(FILE *f, int sender_count) {
 
   fprintf(f, "\"REPEAT\":%d,", REPEAT);
 
-  fprintf(f, "\"WINDOW\":%d,", WINDOW);
+  fprintf(f, "\"RATEWINDOW\":%d,", RATEWINDOW);
 
   fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
 
@@ -441,7 +441,7 @@ void summarise(char *test_name, double *r) {
     double rsd = sd / mean;
 
     fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
-    fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, WINDOW, RATECOUNT, single_rate, multi_rate);
+    fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, RATEWINDOW, RATECOUNT, single_rate, multi_rate);
     json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
   } else
     json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, *r, *r, *r, 0, single_rate, multi_rate);
@@ -517,7 +517,7 @@ int main(int argc, char *argv[]) {
   int loglocalcheck = access("kakapo.log", F_OK);
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
   if (-1 == loglocalcheck) // write a header line in an empty file
-    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT WINDOW RATECOUNT SINGLERATE MULTIRATE\n");
+    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT RATEWINDOW RATECOUNT SINGLERATE MULTIRATE\n");
   sigset_t set;
   uuid_t uuid;
   uuid_generate(uuid);
@@ -557,7 +557,7 @@ int main(int argc, char *argv[]) {
   gethostaddress("CANARYSEED", &CANARYSEED);
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
-  getuint32env("WINDOW", &WINDOW);
+  getuint32env("RATEWINDOW", &RATEWINDOW);
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
@@ -649,8 +649,8 @@ int main(int argc, char *argv[]) {
       results[i] = single_peer_burst_test(MAXBURSTCOUNT);
       keepalive_all();
     };
-    single_rate = single_peer_rate_test(RATECOUNT, WINDOW);
-    multi_rate = multi_peer_rate_test(RATECOUNT, WINDOW);
+    single_rate = single_peer_rate_test(RATECOUNT, RATEWINDOW);
+    multi_rate = multi_peer_rate_test(RATECOUNT, RATEWINDOW);
     summarise("PAM", results);
   } else if (0 == strcmp(MODE, "MULTI")) {
     conditioning_duration = conditioning();
@@ -678,21 +678,21 @@ int main(int argc, char *argv[]) {
     summarise("multi_peer_burst_test", results2);
   } else if (0 == strcmp(MODE, "RATE")) {
     fprintf(stderr, "rate test mode\n");
-    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", RATECOUNT, WINDOW);
+    fprintf(stderr, "MESSAGE COUNT %d  RATEWINDOW %d\n", RATECOUNT, RATEWINDOW);
     canary_all();
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
-    multi_rate = multi_peer_rate_test(RATECOUNT, WINDOW);
+    multi_rate = multi_peer_rate_test(RATECOUNT, RATEWINDOW);
     rate_summarise("multi_peer_rate_test");
   } else if (0 == strcmp(MODE, "SINGLERATE")) {
     fprintf(stderr, "single peer rate test mode\n");
-    fprintf(stderr, "MESSAGE COUNT %d  WINDOW %d\n", RATECOUNT, WINDOW);
+    fprintf(stderr, "MESSAGE COUNT %d  RATEWINDOW %d\n", RATECOUNT, RATEWINDOW);
     canary_all();
     conditioning_duration = conditioning();
     canary_all();
     sleep(1);
-    single_rate = single_peer_rate_test(RATECOUNT, WINDOW);
+    single_rate = single_peer_rate_test(RATECOUNT, RATEWINDOW);
     rate_summarise("single_peer_rate_test");
   } else if (0 == strcmp(MODE, "FUNCTEST")) {
     fprintf(stderr, "single peer functional test mode\n");
