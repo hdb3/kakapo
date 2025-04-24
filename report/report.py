@@ -31,6 +31,7 @@ def process_json_list(jdata):
         print(f"process_json_list - {len(rval)} summaries returned, {count} items read, {ignore_count} non-summary, {error_count} errors")
     return rval
 
+
 def process_mongo_list(mdata):
     rval = []
     ignore_count = 0
@@ -90,7 +91,7 @@ def main():
 
     tags = []
     targets = []
-    host=""
+    host = ""
     if len(argv) > 3:
         for arg in argv[3:]:
             match arg.split("="):
@@ -102,17 +103,17 @@ def main():
                     host = s
                 case _:
                     print(f"'{arg}' not expected")
-    if fn=="mongo":
+    if fn == "mongo":
         client = MongoClient()
         db = client["kakapo"]
         collection = db["raw"]
-        mdata=collection.find({"type":"summary"})
+        mdata = collection.find({"type": "summary"})
         summaries = process_mongo_list(mdata)
     else:
         jdata = handle_json_file_variants(fn)
         summaries = process_json_list(jdata)
     report_summaries(summaries)
-    graph(summaries, opt, tags, targets,host)
+    graph(summaries, opt, tags, targets, host)
 
 
 if __name__ == "__main__":
