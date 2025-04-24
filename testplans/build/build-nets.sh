@@ -7,9 +7,11 @@ scriptd=$(realpath $(dirname "$0"))
 if [[ "$1" == "create" ]]; then
 
   for net in default1 default2; do
-    virsh net-define $scriptd/$net.xml
-    virsh net-autostart $net
-    virsh net-start $net
+    if ! virsh net-uuid $net; then
+      virsh net-define $scriptd/$net.xml
+      virsh net-autostart $net
+      virsh net-start $net
+    fi
   done
   virsh net-list
 

@@ -3,6 +3,8 @@
 from dt import string_to_datetime
 from logtext import parse_logtext
 
+found_RATEWINDOW = False
+
 
 def process_summary(item):
 
@@ -14,6 +16,11 @@ def process_summary(item):
     time = string_to_datetime(item["time"])
     item["time"] = time
     del item["LOGTEXT"]
+    if "RATEWINDOW" in item:
+        item["WINDOW"] = item["RATEWINDOW"]
+        del item["RATEWINDOW"]
+        found_RATEWINDOW = True
+
     return item
 
 
@@ -43,3 +50,5 @@ def report_summaries(sx):
                 print(" ]")
             else:
                 print(f"key: {k} (N={len(vx)})")
+    if found_RATEWINDOW:
+        print("found and renamed RATEWINDOW to WINDOW")
