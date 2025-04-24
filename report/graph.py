@@ -222,7 +222,7 @@ def plot_groups(gxx, plot_text):
     plt.show()
 
 
-def graph(summaries, opt, tags, targets,host):
+def graph(summaries, opt, tags, targets, host):
 
     # 'y' value projectors
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
@@ -241,7 +241,7 @@ def graph(summaries, opt, tags, targets,host):
     rtl = lambda item: int(item["RATETIMELIMIT"]) in [50, 100, 150, 200, 250]
     with_tags = lambda tags: lambda item: "TAG" in item and item["TAG"] in tags
     default_target_filter = include_targets(targets) if targets else exclude_targets(["gobgpV2"])
-    host_filter = lambda s: lambda item: item["host"]==s
+    host_filter = lambda s: lambda item: item["host"] == s
 
     filters = [recent, default_target_filter, has_ncpus, filter_on_tags]
     if host:
