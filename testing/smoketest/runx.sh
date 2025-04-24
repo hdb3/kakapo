@@ -31,7 +31,7 @@ set_docker_vars() {
     DOCKER_MEMORY="96g"
     DOCKER_NCPUS="16"
     ;;
-  "dell" | "xps9320" | "saturn")
+  "dell" | "xps9320" | "noble")
     DOCKER_MEMORY="16g"
     DOCKER_NCPUS="4"
     ;;
@@ -118,8 +118,10 @@ run_kakapo() {
       export ${envvar}
     fi
   done
-
-  KAKAPO_COMMAND="$DOCKER_RUN_BASE -it $ENVSTR --name kakapo kakapo 172.18.0.13,172.18.0.19,64505 $PEERS"
+  CURDIR="$(realpath $PWD)"
+  touch $CURDIR/kakapo.json
+  MAP_KAKAPO_JSON="--volume $CURDIR/kakapo.json:/kakapo.json"
+  KAKAPO_COMMAND="$DOCKER_RUN_BASE -it $ENVSTR $MAP_KAKAPO_JSON --name kakapo kakapo 172.18.0.13,172.18.0.19,64505 $PEERS"
   # echo "kakapo command is $KAKAPO_COMMAND"
   eval "$KAKAPO_COMMAND"
 }
@@ -127,6 +129,16 @@ run_kakapo() {
 docker_clean() {
   docker kill $CONTAINERS &>/dev/null || :
   docker rm $CONTAINERS &>/dev/null || :
+}
+
+docker_stop_wait() {
+  docker kill $1 &>/dev/null || :
+  docker rm $1 &>/dev/null || :
+  while docker container inspect --format '{{.ID}}' $1 &>/dev/null; do
+    echo -n '.'
+    sleep 1.0
+  done
+  echo "killed $1"
 }
 
 set_command() {
@@ -138,7 +150,7 @@ set_command() {
 
   frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
 
-  relay | relay2) COMMAND="$DOCKER_RUN --name relay relay 172.18.0.13 172.18.0.19" ;;
+  relay) COMMAND="$DOCKER_RUN --name relay relay 172.18.0.13 172.18.0.19" ;;
 
   libvirt) COMMAND="echo \"check VM started...\"" ;;
 
@@ -166,4 +178,5 @@ docker_clean
 CMND=$(set_command $1)
 bash -c "${CMND}"
 run_kakapo
+docker_stop_wait $1
 docker_clean
