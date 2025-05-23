@@ -43,7 +43,7 @@ def report_summaries(sx):
     for k, vx in keys.items():
         if len(vx) < len(sx) and len(vx) > 1:
 
-            if len(vx) < 20:
+            if len(vx) < 20 or k == "TAG":
                 print(f"key: {k} [", end="")
                 for v in vx:
                     print(f'"{v}",', end="")

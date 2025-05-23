@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -148,6 +149,9 @@ def project_y(base, select_y=select_multi_rate, plan=tail):
                 vec_y.append(plan(yx))
             newbase[group][subgroup] = (vec_x, vec_y)
     print(f"*** {item_count} elements in plot (raw={raw_item_count}) (@project_y)")
+    if raw_item_count < 2:
+        print("can't plot less than two items")
+        sys.exit(1)
     return newbase
 
 

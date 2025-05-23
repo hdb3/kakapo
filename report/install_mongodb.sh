@@ -8,6 +8,6 @@ sed -e '1 i \ [' -e '$ s/,$/\]/' < ../kakapo.json > tmp.json
 mongoimport --db db_x --collection coll_x --file tmp.json --jsonArray
 
 source activate
-pip install matplotlib pymongo
+pip install matplotlib pymongo PyQt6
 ./report.py mongo a
 
