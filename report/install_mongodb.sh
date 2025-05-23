@@ -4,10 +4,11 @@ echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gp
 sudo apt-get update
 sudo apt-get install -y mongodb-org mongodb-mongosh
 sudo systemctl enable mongod.service --now
-sed -e '1 i \ [' -e '$ s/,$/\]/' < ../kakapo.json > tmp.json
-mongoimport --db db_x --collection coll_x --file tmp.json --jsonArray
 
-source activate
-pip install matplotlib pymongo PyQt6
-./report.py mongo a
+
+# # sample usage
+# sed -e '1 i \ [' -e '$ s/,$/\]/' < ../kakapo.json > tmp.json
+# mongoimport --db db_x --collection coll_x --file tmp.json --jsonArray
+# source activate
+# ./report.py mongo 
 

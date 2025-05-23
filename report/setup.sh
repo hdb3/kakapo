@@ -7,3 +7,7 @@ export PATH=$HOME/.venv/bin:$PATH
 else echo 'venv already installed'
 fi
 
+. ~/.venv/bin/activate
+pip install matplotlib pymongo PyQt6
+
+
