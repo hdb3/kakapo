@@ -44,6 +44,7 @@ extern uint32_t CANARYSEED;
 extern uint32_t SEEDPREFIX;
 extern uint32_t SEEDPREFIXLEN;
 extern uint32_t GROUPSIZE;
+extern uint32_t NOPACK;
 extern uint32_t RATEWINDOW;
 extern uint32_t TABLESIZE;
 extern uint32_t MAXBURSTCOUNT;

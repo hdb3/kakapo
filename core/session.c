@@ -366,11 +366,19 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
 
   for (int i = 0; i < length; i++) {
     uint32_t *path = usn_path(peer_index);
-
-    struct bytestring nlri_bytes = nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE);
     struct bytestring path_bytes = isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path) : iBGPpath(localip, localpref + usn / TABLESIZE, path);
-    uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
 
+    // struct bytestring nlri_bytes = nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE);
+
+    uint32_t start_ip = __bswap_32(SEEDPREFIX) + usn % TABLESIZE * GROUPSIZE * (1 << (32 - length));
+    struct bytestring nlri_bytes = nlricore(start_ip, SEEDPREFIXLEN, GROUPSIZE);
+
+    uint32_t next_ip = start_ip + (1 << (32 - length));
+
+    // if (NOPACK) {
+    //   granularity = 1;
+    // }
+    uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
     if (offset + message_length >= _build_update_block_size) {
       _build_update_block_size += BUFFER_ALLOC_QUANTA;
       _build_update_block_base = realloc(_build_update_block_base, _build_update_block_size);

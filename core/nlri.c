@@ -37,15 +37,59 @@ struct prefix *get_prefix_list(uint32_t ipstart, uint8_t length, int count, int 
   return prefix_list;
 };
 
+// struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
+
+//   uint8_t chunksize = 1 + (length + 7) / 8;
+//   int bufsize = chunksize * count;
+//   char *buf = nlribuffer;
+//   char *next = buf;
+//   uint32_t ip = __bswap_32(ipstart);
+//   uint32_t increment = 1 << (32 - length);
+//   ip += seq * count * increment; // generate sequence of NLRIs
+//   uint32_t x[2];
+//   uint8_t *lptr = 3 + (uint8_t *)x;
+//   uint32_t *addrptr = x + 1;
+//   *lptr = length;
+//   char *loc = 3 + (char *)x;
+//   int i;
+//   for (i = 0; i < count; i++) {
+//     *addrptr = __bswap_32(ip);
+//     memcpy(next, loc, chunksize);
+//     ip += increment;
+//     next += chunksize;
+//   };
+//   return (struct bytestring){bufsize, buf};
+// };
+
+/*
+for NOPACK we have to misdirect nlris() -
+Normally, nlris() writes int count=GROUPSIZE prefixes, using a start address calculated as:
+  __bswap_32(ipstart) + seq * count * increment;
+  now, we want to write single prefix nlri, with an offset calculated on the same basis.
+  Ideally, we would make nlris() more low level.
+  What we want is to tell it to write the set of prefixes, given just the actual start address rather than
+  allow it to alcualte the offset internally.
+  So, we call nlris(first prefix, number to copy).
+  The calculation of first prefix is done outside, i.e.
+   SEEDPREFIX + seq * GROUPSIZE * mask cardinality (32~1,24~256, etc), i.e. 1 << (32 - SEEDPREFIXLEN)
+
+
+
+
+*/
 struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
+  uint32_t ip = __bswap_32(ipstart) + seq * count * (1 << (32 - length));
+  return nlricore(ip, length, count);
+};
+
+struct bytestring nlricore(uint32_t ipstart, uint8_t length, int count) {
 
   uint8_t chunksize = 1 + (length + 7) / 8;
   int bufsize = chunksize * count;
   char *buf = nlribuffer;
   char *next = buf;
-  uint32_t ip = __bswap_32(ipstart);
+  uint32_t ip = ipstart;
   uint32_t increment = 1 << (32 - length);
-  ip += seq * count * increment; // generate sequence of NLRIs
   uint32_t x[2];
   uint8_t *lptr = 3 + (uint8_t *)x;
   uint32_t *addrptr = x + 1;

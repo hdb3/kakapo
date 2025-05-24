@@ -59,6 +59,7 @@ uint32_t PEERMAXRETRIES = -1; // -1 ~ retry forever
 uint32_t SHOWRATE = 0;
 uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3;
+uint32_t NOPACK = 0; // its a boolean, but there is no parse defined for booleans....
 uint32_t RATEWINDOW = 1000;
 uint32_t TABLESIZE = 10;
 uint32_t MAXBURSTCOUNT = 3;
@@ -299,6 +300,8 @@ void json_log(FILE *f, char *test_name, struct timespec *now, double elapsed_tim
 
   fprintf(f, "\"RATEWINDOW\":%d,", RATEWINDOW);
 
+  fprintf(f, "\"NOPACK\":%d,", NOPACK);
+
   fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
 
   fprintf(f, "\"RATETIMELIMIT\":%d,", RATETIMELIMIT);
@@ -372,6 +375,8 @@ void json_log_start(FILE *f, int sender_count) {
   fprintf(f, "\"REPEAT\":%d,", REPEAT);
 
   fprintf(f, "\"RATEWINDOW\":%d,", RATEWINDOW);
+
+  fprintf(f, "\"NOPACK\":%d,", NOPACK);
 
   fprintf(f, "\"RATECOUNT\":%d,", RATECOUNT);
 
@@ -558,6 +563,7 @@ int main(int argc, char *argv[]) {
   getuint32env("SEEDPREFIXLEN", &SEEDPREFIXLEN);
   getuint32env("GROUPSIZE", &GROUPSIZE);
   getuint32env("RATEWINDOW", &RATEWINDOW);
+  getuint32env("NOPACK", &NOPACK);
   getuint32env("TABLESIZE", &TABLESIZE);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
