@@ -348,6 +348,44 @@ one each cycle the current buffer parameter and calculated next message size is 
 If it is not large enough already then the buffer is grown and the size value increased.
 */
 
+// inlining nlri code
+
+static char nlribuffer[65535]; // over large, but withdraw can make BGP Update at large sizes
+                               // and busting the 4096 limit is allowed in some implmentations
+                               // so 2^16 is only safe value
+                               // NOTE: single thread only
+                               //       replaces a previous malloc based version
+
+static __inline struct bytestring nlricore(uint32_t ipstart, uint8_t length, int count) {
+
+  uint8_t chunksize = 1 + (length + 7) / 8;
+  int bufsize = chunksize * count;
+  char *buf = nlribuffer;
+  char *next = buf;
+  uint32_t ip = ipstart;
+  uint32_t increment = 1 << (32 - length);
+  uint32_t x[2];
+  uint8_t *lptr = 3 + (uint8_t *)x;
+  uint32_t *addrptr = x + 1;
+  *lptr = length;
+  char *loc = 3 + (char *)x;
+  int i;
+  for (i = 0; i < count; i++) {
+    *addrptr = __bswap_32(ip);
+    memcpy(next, loc, chunksize);
+    ip += increment;
+    next += chunksize;
+  };
+  return (struct bytestring){bufsize, buf};
+};
+
+static __inline struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
+  uint32_t ip = __bswap_32(ipstart) + seq * count * (1 << (32 - length));
+  return nlricore(ip, length, count);
+};
+
+  // end - inlining nlri code
+
 #define BUFFER_ALLOC_QUANTA (16 * 1024 * 1024)
 static void *_build_update_block_base = NULL;
 static size_t _build_update_block_size = 0;
@@ -363,28 +401,33 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   }
 
   size_t offset = 0;
+#define SEEDPREFIXBLOCKSIZE (1 << (32 - SEEDPREFIXLEN))
+  uint32_t granularity = GROUPSIZE;
+
+  if (NOPACK) {
+    granularity = 1;
+  }
+
+  // NB!!!! TABLESIZE is number of routes, not number of prefixes!!!!
 
   for (int i = 0; i < length; i++) {
     uint32_t *path = usn_path(peer_index);
     struct bytestring path_bytes = isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path) : iBGPpath(localip, localpref + usn / TABLESIZE, path);
 
-    // struct bytestring nlri_bytes = nlris(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE);
+    uint32_t start_ip = __bswap_32(SEEDPREFIX) + (usn % TABLESIZE) * GROUPSIZE * SEEDPREFIXBLOCKSIZE;
+    uint32_t next_ip = start_ip;
 
-    uint32_t start_ip = __bswap_32(SEEDPREFIX) + usn % TABLESIZE * GROUPSIZE * (1 << (32 - length));
-    struct bytestring nlri_bytes = nlricore(start_ip, SEEDPREFIXLEN, GROUPSIZE);
-
-    uint32_t next_ip = start_ip + (1 << (32 - length));
-
-    // if (NOPACK) {
-    //   granularity = 1;
-    // }
-    uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
-    if (offset + message_length >= _build_update_block_size) {
-      _build_update_block_size += BUFFER_ALLOC_QUANTA;
-      _build_update_block_base = realloc(_build_update_block_base, _build_update_block_size);
-      assert(_build_update_block_base != NULL);
+    for (int group = 0; group < GROUPSIZE; group += granularity) {
+      struct bytestring nlri_bytes = nlricore(next_ip, SEEDPREFIXLEN, granularity);
+      next_ip += SEEDPREFIXBLOCKSIZE * granularity;
+      uint16_t message_length = nlri_bytes.length + path_bytes.length + 4 + 19;
+      if (offset + message_length >= _build_update_block_size) {
+        _build_update_block_size += BUFFER_ALLOC_QUANTA;
+        _build_update_block_base = realloc(_build_update_block_base, _build_update_block_size);
+        assert(_build_update_block_base != NULL);
+      }
+      offset += update_buffered(_build_update_block_base + offset, nlri_bytes, empty, path_bytes);
     }
-    offset += update_buffered(_build_update_block_base + offset, nlri_bytes, empty, path_bytes);
   };
 
   return (struct bytestring){offset, _build_update_block_base};

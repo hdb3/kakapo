@@ -17,11 +17,11 @@ int cmp_prefix(struct prefix *pfxa, struct prefix *pfxb) {
   return (pfxa->ip == pfxb->ip) && (pfxa->length == pfxb->length);
 };
 
-static char nlribuffer[65535]; // over large, but withdraw can make BGP Update at large sizes
-                               // and busting the 4096 limit is allowed in some implmentations
-                               // so 2^16 is only safe value
-                               // NOTE: single thread only
-                               //       replaces a previous malloc based version
+// static char nlribuffer[65535]; // over large, but withdraw can make BGP Update at large sizes
+//                                // and busting the 4096 limit is allowed in some implmentations
+//                                // so 2^16 is only safe value
+//                                // NOTE: single thread only
+//                                //       replaces a previous malloc based version
 
 static struct prefix prefix_list[32768]; // over large to match the logic used to size nlribuffer
                                          // used as the return value when a prefix list is assembled by get_prefix_list
@@ -77,33 +77,33 @@ Normally, nlris() writes int count=GROUPSIZE prefixes, using a start address cal
 
 
 */
-struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
-  uint32_t ip = __bswap_32(ipstart) + seq * count * (1 << (32 - length));
-  return nlricore(ip, length, count);
-};
+// struct bytestring nlris(uint32_t ipstart, uint8_t length, int count, int seq) {
+//   uint32_t ip = __bswap_32(ipstart) + seq * count * (1 << (32 - length));
+//   return nlricore(ip, length, count);
+// };
 
-struct bytestring nlricore(uint32_t ipstart, uint8_t length, int count) {
+// struct bytestring nlricore(uint32_t ipstart, uint8_t length, int count) {
 
-  uint8_t chunksize = 1 + (length + 7) / 8;
-  int bufsize = chunksize * count;
-  char *buf = nlribuffer;
-  char *next = buf;
-  uint32_t ip = ipstart;
-  uint32_t increment = 1 << (32 - length);
-  uint32_t x[2];
-  uint8_t *lptr = 3 + (uint8_t *)x;
-  uint32_t *addrptr = x + 1;
-  *lptr = length;
-  char *loc = 3 + (char *)x;
-  int i;
-  for (i = 0; i < count; i++) {
-    *addrptr = __bswap_32(ip);
-    memcpy(next, loc, chunksize);
-    ip += increment;
-    next += chunksize;
-  };
-  return (struct bytestring){bufsize, buf};
-};
+//   uint8_t chunksize = 1 + (length + 7) / 8;
+//   int bufsize = chunksize * count;
+//   char *buf = nlribuffer;
+//   char *next = buf;
+//   uint32_t ip = ipstart;
+//   uint32_t increment = 1 << (32 - length);
+//   uint32_t x[2];
+//   uint8_t *lptr = 3 + (uint8_t *)x;
+//   uint32_t *addrptr = x + 1;
+//   *lptr = length;
+//   char *loc = 3 + (char *)x;
+//   int i;
+//   for (i = 0; i < count; i++) {
+//     *addrptr = __bswap_32(ip);
+//     memcpy(next, loc, chunksize);
+//     ip += increment;
+//     next += chunksize;
+//   };
+//   return (struct bytestring){bufsize, buf};
+// };
 
 struct prefix get_prefix_nlri(char *nlri) {
   uint8_t length = (uint8_t)*nlri;
