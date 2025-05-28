@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
-import json
 import yaml
 from sys import argv
 import sys
 from splitter import fsplit
+
+command = "runx.sh"
+
+
+def die(s):
+    print(s, file=sys.stderr)
+    exit(1)
+
+
+def say(s):
+    print(s, file=sys.stderr)
 
 
 def load_spec(fn):
@@ -11,22 +21,21 @@ def load_spec(fn):
         with open(fn, "r") as f:
             s = f.read()
     except FileNotFoundError as e:
-        print(f"Error loading JSON/yaml data from {fn}: {e}")
+        die(f"Error loading JSON/yaml data from {fn}: {e}")
 
     try:
         jdata = yaml.safe_load(s)
     except yaml.YAMLError as e:
-        print(f"Error loading JSON/yaml data from {fn}: {e}")
-        exit(1)
+        die(f"Error loading JSON/yaml data from {fn}: {e}")
     return jdata
 
 
 def read_spec(spec):
-    print(f"{yaml.dump(spec)}")
+    # print(f"{yaml.dump(spec)}")
     parameter_vector = []
     for k, v in spec["test"].items():
         values = fsplit(v)
-        print(f"{k}:{values}")
+        # print(f"{k}:{values}")
         parameter_vector.append((k, values))
     return parameter_vector
 
@@ -45,7 +54,8 @@ The wrapper/fold takes a list of [(label_name,label_values) ] and a list of stri
 def kernel(label_name, label_values, clist):
     nclist = []
     for label_value in label_values:
-        nclist.append(f"{label_name}={label_value} {clist}")
+        for c in clist:
+            nclist.append(f"{label_name}={label_value} {c}")
     return nclist
 
 
@@ -55,11 +65,11 @@ def folder(pvx, clist):
     else:
         (ln, lvx), ax = pvx[0], pvx[1:]
         clist = kernel(ln, lvx, clist)
-        return folder(lvx, clist)
+        return folder(ax, clist)
 
 
 def gen_commandline_set(v_n_px):
-    return folder(v_n_px, [""])
+    return folder(v_n_px, [command])
 
 
 def main():
@@ -68,8 +78,7 @@ def main():
         fn = argv[1]
         spec = load_spec(fn)
     else:
-        print("no file name given")
-        sys.exit(1)
+        die("no file name given")
 
     if "spec" in spec and spec["spec"] == "forest":
         v = read_spec(spec)
@@ -77,8 +86,7 @@ def main():
         for c in clist:
             print(c)
     else:
-        print("invalid file, no spec or invalid spec")
-        sys.exit(1)
+        die("invalid file, no spec or invalid spec")
 
 
 if __name__ == "__main__":

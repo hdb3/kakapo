@@ -1,0 +1,8 @@
+spec: forest
+name: test1
+test:
+  target: bird1, bird2, bird3
+  MODE: RATE
+  NOPACK: 0,1
+  N_PEERS: 1..10
+  # NX_PEERS: 5,10..30
