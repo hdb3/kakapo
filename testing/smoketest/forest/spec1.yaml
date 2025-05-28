@@ -1,0 +1,11 @@
+spec: forest
+name: test1
+repeat: 1
+test:
+  target: bird1, bird2, bird3, relay, gobgp, hbgp, frr, bgpd
+  MODE: RATE
+  # NOPACK: 0,1
+  N_PEERS: 1..10
+  TAG: BASELINE
+  # NX_PEERS: 5,10..30
+
