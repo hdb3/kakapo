@@ -5,4 +5,5 @@ test:
   MODE: RATE
   NOPACK: 0,1
   N_PEERS: 1..10
+  TAG: IGNORE
   # NX_PEERS: 5,10..30

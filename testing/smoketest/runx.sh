@@ -136,23 +136,23 @@ docker_clean() {
 }
 
 docker_stop_wait() {
-  docker kill $1 &>/dev/null || :
-  docker rm $1 &>/dev/null || :
-  while docker container inspect --format '{{.ID}}' $1 &>/dev/null; do
+  docker kill $PROG &>/dev/null || :
+  docker rm $PROG &>/dev/null || :
+  while docker container inspect --format '{{.ID}}' $PROG &>/dev/null; do
     echo -n '.'
     sleep 1.0
   done
-  echo "killed $1"
+  echo "killed $PROG"
 }
 
 set_command() {
 
   local COMMAND
-  case $1 in
+  case $PROG in
 
-  bgpd | bird1 | bird2 | bird3 | gobgp | hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
+  bgpd | bird1 | bird2 | bird3 | gobgp | hbgp) COMMAND="$DOCKER_RUN --volume ${CONFIG}:/config/bgpd.conf --name $PROG $PROG" ;;
 
-  frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $1 $1" ;;
+  frr) COMMAND="$DOCKER_RUN --env BGPLISTENADDR=172.18.0.13 --volume ${CONFIG}:/config/bgpd.conf --name $PROG $PROG" ;;
 
   relay) COMMAND="$DOCKER_RUN --name relay relay 172.18.0.13 172.18.0.19" ;;
 
@@ -161,7 +161,7 @@ set_command() {
   esac
 
   if [[ -z "${COMMAND}" ]]; then
-    echo "unknown daemon: $1"
+    echo "unknown daemon: $PROG"
     exit 1
   fi
 
@@ -170,7 +170,7 @@ set_command() {
 
 $TESTING_DIR/netns.sh del &>/dev/null || :
 
-if [[ "$1" == "libvirt" ]]; then
+if [[ "$PROG" == "libvirt" ]]; then
   $SCRIPT_DIR/add_loopbacks.sh del lo $((N_PEERS + 1)) &>/dev/null
   $SCRIPT_DIR/add_loopbacks.sh add virbr1 $((N_PEERS + 1)) &>/dev/null
 else
@@ -179,8 +179,8 @@ else
 fi
 
 docker_clean
-CMND=$(set_command $1)
+CMND=$(set_command $PROG)
 bash -c "${CMND}"
 run_kakapo
-docker_stop_wait $1
+docker_stop_wait $PROG
 docker_clean

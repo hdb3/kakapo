@@ -3,8 +3,11 @@ import yaml
 from sys import argv
 import sys
 from splitter import fsplit
+import tempfile
+import os
 
-command = "runx.sh"
+
+from pathlib import Path
 
 
 def die(s):
@@ -68,8 +71,16 @@ def folder(pvx, clist):
         return folder(ax, clist)
 
 
-def gen_commandline_set(v_n_px):
-    return folder(v_n_px, [command])
+def gen_commandline_set(v_n_px, name):
+    pd = Path(__file__).resolve().parent.parent
+    command = f"{pd}/runx.sh"  # assume that the script is in the parent dir and called runx.sh!
+    clist = folder(v_n_px, [command])
+    seq = 0
+    newclist = []
+    for c in clist:
+        newclist.append(f"SEQ={seq} SPEC={name} {c}")
+        seq += 1
+    return newclist
 
 
 def main():
@@ -80,13 +91,26 @@ def main():
     else:
         die("no file name given")
 
-    if "spec" in spec and spec["spec"] == "forest":
-        v = read_spec(spec)
-        clist = gen_commandline_set(v)
-        for c in clist:
-            print(c)
-    else:
+    if "spec" not in spec or spec["spec"] != "forest":
         die("invalid file, no spec or invalid spec")
+
+    if "name" in spec:
+        name = spec["name"]
+    else:
+        name = Path(fn).stem
+
+    v = read_spec(spec)
+    clist = gen_commandline_set(v, name)
+    # for c in clist:
+    #     print(c)
+
+    fd, file_name = tempfile.mkstemp(suffix=".sh", prefix="smoktest_")
+
+    with os.fdopen(fd, "w") as tmp_file:
+        for c in clist:
+            print(c, file=tmp_file)
+
+    print(f"wrote script to: {file_name}")
 
 
 if __name__ == "__main__":
