@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 import os
 import sys
-import json
-from datetime import datetime, date
+from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from linestyle import linestyle_tuple
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from matplotlib.legend import Legend
-import inspect
-
-
-def select_null(item):
-    return ""
 
 
 def select_target(item):
@@ -40,13 +34,6 @@ def select_sender_count(item):
     return int(item["sender_count"])
 
 
-def select_packed(item):
-    if "NOPACK" in item and item["NOPACK"] != 0:
-        return "UNPACKED"
-    else:
-        return "PACKED"
-
-
 # filters are true to allow / accept
 
 
@@ -54,95 +41,45 @@ def prefilter(item):
     return item["type"] == "summary" and "DOCKER_NCPUS" in item
 
 
-def debug_filter(px, filters):
-
-    print("Debug filter")
-
-    for fp in filters:
-        filter_name = fp.__name__
-        if filter_name == "<lambda>":
-            filter_source = inspect.getsource(fp).strip()
-            filter_name = filter_source.split()[0]
-        reject_count = 0
-        accept_count = 0
-        except_count = 0
-        for p in px:
-            try:
-                if fp(p):
-                    accept_count += 1
-                else:
-                    reject_count += 1
-            except KeyError:
-                print(f"KeyError in {p}")
-                except_count += 1
-        print(f"filter {filter_name} reject_count={reject_count} accept_count={accept_count} except_count={except_count}")
-
-    print("End - Debug filter")
-
-
-def main_filter(px, filters):
-
-    filter_map = {}
-    filter_rejections = {}
-
-    for fp in filters:
-        filter_name = fp.__name__
-        if filter_name == "<lambda>":
-            filter_source = inspect.getsource(fp).strip()
-            filter_name = filter_source.split()[0]
-        filter_map[filter_name] = fp
-        filter_rejections[filter_name] = 0
-
-    filter_output = []
-    total_count = len(px)
-    for p in px:
-        for fn, fp in filter_map.items():
-            try:
-                if fp(p):
-                    continue
-                else:
-                    filter_rejections[fn] += 1
-                    break
-            except KeyError:
-                print(f"KeyError in {p}")
-                filter_rejections[fn] += 1
-                break
-        else:
-            filter_output.append(p)
-
-    accept_count = len(filter_output)
-    reject_count = total_count - accept_count
-    print(f"*** rejected {reject_count}/{total_count}!!!")
-    # # debug level filter analysis
-    # for fn, count in filter_rejections.items():
-    #     print(f"filter {fn}:{count} ({inspect.getsource(filter_map[fn]).strip()})")
-    return filter_output
-
-
 def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=select_target, select_group=select_ncpus):
+
     base = {}
     group_set = set()
     subgroup_set = set()
     x_set = set()
-    filtered_items = main_filter(px, filters)
-    for p in filtered_items:
-        group = select_group(p)
-        subgroup = select_subgroup(p)
-        x = select_x(p)
-        x_set.add(x)
-        subgroup_set.add(subgroup)
-        group_set.add(group)
+    reject_count = 0
+    for p in px:
+        cond = True
+        for fp in filters:
+            try:
+                cond = cond and fp(p)
+            except KeyError:
+                print(f"KeyError in {p}")
+        if cond:
+            for fp in filters:
+                if fp(p):
+                    continue
+            group = select_group(p)
+            subgroup = select_subgroup(p)
+            x = select_x(p)
+            x_set.add(x)
+            subgroup_set.add(subgroup)
+            group_set.add(group)
 
-        if group not in base:
-            base[group] = {}
+            if group not in base:
+                base[group] = {}
 
-        if subgroup not in base[group]:
-            base[group][subgroup] = {}
+            if subgroup not in base[group]:
+                base[group][subgroup] = {}
 
-        if x not in base[group][subgroup]:
-            base[group][subgroup][x] = [p]
+            if x not in base[group][subgroup]:
+                base[group][subgroup][x] = [p]
+            else:
+                base[group][subgroup][x].append(p)
         else:
-            base[group][subgroup][x].append(p)
+            reject_count += 1
+
+    print(f"*** rejected {reject_count}/{len(px)} !!!")
 
     missing_cells = set()
     duplicate_cells = set()
@@ -189,12 +126,6 @@ def group_select(px, filters=[], select_x=select_sender_count, select_subgroup=s
 
 tail = lambda ax: ax[-1]
 average = lambda ax: sum(ax) / len(ax)
-average_int = lambda ax: round(average(ax))
-std_dev_sample = lambda ax: (sum([(x - (sum(ax) / len(ax))) ** 2 for x in ax]) / (len(ax) - 1)) ** 0.5 if len(ax) > 1 else 0
-average_with_sd = lambda ax: [average(ax), round(std_dev_sample(ax) / average(ax) * 100, 1)]
-average_with_sd_str = lambda ax: f"{average(ax)}, {round(std_dev_sample(ax)/average(ax)*100,1)}%"
-average_int_with_sd_str = lambda ax: f"{average_int(ax)}, {round(std_dev_sample(ax)/average(ax)*100,1)}%"
-full_data_analysis = lambda ax: f"{average_int_with_sd_str(ax)},{len(ax)}"
 
 
 def project_y(base, select_y=select_multi_rate, plan=tail):
@@ -295,13 +226,7 @@ def plot_groups(gxx, plot_text):
     plt.show()
 
 
-def datetime_serializer(obj):
-    if isinstance(obj, datetime) or isinstance(obj, date):
-        return obj.isoformat()
-    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
-
-
-def graph(summaries, opt, tags, targets, host, filepath="tmp.json"):
+def graph(summaries, opt, tags, targets, host):
 
     # 'y' value projectors
     select_conditioning_duration = lambda item: item["conditioning_duration"] / item["sender_count"]
@@ -322,7 +247,7 @@ def graph(summaries, opt, tags, targets, host, filepath="tmp.json"):
     default_target_filter = include_targets(targets) if targets else exclude_targets(["gobgpV2"])
     host_filter = lambda s: lambda item: item["host"] == s
 
-    filters = [recent, default_target_filter, filter_on_tags]
+    filters = [recent, default_target_filter, has_ncpus, filter_on_tags]
     if host:
         filters += host_filter(host)
 
@@ -366,27 +291,9 @@ def graph(summaries, opt, tags, targets, host, filepath="tmp.json"):
             plot_text["group_title"] = ""
 
         case "" | "tags":
-            select_group = select_null
-
-        case "t" | "table":
-            select_x = select_target
-            select_subgroup = select_packed
-            no_graphic = True
-            # plan=average_int_with_sd_str
-            # plan=average_int
-            plan = full_data_analysis
+            pass
         case _:
             print(f"*** UNKNOWN option'{opt}'")
 
-    # debug level filter analysis
-    debug_filter(summaries, filters)
-
     group_data = group_select(summaries, filters=filters, select_x=select_x, select_subgroup=select_subgroup, select_group=select_group)
-    projected_data = project_y(group_data, select_y=y_selector, plan=plan)
-    if no_graphic:
-        json_data = json.dumps(projected_data, default=datetime_serializer)
-        with open(filepath, "w", encoding="utf-8") as file:
-            file.write(json_data)
-        print(f"Successfully wrote to file: {filepath}")
-    else:
-        plot_groups(projected_data, plot_text)
+    plot_groups(project_y(group_data, select_y=y_selector, plan=plan), plot_text)
