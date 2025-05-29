@@ -104,11 +104,8 @@ def main():
                     targets = a.split(",")
                 case ["host", s]:
                     host = s
-                case ["file", fn_out]:
-                    pass
                 case _:
                     print(f"'{arg}' not expected")
-
     if fn == "mongo":
         client = MongoClient()
         db = client["kakapo"]
@@ -119,7 +116,7 @@ def main():
         jdata = handle_json_file_variants(fn)
         summaries = process_json_list(jdata)
     report_summaries(summaries)
-    graph(summaries, opt, tags, targets, host, filepath=fn_out)
+    graph(summaries, opt, tags, targets, host)
 
 
 if __name__ == "__main__":
