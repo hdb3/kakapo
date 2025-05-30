@@ -1,0 +1,11 @@
+spec: forest
+name: spec1a
+repeat: 1
+test:
+  target: bird1, bird2, bird3, relay, hbgp, frr, bgpd
+    # target: bird1, bird2, bird3, relay, gobgp, hbgp, frr, bgpd
+  MODE: RATE
+  TAG: BASELINEEXT
+  N_PEERS: 55,60..100
+    # N_PEERS: 5,10..50
+
