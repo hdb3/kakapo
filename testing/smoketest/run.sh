@@ -158,7 +158,7 @@ kill9 relay2
 
 if [[ -f "$CONFIG" ]]; then
   CMND=$(set_command $1)
-  # echo "command is: \"$CMND\""
+  echo "command is: \"$CMND\""
   PIDFILE=$(mktemp)
   bash -c "${CMND} & echo \$! > $PIDFILE"
   PID=$(<$PIDFILE)
