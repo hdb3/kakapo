@@ -1,0 +1,11 @@
+spec: forest
+name: spec1b
+repeat: 1
+test:
+  target: bird1, bird2, bird3, relay, hbgp, frr, bgpd
+    # target: bird1, bird2, bird3, relay, gobgp, hbgp, frr, bgpd
+  MODE: RATE
+  TAG: ZEUSBASELINE
+  N_PEERS: 5,10..200
+    # N_PEERS: 5,10..50
+

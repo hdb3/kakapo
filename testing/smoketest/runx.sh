@@ -27,9 +27,13 @@ HOSTNAME=$(hostname)
 
 set_docker_vars() {
   case "${HOSTNAME}" in
-  "alef01" | "jupiter" | "saturn")
+  "alef01" | "jupiter" | "saturn" | "statler" )
     DOCKER_MEMORY="96g"
     DOCKER_NCPUS="16"
+    ;;
+  "zeus" )
+    DOCKER_MEMORY="256g"
+    DOCKER_NCPUS="32"
     ;;
   "dell" | "xps9320" | "noble")
     DOCKER_MEMORY="16g"
