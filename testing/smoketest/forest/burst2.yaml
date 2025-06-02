@@ -1,0 +1,8 @@
+spec: forest
+name: burst2
+test:
+  target: bird1, bird2, bird3, frr, hbgp, bgpd, gobgp, relay
+  MODE: SINGLEONLY
+  REPEAT: "5"
+  # NOPACK: 0,1
+  TAG: BURST_A
