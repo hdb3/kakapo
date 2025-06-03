@@ -61,7 +61,16 @@ uint32_t SEEDPREFIXLEN = 30;
 uint32_t GROUPSIZE = 3;
 uint32_t NOPACK = 0; // its a boolean, but there is no parse defined for booleans....
 uint32_t RATEWINDOW = 1000;
-uint32_t TABLESIZE = 10;
+
+// only one of PATHCOUNT and PREFIXCOUNT should be set, it allows the load profile to be defined by one and calculate the other based on GROUPSIZE
+// This make sense for a series of tests varying group size when the objective is to fix the 'tablesize'.....
+// Otherwise, the orchestration has to do the job., i.e. fix GROUPSIZE*PATHCOUNT by varying both inversely
+
+uint32_t PATHCOUNT = UINT32_MAX;
+uint32_t PREFIXCOUNT = UINT32_MAX;
+//  TODO move defaults to kakapo.h, make most / all of these defined as default not magic numbers
+#define PREFIXCOUNT_DEFAULT 800000
+
 uint32_t MAXBURSTCOUNT = 3;
 uint32_t RATEBLOCKSIZE = 1000000;
 uint32_t RATECOUNT = UINT32_MAX;
@@ -290,7 +299,9 @@ void json_log(FILE *f, char *test_name, struct timespec *now, double elapsed_tim
 
   fprintf(f, "\"sd\":%f,", sd);
 
-  fprintf(f, "\"TABLESIZE\":%d,", TABLESIZE);
+  fprintf(f, "\"PATHCOUNT\":%d,", PATHCOUNT);
+
+  fprintf(f, "\"PREFIXCOUNT\":%d,", PREFIXCOUNT);
 
   fprintf(f, "\"GROUPSIZE\":%d,", GROUPSIZE);
 
@@ -366,7 +377,9 @@ void json_log_start(FILE *f, int sender_count) {
 
   fprintf(f, "\"sender_count\":%d,", sender_count);
 
-  fprintf(f, "\"TABLESIZE\":%d,", TABLESIZE);
+  fprintf(f, "\"PATHCOUNT\":%d,", PATHCOUNT);
+
+  fprintf(f, "\"PREFIXCOUNT\":%d,", PREFIXCOUNT);
 
   fprintf(f, "\"GROUPSIZE\":%d,", GROUPSIZE);
 
@@ -446,7 +459,7 @@ void summarise(char *test_name, double *r) {
     double rsd = sd / mean;
 
     fprintf(stderr, "%s mean=%f max=%f min=%f\n", test_name, mean, max, min);
-    fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, TABLESIZE, GROUPSIZE, MAXBURSTCOUNT, REPEAT, RATEWINDOW, RATECOUNT, single_rate, multi_rate);
+    fprintf(loglocal, "\"%s\" %s \"%s\" %d %f %f %f %f %f %d %d %d %d %d %d %d %d\n", LOGTEXT, test_name, showtime(&now), sender_count, conditioning_duration, mean, max, min, sd, PATHCOUNT, GROUPSIZE, MAXBURSTCOUNT, REPEAT, RATEWINDOW, RATECOUNT, single_rate, multi_rate);
     json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, mean, max, min, sd, single_rate, multi_rate);
   } else
     json_log(logjson, test_name, &now, elapsed_time, sender_count, conditioning_duration, *r, *r, *r, 0, single_rate, multi_rate);
@@ -522,7 +535,7 @@ int main(int argc, char *argv[]) {
   int loglocalcheck = access("kakapo.log", F_OK);
   0 != (loglocal = fopen("kakapo.log", "a")) || die("could not open loglocal file");
   if (-1 == loglocalcheck) // write a header line in an empty file
-    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV TABLESIZE GROUPSIZE MAXBURSTCOUNT REPEAT RATEWINDOW RATECOUNT SINGLERATE MULTIRATE\n");
+    fprintf(loglocal, "LOGTEXT TEST TIME SENDERS CONDITIONING MEAN MAX MIN STDDEV PATHCOUNT GROUPSIZE MAXBURSTCOUNT REPEAT RATEWINDOW RATECOUNT SINGLERATE MULTIRATE\n");
   sigset_t set;
   uuid_t uuid;
   uuid_generate(uuid);
@@ -564,7 +577,8 @@ int main(int argc, char *argv[]) {
   getuint32env("GROUPSIZE", &GROUPSIZE);
   getuint32env("RATEWINDOW", &RATEWINDOW);
   getuint32env("NOPACK", &NOPACK);
-  getuint32env("TABLESIZE", &TABLESIZE);
+  getuint32env("PATHCOUNT", &PATHCOUNT);
+  getuint32env("PREFIXCOUNT", &PREFIXCOUNT);
   getuint32env("MAXBURSTCOUNT", &MAXBURSTCOUNT);
   getuint32env("RATECOUNT", &RATECOUNT);
   getuint32env("RATETIMELIMIT", &RATETIMELIMIT);
@@ -583,6 +597,22 @@ int main(int argc, char *argv[]) {
   if ((RATETIMELIMIT == UINT32_MAX) && (RATECOUNT == UINT32_MAX)) {
     fprintf(stderr, "Neither RATETIMELIMIT nor RATECOUNT set, using RATETIMELIMIT = %d.\n", RATETIMELIMIT_DEFAULT);
     RATETIMELIMIT = RATETIMELIMIT_DEFAULT;
+  }
+
+  // TODO - make some of these invalid, rather than fixing up?
+  if ((PREFIXCOUNT == UINT32_MAX) && (PATHCOUNT == UINT32_MAX)) {
+    fprintf(stderr, "Neither PREFIXCOUNT nor PATHCOUNT set, using PREFIXCOUNT = %d.\n", PREFIXCOUNT_DEFAULT);
+    PATHCOUNT = PREFIXCOUNT_DEFAULT;
+  } else if ((PREFIXCOUNT != UINT32_MAX) && (PATHCOUNT != UINT32_MAX)) {
+    fprintf(stderr, "Both PREFIXCOUNT and PATHCOUNT set, using PREFIXCOUNT = %d.\n", PREFIXCOUNT_DEFAULT);
+    PREFIXCOUNT = PREFIXCOUNT_DEFAULT;
+    PATHCOUNT = PREFIXCOUNT / GROUPSIZE;
+  } else if ((PREFIXCOUNT == UINT32_MAX) && (PATHCOUNT != UINT32_MAX)) {
+    PATHCOUNT = PREFIXCOUNT / GROUPSIZE;
+  } else if ((PREFIXCOUNT != UINT32_MAX) && (PATHCOUNT == UINT32_MAX)) {
+    PREFIXCOUNT = PATHCOUNT * GROUPSIZE;
+  } else {
+    die("impossible");
   }
 
   int i;

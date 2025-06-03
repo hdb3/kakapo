@@ -1,0 +1,59 @@
+Smoketest produces test results for most kakapo driven experiments.
+Smoke test is the orchestration system for running kakapo and a selected BGP speaker in approptaiely configured network environment.
+For most targets, and for the kakapo test tool, Docker is used to stop and start the active elements.
+
+WHy Docker?
+
+Docker allows the `recipe' for building BGP target systems to be well defined and provide reproducible results; it separates the target preparation from the test execution, and makes it easy to add addtional test targets,or versions of existing targets.
+In some cases, targets may have specific OS or library dependencies, even conflicting with others.  And, some targets may be more easily created using OS packaes than by build from source.
+
+However, The primary advantage of Docker is that it ensures consistency and reproducibility between test runs on a test host, and consistency over time and between host systems.
+It also allows versions of test targets to be substituted with confidence as to what version is in use.
+It also ensures that test instances can be cleanly stopped, with confidence that all processes and associated state have been cleared down before new test cycle begins.
+Finally,it provides a mechanism forlimiting host resources - memeory and CPU core count, in order to evaulate impact of host resource limits on performance.
+
+Typically,the concrete actions in an invocation of smoketest are:
+- configure layer 3 networks - IP host addresses for the BGP speakers that will be run later
+- define environment variables that will be consumed by kakapo, as test controlt parameters
+- construct the docker command line parameters needed to configure the BGP speaker-under-test, in particular to define the path to the configuration file.
+- start the system under test, as a privileged Docker container
+- start the kakapo test agent, aslo as a privileged Docker container
+- await the eixt of the kakapo test container
+- close down the test target
+
+In general, the smoketest is run in a nested loop which executes a single smoketest run for a range of parameters.
+
+This creates the need for another layer of orchestration, one which defines sets of experimental parameters, each of which in combination defines the set of invocations of smoketest which are required for the entire experiment.
+
+This orchestration layer, 'forest', is driven by a specification of a test in terms of each of the experimental control parameters to be applied.
+For each parameter, the range of values is required - it can be a list, or some other sequence, e.g., bash `seq' semantics.
+Most parameters are inputs to the kakapo tool, i.e. exported as environment values.
+Other parameters are explictly known:
+target - the name of the system under test.  In general, a docker container, but may also be a VM name.
+docker resource limits - resource parameters for the target docker run command.
+Although the non-kakapo specific parameters are disctinct in semantics, the current version of smoketest 'hides' the distinction, except that, for target only, current smoketest reads it from $1 rather than an environment variable.
+
+The purpose of forest is to formalise the set of canonical tests, and make the subsequent analysis simpler.
+Using forest allows the same experiment to be run on different hosts, or repeated.
+The main innovation of forest is to introduce a new 'RUN' variable, rather like 'TAG'.  Run is intended to allow all data from a single run to be examined quickly in isolation.
+It should be unique on any single host, so that a report can be called simply by naming the test name and a run number, and a host name for disambiguation.
+The test name shall be used as the TAG.
+
+In the first instance,`forest' simply writes  a series of smoketest invocations.
+
+Smoketest shall use JSON, and the JSON shall be written in the log file as a special record, with the run number, the hostname and the name of the test, taken from the test specification name by removing the file name suffix.
+
+For every parameter name in a forest file, the corresponding environment values will be set, otherwise, nothing is done.  There are no defaults - smoketest already has plenty.
+Overriding a default requires only to name it with a single value in forest.
+
+Here is an example of a forest intent:
+
+targets: bird1, bird2, bird3
+MODE: RATE
+NOPACK: 0,1
+N_PEERS:1-10
+
+
+Here is an example of a forest JSON specification:
+
+

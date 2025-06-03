@@ -384,7 +384,7 @@ static __inline struct bytestring nlris(uint32_t ipstart, uint8_t length, int co
   return nlricore(ip, length, count);
 };
 
-  // end - inlining nlri code
+// end - inlining nlri code
 
 #define BUFFER_ALLOC_QUANTA (16 * 1024 * 1024)
 static void *_build_update_block_base = NULL;
@@ -392,7 +392,10 @@ static size_t _build_update_block_size = 0;
 
 struct bytestring build_update_block(int peer_index, int length, uint32_t localip, uint32_t localpref, bool isEBGP) {
 
-  assert(length <= TABLESIZE);
+  // if (!length <= PATHCOUNT) {
+  //   fprintf(stderr, "assert failure: length=%d <= PATHCOUNT=%d\n", length, PATHCOUNT);
+  // }
+  assert(length <= PATHCOUNT);
 
   if (_build_update_block_base == NULL) {
     _build_update_block_base = malloc(BUFFER_ALLOC_QUANTA);
@@ -409,12 +412,13 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
   }
 
   // NB!!!! TABLESIZE is number of routes, not number of prefixes!!!!
+  // NB (2025) TABLESIZE deprecated, use PATHCOUNT and/or PREFIXCOUNT
 
   for (int i = 0; i < length; i++) {
     uint32_t *path = usn_path(peer_index);
-    struct bytestring path_bytes = isEBGP ? eBGPpath(localip, localpref + usn / TABLESIZE, path) : iBGPpath(localip, localpref + usn / TABLESIZE, path);
+    struct bytestring path_bytes = isEBGP ? eBGPpath(localip, localpref + usn / PATHCOUNT, path) : iBGPpath(localip, localpref + usn / PATHCOUNT, path);
 
-    uint32_t start_ip = __bswap_32(SEEDPREFIX) + (usn % TABLESIZE) * GROUPSIZE * SEEDPREFIXBLOCKSIZE;
+    uint32_t start_ip = __bswap_32(SEEDPREFIX) + (usn % PATHCOUNT) * GROUPSIZE * SEEDPREFIXBLOCKSIZE;
     uint32_t next_ip = start_ip;
 
     for (int group = 0; group < GROUPSIZE; group += granularity) {
@@ -435,8 +439,8 @@ struct bytestring build_update_block(int peer_index, int length, uint32_t locali
 
 void send_update_block(int length, struct peer *p) {
   bool isEBGP = (p->as != p->remoteas);
-  uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / TABLESIZE);
-  struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? TABLESIZE : length), p->localip, localpref, isEBGP);
+  uint32_t localpref = ((0 == length) ? ((0 == usn) ? 100 : 99) : 101 + usn / PATHCOUNT);
+  struct bytestring updates = build_update_block(p->tidx, ((0 == length) ? PATHCOUNT : length), p->localip, localpref, isEBGP);
   __send(p, updates.data, updates.length);
 };
 
@@ -720,7 +724,7 @@ void conditioning_single_peer(struct peer *target) {
   struct rx_data *rxd = rx_start(target, listener);
   gettime(&ts);
   fprintf(stderr, "conditioning:          %s\n", show_peer(target));
-  send_update_block(TABLESIZE, target);
+  send_update_block(PATHCOUNT, target);
   send_eor(target);
   rx_end(rxd);
   fprintf(stderr, "conditioning complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
@@ -1084,7 +1088,7 @@ void func_test(uint32_t nsenders, uint32_t count) {
   fprintf(stderr, "func_test start, % d sending peers\n", nsenders);
   sender = senders;
   while (lb.received < count) {
-    next_prefix = get_prefix_list(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % TABLESIZE);
+    next_prefix = get_prefix_list(SEEDPREFIX, SEEDPREFIXLEN, GROUPSIZE, usn % PATHCOUNT);
     send_update_block(1, sender++);
     lb.sent++;
     if (sender = senders + nsenders)
