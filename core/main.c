@@ -72,7 +72,7 @@ uint32_t PREFIXCOUNT = UINT32_MAX;
 #define PREFIXCOUNT_DEFAULT 800000
 
 uint32_t MAXBURSTCOUNT = 3;
-uint32_t RATEBLOCKSIZE = 1000000;
+uint32_t RATEBLOCKSIZE = 1000000;   // reporting interval in rate measurements
 uint32_t RATECOUNT = UINT32_MAX;
 uint32_t RATETIMELIMIT = UINT32_MAX;
 // if neither RATETIMELIMIT nor RATECOUNT set then a default is used for RATETIMELIMIT
