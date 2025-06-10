@@ -72,7 +72,7 @@ uint32_t PREFIXCOUNT = UINT32_MAX;
 #define PREFIXCOUNT_DEFAULT 800000
 
 uint32_t MAXBURSTCOUNT = 3;
-uint32_t RATEBLOCKSIZE = 1000000;   // reporting interval in rate measurements
+uint32_t RATEBLOCKSIZE = 1000000; // reporting interval in rate measurements
 uint32_t RATECOUNT = UINT32_MAX;
 uint32_t RATETIMELIMIT = UINT32_MAX;
 // if neither RATETIMELIMIT nor RATECOUNT set then a default is used for RATETIMELIMIT
@@ -327,6 +327,8 @@ void json_log(FILE *f, char *test_name, struct timespec *now, double elapsed_tim
 
   fprintf(f, "\"HOSTNAME\":\"%s\",", HOSTNAME);
 
+  fprintf(f, "\"MODE\":\"%s\",", MODE);
+
   fprintf(f, "\"UUID\":\"%s\",", UUID);
 
   fprintf(f, "\"exit_status\":\"%s\"", BGP_EXIT_STATUS);
@@ -398,6 +400,8 @@ void json_log_start(FILE *f, int sender_count) {
   fprintf(f, "\"VERSION\":\"%s\",", VERSION);
 
   fprintf(f, "\"HOSTNAME\":\"%s\",", HOSTNAME);
+
+  fprintf(f, "\"MODE\":\"%s\",", MODE);
 
   fprintf(f, "\"UUID\":\"%s\"", UUID);
 
