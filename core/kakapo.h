@@ -140,3 +140,4 @@ struct rate_test_data {
 };
 
 void log_rate_test_data(struct rate_test_data *log_data);
+void log_conditioning_data(double tx, double rx);

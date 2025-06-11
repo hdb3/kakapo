@@ -363,6 +363,29 @@ void log_rate_test_data(struct rate_test_data *log_data) {
   json_log_rate(logjson, log_data);
 }
 
+// Note - use UUID to correlate, aggregate and identify these log types
+void json_log_conditioning(FILE *f, double tx, double rx) {
+  fprintf(f, "{ ");
+
+  fprintf(f, "\"type\":\"conditioning\",");
+
+  fprintf(f, "\"UUID\":\"%s\",", UUID);
+
+  fprintf(f, "\"time\":\"%s\",", shownow_prec(9));
+
+  fprintf(f, "\"transmit_duration\":%f,", tx);
+
+  fprintf(f, "\"receive_duration\":%f,", rx);
+
+  fprintf(f, "},\n");
+
+  fflush(f);
+};
+
+void log_conditioning_data(double tx, double rx)  {
+  json_log_conditioning(logjson, tx, rx);
+}
+
 void json_log_start(FILE *f, int sender_count) {
   struct timespec now;
   gettime(&now);

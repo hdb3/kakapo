@@ -72,8 +72,10 @@ void _send(struct peer *p, const void *buf, size_t count) {
   txwait(p->sock);
 };
 
-void send_from_file(struct peer *p, char *fname) {
+double send_from_file(struct peer *p, char *fname) {
+  struct timespec tx_start, tx_end;
   struct stat statbuf;
+
   if (p->sendFlag != 0)
     die("send flag reentry fail");
   else
@@ -87,6 +89,7 @@ void send_from_file(struct peer *p, char *fname) {
   long to_send = statbuf.st_size;
   long sent = 0;
   fprintf(stderr, "opened %s, filesize is %ld\n", fname, to_send);
+  gettime(&tx_start);
   while (to_send > 0) {
     sent = sendfile(p->sock, fd, 0, to_send);
     if (-1 == sent)
@@ -96,6 +99,12 @@ void send_from_file(struct peer *p, char *fname) {
   };
   assert(0 == to_send);
   p->sendFlag = 0;
+
+  txwait(senders->sock);
+  gettime(&tx_end);
+  double tx_elapsed = timespec_to_double(timespec_sub(tx_end, tx_start));
+  fprintf(stderr, "send file transmit %f\n", tx_elapsed);
+  return tx_elapsed;
 };
 
 unsigned char notification[21] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 21, 3, 0, 0};
@@ -710,24 +719,24 @@ void rx_end(struct rx_data *rxd) {
 };
 
 void sendfile_single_peer(struct peer *target, char *fname) {
-  struct timespec ts;
-
   struct rx_data *rxd = rx_start(target, listener);
-  gettime(&ts);
   send_from_file(target, fname);
   rx_end(rxd);
 };
 
 void conditioning_single_peer(struct peer *target) {
-  struct timespec ts;
-
+  struct timespec ts0, ts1;
   struct rx_data *rxd = rx_start(target, listener);
-  gettime(&ts);
+
+  gettime(&ts0);
   fprintf(stderr, "conditioning:          %s\n", show_peer(target));
   send_update_block(PATHCOUNT, target);
   send_eor(target);
+  gettime(&ts1); // send_eor does tx_wait, so safe to use this time interval for transmit duration
+  double tx_elapsed = timespec_to_double(timespec_sub(ts1, ts0));
   rx_end(rxd);
-  fprintf(stderr, "conditioning complete: %s  elapsed time %s\n", show_peer(target), showdeltats(ts));
+  // fprintf(stderr, "transmit %f\n", tx_elapsed);
+  fprintf(stderr, "conditioning complete: %s  elapsed time %s, tx duration %f\n", show_peer(target), showdeltats(ts0), tx_elapsed);
 };
 
 void keepalive_all() {
