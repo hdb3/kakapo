@@ -738,7 +738,7 @@ void conditioning_single_peer(struct peer *target) {
   double tx_elapsed = timespec_to_double(timespec_sub(ts1, ts0));
   double rx_elapsed = timespec_to_double(timespec_sub(ts2, ts1));
 
-  fprintf(stderr, "conditioning complete: %s  elapsed time %s, tx duration %f, tx duration %f\n", show_peer(target), showdeltats(ts0), tx_elapsed, rx_elapsed);
+  fprintf(stderr, "conditioning complete: %s  elapsed time %s, tx duration %f, rx duration %f\n", show_peer(target), showdeltats(ts0), tx_elapsed, rx_elapsed);
   log_conditioning_data(tx_elapsed, rx_elapsed);
 };
 
