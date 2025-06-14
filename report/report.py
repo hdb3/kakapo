@@ -95,10 +95,11 @@ def main():
     tags = []
     targets = []
     host = ""
+    fn_out = ""
     if len(argv) > 3:
         for arg in argv[3:]:
             match arg.split("="):
-                case [a] | ["tags", a]:
+                case [a] | ["tag", a] | ["tags", a]:
                     tags = a.split(",")
                 case ["targets", a]:
                     targets = a.split(",")
@@ -119,7 +120,11 @@ def main():
         jdata = handle_json_file_variants(fn)
         summaries = process_json_list(jdata)
     report_summaries(summaries)
-    graph(summaries, opt, tags, targets, host, filepath=fn_out)
+    if opt == "dump":
+        with open("summaries.json", "w") as f:
+            json.dump(summaries, f, default=str)
+    else:
+        graph(summaries, opt, tags, targets, host, filepath=fn_out)
 
 
 if __name__ == "__main__":

@@ -365,8 +365,13 @@ def graph(summaries, opt, tags, targets, host, filepath="tmp.json"):
             select_group = select_tags
             plot_text["group_title"] = ""
 
-        case "" | "tags":
+        case "" | "tag" | "tags":
             select_group = select_null
+
+        case "ng":
+            select_group = select_null
+            select_x = select_target
+            no_graphic = True
 
         case "t" | "table":
             select_x = select_target
