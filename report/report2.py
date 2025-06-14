@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
-import os
-import sys
 from sys import argv
 import json
 from pymongo import MongoClient
-from datetime import datetime, date
-import matplotlib.colors as mcolors
-from matplotlib.lines import Line2D
-from matplotlib.legend import Legend
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import inspect
+from datetime import datetime
 import views
+import filters
 
 """
  from linestyle.py
@@ -149,71 +142,6 @@ def report_summaries(sx):
         print("found and renamed RATEWINDOW to WINDOW")
 
 
-def debug_filter(px, filters):
-
-    print("Debug filter")
-
-    for fp in filters:
-        filter_name = fp.__name__
-        if filter_name == "<lambda>":
-            filter_source = inspect.getsource(fp).strip()
-            filter_name = filter_source.split()[0]
-        reject_count = 0
-        accept_count = 0
-        except_count = 0
-        for p in px:
-            try:
-                if fp(p):
-                    accept_count += 1
-                else:
-                    reject_count += 1
-            except KeyError:
-                print(f"KeyError in {p}")
-                except_count += 1
-        print(f"filter {filter_name} reject_count={reject_count} accept_count={accept_count} except_count={except_count}")
-
-    print("End - Debug filter")
-
-
-def main_filter(px, filters):
-
-    filter_map = {}
-    filter_rejections = {}
-
-    for fp in filters:
-        filter_name = fp.__name__
-        if filter_name == "<lambda>":
-            filter_source = inspect.getsource(fp).strip()
-            filter_name = filter_source.split()[0]
-        filter_map[filter_name] = fp
-        filter_rejections[filter_name] = 0
-
-    filter_output = []
-    total_count = len(px)
-    for p in px:
-        for fn, fp in filter_map.items():
-            try:
-                if fp(p):
-                    continue
-                else:
-                    filter_rejections[fn] += 1
-                    break
-            except KeyError:
-                print(f"KeyError in {p}")
-                filter_rejections[fn] += 1
-                break
-        else:
-            filter_output.append(p)
-
-    accept_count = len(filter_output)
-    reject_count = total_count - accept_count
-    print(f"*** rejected {reject_count}/{total_count}!!!")
-    # # debug level filter analysis
-    # for fn, count in filter_rejections.items():
-    #     print(f"filter {fn}:{count} ({inspect.getsource(filter_map[fn]).strip()})")
-    return filter_output
-
-
 def process_json_list(jdata):
     rval = []
     ignore_count = 0
@@ -335,9 +263,9 @@ def main():
             json.dump(summaries, f, default=str)
         exit(0)
 
-    filters = views.get_filters(opt, tags, targets, host)
-    debug_filter(summaries, filters)
-    filtered_data = main_filter(summaries, filters)
+    filter = filters.get_filters(opt, tags, targets, host)
+    filters.debug_filter(summaries, filter)
+    filtered_data = filters.main_filter(summaries, filter)
     view = views.View(opt)
     view.do_it(filtered_data)
 

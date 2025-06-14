@@ -194,8 +194,6 @@ class View:
 
         return ordered_base
 
-    # #################################
-
     def project_y(self, base):
         # input - two-level grouped collection with underlying sorted (x,item) structure
         # output - same shaped two-level grouped collection with underlying sorted ([x],[y]) structure
@@ -230,34 +228,3 @@ class View:
             dump_json(projected_data, self.filepath)
         else:
             graph2.plot_groups(projected_data, self.plot_text)
-
-
-def get_filters(opt, tags, targets, host):
-
-    recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
-    exclude_targets = lambda targets: lambda item: item["target"] not in targets
-    include_targets = lambda targets: lambda item: item["target"] in targets
-    filter_on_tags = lambda item: len(tags) == 0 or ("TAG" in item and item["TAG"] in tags)
-    with_tags = lambda tags: lambda item: "TAG" in item and item["TAG"] in tags
-    default_target_filter = include_targets(targets) if targets else exclude_targets(["gobgpV2"])
-    host_filter = lambda s: lambda item: item["host"] == s
-
-    filters = [recent, default_target_filter, filter_on_tags]
-    if host:
-        filters += host_filter(host)
-
-    match opt:
-        case "cpu" | "ncpus":
-            has_ncpus = lambda item: "DOCKER_NCPUS" in item
-            filters = [recent, include_targets(["bird2", "hbgp", "gobgp"]), has_ncpus]
-        case "rtl":
-            rtl = lambda item: int(item["RATETIMELIMIT"]) in [50, 100, 150, 200, 250]
-            filters += [rtl]
-        case "w" | "window":
-            filters += [lambda item: item["RATEWINDOW"] < 11]
-        case "p" | "power":
-            filters += [with_tags(["POWER_HIGH", "POWER_MEDIUM", "POWER_LOW", "POWER_MEDIUM_BATTERY", "POWER_SERVER"])]
-        case _:
-            pass
-
-    return filters
