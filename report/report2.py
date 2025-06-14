@@ -214,7 +214,6 @@ def main_filter(px, filters):
     return filter_output
 
 
-
 def process_json_list(jdata):
     rval = []
     ignore_count = 0
