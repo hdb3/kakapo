@@ -81,11 +81,17 @@ def parse_logtext(fn, uuid, s):
 
 found_RATEWINDOW = False
 
+found_LOGTEXT_error = False
+
 
 def process_summary(item):
+    global found_LOGTEXT_error
+    global found_RATEWINDOW
 
     if "LOGTEXT" not in item or item["LOGTEXT"] == "":
-        print(f"bad item: {item}")
+        if not found_LOGTEXT_error:
+            found_LOGTEXT_error = True
+            print(f"error: LOGTEXT missing or empty in: {item} (only reported once)")
         return None
     logtext = parse_logtext("", item["UUID"], item["LOGTEXT"])
     item |= logtext
@@ -100,11 +106,13 @@ def process_summary(item):
     return item
 
 
-common_keys = ["type", "file_name", "LOGTEXT", "multi_rate", "single_rate", "exit_status"]
+common_keys = ["type", "file_name", "LOGTEXT", "SEQ", "multi_rate", "single_rate", "exit_status", "conditioning_duration", "mean", "max", "min", "sd", "time", "elapsed_time", "unixtime"]
 marker_keys = ["TAG", "test_name", "target", "SPEC"]
 
 
 def report_summaries(sx):
+    global found_RATEWINDOW
+
     keys = {}
     print(f"got {len(sx)} items")
     for s in sx:
