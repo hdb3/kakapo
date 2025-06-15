@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from datetime import datetime
 import views
 import filters
+import time
 
 
 def string_to_datetime(date_string):
@@ -78,15 +79,20 @@ def process_summary(item):
 
 
 common_keys = ["type", "file_name", "LOGTEXT", "SEQ", "multi_rate", "single_rate", "exit_status", "conditioning_duration", "mean", "max", "min", "sd", "time", "elapsed_time", "unixtime"]
-marker_keys = ["TAG", "test_name", "target", "SPEC"]
+marker_keys = ["TAG", "test_name", "target", "SPEC", "HOSTNAME"]
 
 
 def report_summaries(sx):
     global found_RATEWINDOW
 
+    earliest = int(time.time())
+    latest = 0
+
     keys = {}
-    print(f"got {len(sx)} items")
     for s in sx:
+        item_time = s["unixtime"]
+        latest = max(latest, item_time)
+        earliest = min(earliest, item_time)
         for k, v in s.items():
             if not k in common_keys:
                 if not k in keys:
@@ -95,7 +101,11 @@ def report_summaries(sx):
                     keys[k][v] = 0
                 else:
                     keys[k][v] += 1
-
+    dt_earliest = datetime.fromtimestamp(earliest)
+    dt_latest = datetime.fromtimestamp(latest)
+    report = []
+    report.append(f"summarising {len(sx)} items")
+    report.append(f"sample data time window is {dt_earliest.date()} - {dt_latest.date()}")
     for k, vx in keys.items():
 
         # test 'len(vx) < len(sx)' excludes attributes like time and uuid, which are different, for EVERY item
@@ -115,10 +125,14 @@ def report_summaries(sx):
             if remaining_items:
                 remaining_count = sum(count for _, count in remaining_items)
                 display.append(f"{{{len(remaining_items)} more({remaining_count})}}")
-            print(f"key: {k} [", ", ".join(display), "]")
+            # print(f"key: {k} [", ", ".join(display), "]")
+            display_str = ", ".join(display)
+            report.append(f"key: {k} [{display_str}]")
 
-    if found_RATEWINDOW:
-        print("found and renamed RATEWINDOW to WINDOW")
+    # if found_RATEWINDOW:
+    #     print("found and renamed RATEWINDOW to WINDOW")
+
+    return "\n".join(report)
 
 
 def process_json_list(jdata):
@@ -211,8 +225,12 @@ def main():
     targets = []
     host = ""
     fn_out = ""
+    save = False
     if len(argv) > 2:
         for arg in argv[2:]:
+            match arg:
+                case "save":
+                    save = True
             match arg.split("="):
                 case [a] | ["tag", a] | ["tags", a]:
                     tags = a.split(",")
@@ -239,7 +257,7 @@ def main():
         summaries = process_json_list(jdata)
 
     # 'summaries' is now a curated list of dict objects representing single data points
-    report_summaries(summaries)
+    print(report_summaries(summaries))
     if opt == "dump":
         with open("summaries.json", "w") as f:
             json.dump(summaries, f, default=str)
@@ -248,8 +266,18 @@ def main():
     filter = filters.get_filters(opt, tags, targets, host)
     filters.debug_filter(summaries, filter)
     filtered_data = filters.main_filter(summaries, filter)
+
+    print()
+    print("===================")
+    print("Post Filter Summary")
+    print("===================")
+    print(report_summaries(filtered_data))
+    print("===================")
+
     view = views.View(opt)
-    view.do_it(filtered_data)
+    path = view.do_it(filtered_data)
+    if path:
+        print(f"graph was saved to {path}")
 
 
 if __name__ == "__main__":

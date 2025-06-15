@@ -4,6 +4,8 @@ import matplotlib.ticker as ticker
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from matplotlib.legend import Legend
+import tempfile
+
 
 linestyle_tuple = [
     ("solid", "solid"),
@@ -23,7 +25,7 @@ linestyle_tuple = [
 ]
 
 
-def plot_groups(gxx, plot_text):
+def plot_groups(gxx, plot_text, show_graph=True):
     plt.rcParams.update({"font.size": 18})
     plt.rcParams["savefig.directory"] = os.path.dirname(__file__)
     fig, ax = plt.subplots(figsize=(12, 8), layout="constrained")
@@ -91,4 +93,14 @@ def plot_groups(gxx, plot_text):
         ax.set_xscale("log")
 
     fig.show()  # needed to force change in figure layout to accommodate legends
-    plt.show()
+    _, path = tempfile.mkstemp(
+        suffix=".png",
+    )
+    os.remove(path)
+
+    plt.savefig(path, dpi=300)
+    # plt.savefig("high_res_plot.png", dpi=300)
+    if show_graph:
+        plt.show()
+
+    return path

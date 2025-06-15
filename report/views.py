@@ -179,7 +179,7 @@ class View:
                             # print(f"missing x:{x} in {group}:{subgroup}")
                         else:
                             if len(base[group][subgroup][x]) > 1:
-                                duplicate_cells.add(f"duplicate x in {group}:{subgroup}")
+                                duplicate_cells.add(f"{len(base[group][subgroup][x])} repeated x in {group}:{subgroup}")
                             ordered_base[group][subgroup][x] = base[group][subgroup][x]
 
                             # print(f"duplicate x:{x} in {group}:{subgroup}")
@@ -229,4 +229,5 @@ class View:
         if self.no_graphic:
             dump_json(projected_data, self.filepath)
         else:
-            graph2.plot_groups(projected_data, self.plot_text)
+            path = graph2.plot_groups(projected_data, self.plot_text)
+            return path
