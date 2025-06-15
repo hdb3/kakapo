@@ -6,32 +6,6 @@ from datetime import datetime
 import views
 import filters
 
-"""
- from linestyle.py
-"""
-
-linestyle_tuple = [
-    ("solid", "solid"),
-    ("densely dashdotted", (0, (3, 1, 1, 1))),
-    ("dashed", (0, (5, 5))),
-    ("densely dotted", (0, (1, 1))),
-    # ("loosely dotted", (0, (1, 10))),
-    ("dotted", (0, (1, 5))),
-    ("long dash with offset", (5, (10, 3))),
-    ("loosely dashed", (0, (5, 10))),
-    ("densely dashed", (0, (5, 1))),
-    ("loosely dashdotted", (0, (3, 10, 1, 10))),
-    ("dashdotted", (0, (3, 5, 1, 5))),
-    ("dashdotdotted", (0, (3, 5, 1, 5, 1, 5))),
-    ("loosely dashdotdotted", (0, (3, 10, 1, 10, 1, 10))),
-    ("densely dashdotdotted", (0, (3, 1, 1, 1, 1, 1))),
-]
-
-
-"""
- from dt.py
-"""
-
 
 def string_to_datetime(date_string):
     try:
@@ -55,11 +29,6 @@ def string_to_datetime(date_string):
 
         except ValueError:
             return None
-
-
-"""
- from logtext.py
-"""
 
 
 def parse_logtext(fn, uuid, s):
@@ -87,6 +56,8 @@ found_LOGTEXT_error = False
 def process_summary(item):
     global found_LOGTEXT_error
     global found_RATEWINDOW
+
+    del item["_id"]
 
     if "LOGTEXT" not in item or item["LOGTEXT"] == "":
         if not found_LOGTEXT_error:
@@ -232,21 +203,24 @@ def main():
     else:
         fn = "mongo"
 
-    opt = ""
-    if len(argv) > 2:
-        opt = argv[2]
+    opt = "default"
+    if len(argv) < 2:
+        opt = "dump"
 
     tags = []
     targets = []
     host = ""
     fn_out = ""
-    if len(argv) > 3:
-        for arg in argv[3:]:
+    if len(argv) > 2:
+        for arg in argv[2:]:
             match arg.split("="):
                 case [a] | ["tag", a] | ["tags", a]:
                     tags = a.split(",")
                 case ["targets", a]:
                     targets = a.split(",")
+                case ["opt", opt]:
+                    pass
+                    # host = s
                 case ["host", s]:
                     host = s
                 case ["file", fn_out]:

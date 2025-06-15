@@ -78,7 +78,7 @@ class View:
         self.plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second", "group_title": "cycle duration", "subgroup_title": "target"}
         self.select_x = select_sender_count
         self.select_subgroup = select_target
-        self.select_group = select_ncpus
+        self.select_group = select_null
         self.y_selector = select_multi_rate
         self.plan = average
         self.filepath = "tmp.json"
@@ -86,6 +86,8 @@ class View:
 
         # overrides
         match opt:
+            case "default":
+                pass
             case "cd" | "conditioning_duration":
                 self.y_selector = select_conditioning_duration
                 self.plot_text["y_axis"] = "mean conditioning duration (secs.)"

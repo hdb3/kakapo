@@ -10,11 +10,11 @@ def get_filters(opt, tags, targets, host):
     filter_on_tags = lambda item: len(tags) == 0 or ("TAG" in item and item["TAG"] in tags)
     with_tags = lambda tags: lambda item: "TAG" in item and item["TAG"] in tags
     default_target_filter = include_targets(targets) if targets else exclude_targets(["gobgpV2"])
-    host_filter = lambda s: lambda item: item["host"] == s
+    host_filter = lambda s: lambda item: item["HOSTNAME"] == s
 
     filters = [recent, default_target_filter, filter_on_tags]
     if host:
-        filters += host_filter(host)
+        filters.append(host_filter(host))
 
     match opt:
         case "cpu" | "ncpus":
@@ -51,8 +51,8 @@ def debug_filter(px, filters):
                     accept_count += 1
                 else:
                     reject_count += 1
-            except KeyError:
-                print(f"KeyError in {p}")
+            except KeyError as e:
+                print(f"KeyError in {p}, missing key: {e.args[0]}")
                 except_count += 1
         print(f"filter {filter_name} reject_count={reject_count} accept_count={accept_count} except_count={except_count}")
 
@@ -82,8 +82,8 @@ def main_filter(px, filters):
                 else:
                     filter_rejections[fn] += 1
                     break
-            except KeyError:
-                print(f"KeyError in {p}")
+            except KeyError as e:
+                print(f"KeyError in {p}, missing key: {e.args[0]}")
                 filter_rejections[fn] += 1
                 break
         else:
