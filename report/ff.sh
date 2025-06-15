@@ -8,8 +8,12 @@ import() {
         mongoimport --db $db --collection $collection --jsonArray --file $1
     else
         echo "make json array and process $1"
-        sed -e '1 i \ [' -e '$ s/,$/\]/' $1 >/tmp/kakapo.json
-        mongoimport --db $db --collection $collection --jsonArray --file /tmp/kakapo.json
+	tmpfile=$(mktemp --suffix=".json")
+        sed -e '1 i \ [' -e '$ s/,$/\]/' $1 >$tmpfile
+	sed -i 's/,},/},/g' $tmpfile
+        if ! mongoimport --db $db --collection $collection --jsonArray --file $tmpfile ; then
+            echo "failed to import from $tmpfile (orginal source $1)"
+        fi
     fi
 }
 
@@ -26,7 +30,9 @@ import() {
 
 if [[ -z "$1" ]]; then
     for f in $(find $loc -name kakapo.json -not -empty); do
-        import $f
+        if ! import $f ; then
+		echo "failed to import $f"
+	fi
     done
 else
     for f in $(find $1 -name \*.json -not -empty); do
