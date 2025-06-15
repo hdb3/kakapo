@@ -375,14 +375,14 @@ void json_log_conditioning(FILE *f, double tx, double rx) {
 
   fprintf(f, "\"transmit_duration\":%f,", tx);
 
-  fprintf(f, "\"receive_duration\":%f,", rx);
+  fprintf(f, "\"receive_duration\":%f", rx);
 
   fprintf(f, "},\n");
 
   fflush(f);
 };
 
-void log_conditioning_data(double tx, double rx)  {
+void log_conditioning_data(double tx, double rx) {
   json_log_conditioning(logjson, tx, rx);
 }
 
