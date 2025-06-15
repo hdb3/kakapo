@@ -629,15 +629,15 @@ int main(int argc, char *argv[]) {
   // TODO - make some of these invalid, rather than fixing up?
   if ((PREFIXCOUNT == UINT32_MAX) && (PATHCOUNT == UINT32_MAX)) {
     fprintf(stderr, "Neither PREFIXCOUNT nor PATHCOUNT set, using PREFIXCOUNT = %d.\n", PREFIXCOUNT_DEFAULT);
-    PATHCOUNT = PREFIXCOUNT_DEFAULT;
-  } else if ((PREFIXCOUNT != UINT32_MAX) && (PATHCOUNT != UINT32_MAX)) {
-    fprintf(stderr, "Both PREFIXCOUNT and PATHCOUNT set, using PREFIXCOUNT = %d.\n", PREFIXCOUNT_DEFAULT);
     PREFIXCOUNT = PREFIXCOUNT_DEFAULT;
     PATHCOUNT = PREFIXCOUNT / GROUPSIZE;
-  } else if ((PREFIXCOUNT == UINT32_MAX) && (PATHCOUNT != UINT32_MAX)) {
+  } else if ((PREFIXCOUNT != UINT32_MAX) && (PATHCOUNT != UINT32_MAX)) {
+    fprintf(stderr, "Both PREFIXCOUNT and PATHCOUNT set, using PREFIXCOUNT = %d.\n", PREFIXCOUNT_DEFAULT);
     PATHCOUNT = PREFIXCOUNT / GROUPSIZE;
-  } else if ((PREFIXCOUNT != UINT32_MAX) && (PATHCOUNT == UINT32_MAX)) {
+  } else if ((PREFIXCOUNT == UINT32_MAX) && (PATHCOUNT != UINT32_MAX)) {
     PREFIXCOUNT = PATHCOUNT * GROUPSIZE;
+  } else if ((PREFIXCOUNT != UINT32_MAX) && (PATHCOUNT == UINT32_MAX)) {
+    PATHCOUNT = PREFIXCOUNT / GROUPSIZE;
   } else {
     die("impossible");
   }
