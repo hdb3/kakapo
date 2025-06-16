@@ -239,7 +239,7 @@ def main():
                     match arg.split("=", 1):
                         case [a] | ["tag", a] | ["tags", a]:
                             tags = a.split(",")
-                        case ["targets", a]:
+                        case ["target", a] | ["targets", a]:
                             targets = a.split(",")
                         case ["opt", opt]:
                             pass
@@ -282,6 +282,10 @@ def main():
     print(filtered_summary)
     print("===================")
 
+    # debug code
+    with open("filtered_data.json", "w") as f:
+        json.dump(filtered_data, f, default=str)
+
     view = views.View(opt)
     path = view.do_it(filtered_data)
     if path:
@@ -293,6 +297,9 @@ def main():
         print(f"command line was {command_line}")
         print(f"save dir is  {save_dir}")
         save_dir.mkdir(parents=True)
+
+        figure = Path(path)
+        figure.rename(save_dir / "figure.png")
 
         with open(save_dir / "command_line", "w") as f:
             f.write(command_line)

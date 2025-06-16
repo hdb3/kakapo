@@ -85,6 +85,15 @@ select_conditioning_duration = lambda item: item["conditioning_duration"] / item
 select_window = lambda item: item["RATEWINDOW"]
 
 
+def bar_chart_prep(gxx):
+    for group_key, subgroup in gxx.items():
+        for subgroup_key, xy in subgroup.items():
+            print(f"group:{group_key} subgroup:{subgroup_key} type of xy is {type(xy)}, xy is {xy}")
+            # exit(0)
+
+    return {group_key: {subgroup_key: y for subgroup_key, (_, y) in subgroup.items()} for group_key, subgroup in gxx.items()}
+
+
 class View:
 
     def __init__(self, opt):
@@ -108,9 +117,9 @@ class View:
                 self.plot_style = "bar"
                 self.plot_text["y_axis"] = "y axis label missing"
                 self.y_selector = select_mean
-                self.select_x = int_item_selector("PREFIXCOUNT")
-                self.select_subgroup = select_target
-                self.select_group = select_null
+                self.select_x = lambda _: 0
+                self.select_subgroup = int_item_selector("PREFIXCOUNT")
+                self.select_group = select_target
 
             case "cd" | "conditioning_duration":
                 self.y_selector = select_conditioning_duration
@@ -162,6 +171,8 @@ class View:
         for p in items:
             group = self.select_group(p)
             subgroup = self.select_subgroup(p)
+            if subgroup is None:
+                continue
             x = self.select_x(p)
             # TODO raise an exception log when x is None...
             if x is None:
@@ -258,7 +269,7 @@ class View:
         else:
             match self.plot_style:
                 case "bar":
-                    path = barchart.plot(projected_data, self.plot_text["title"], self.plot_text["y_axis"])
+                    path = barchart.plot(bar_chart_prep(projected_data), self.plot_text["title"], self.plot_text["y_axis"])
                 case "groups":
                     path = graph2.plot_groups(projected_data, self.plot_text)
             return path
