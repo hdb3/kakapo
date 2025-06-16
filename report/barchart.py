@@ -66,15 +66,16 @@ def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel):
         y_max = max((y_max, max(data)))
 
         rects = ax.bar(locations, data, width, label=attribute_label)
-        ax.bar_label(rects, padding=3)
+        ax.bar_label(rects, rotation=45, fmt="   %.4g")
+        # ax.bar_label(rects, padding=3, fmt="  %.4g")
 
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    ax.set_xticks([width + i for i in range(i_count)], group_keys)
+    ax.set_xticks([width * (0.5 + i * (j_count + 1)) for i in range(i_count)], group_keys)
 
     ax.legend(loc="upper left", ncols=j_count)
     ax.set_ylim(0, y_max + 30)
-
+    fig.show()
     plt.show()
 
 
