@@ -37,7 +37,7 @@ def select_multi_rate(item):
 
 
 def select_mean(item):
-    return int(item["mean"])
+    return float(item["mean"])
 
 
 def select_sender_count(item):
@@ -120,6 +120,7 @@ class View:
                 self.select_x = lambda _: 0
                 self.select_subgroup = int_item_selector("PREFIXCOUNT")
                 self.select_group = select_target
+                self.plan = average
 
             case "cd" | "conditioning_duration":
                 self.y_selector = select_conditioning_duration
