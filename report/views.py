@@ -86,12 +86,9 @@ select_window = lambda item: item["RATEWINDOW"]
 
 
 def bar_chart_prep(gxx):
-    for group_key, subgroup in gxx.items():
-        for subgroup_key, xy in subgroup.items():
-            print(f"group:{group_key} subgroup:{subgroup_key} type of xy is {type(xy)}, xy is {xy}")
-            # exit(0)
-
-    return {group_key: {subgroup_key: y for subgroup_key, (_, y) in subgroup.items()} for group_key, subgroup in gxx.items()}
+    # Assumes that the kernel (x,y) types are both arrays length=1
+    # Will maybe fail when values other than float are present, e.g. error bars, SD etc. etc.
+    return {group_key: {subgroup_key: y[0] for subgroup_key, (_, y) in subgroup.items()} for group_key, subgroup in gxx.items()}
 
 
 class View:
