@@ -2,7 +2,7 @@ from datetime import datetime
 import inspect
 
 
-def get_filters(opt, tags, targets, host):
+def get_filters(opt, tags, targets, host, test):
 
     recent = lambda item: item["time"] > datetime.fromisoformat("2025-03-11")
     exclude_targets = lambda targets: lambda item: item["target"] not in targets
@@ -11,8 +11,11 @@ def get_filters(opt, tags, targets, host):
     with_tags = lambda tags: lambda item: "TAG" in item and item["TAG"] in tags
     default_target_filter = include_targets(targets) if targets else exclude_targets(["gobgpV2"])
     host_filter = lambda s: lambda item: item["HOSTNAME"] == s
+    test_filter = lambda s: lambda item: item["test_name"] == s
 
     filters = [recent, default_target_filter, filter_on_tags]
+    if test:
+        filters.append(test_filter(test))
     if host:
         filters.append(host_filter(host))
 

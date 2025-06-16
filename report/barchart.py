@@ -78,8 +78,12 @@ def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel):
     plt.show()
 
 
-def main():
+def plot(gxx, title, ylabel):
+    group_keys, subgroup_keys, matrix = matrix_form(gxx)
+    return bar_plot(group_keys, subgroup_keys, matrix.T, title, ylabel)
 
+
+def main():
 
     pm2 = {
         "Bill Depth": {"Adelie": 18.35, "Chinstrap": 18.43, "Gentoo": 14.98},
@@ -92,6 +96,7 @@ def main():
     group_keys, subgroup_keys, matrix = matrix_form(pm2)
     bar_plot(group_keys, subgroup_keys, matrix.T, title, ylabel)
     bar_plot(subgroup_keys, group_keys, matrix, title, ylabel)
+
 
 if __name__ == "__main__":
     main()

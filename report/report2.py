@@ -6,6 +6,7 @@ from datetime import datetime
 import views
 import filters
 import time
+from pathlib import Path
 
 
 def string_to_datetime(date_string):
@@ -212,6 +213,8 @@ def handle_json_file_variants(fn):
 
 def main():
 
+    command_line = " ".join(argv)
+
     if len(argv) > 1:
         fn = argv[1]
     else:
@@ -226,25 +229,29 @@ def main():
     host = ""
     fn_out = ""
     save = False
+    test = None
     if len(argv) > 2:
         for arg in argv[2:]:
             match arg:
                 case "save":
                     save = True
-            match arg.split("="):
-                case [a] | ["tag", a] | ["tags", a]:
-                    tags = a.split(",")
-                case ["targets", a]:
-                    targets = a.split(",")
-                case ["opt", opt]:
-                    pass
-                    # host = s
-                case ["host", s]:
-                    host = s
-                case ["file", fn_out]:
-                    pass
                 case _:
-                    print(f"'{arg}' not expected")
+                    match arg.split("=", 1):
+                        case [a] | ["tag", a] | ["tags", a]:
+                            tags = a.split(",")
+                        case ["targets", a]:
+                            targets = a.split(",")
+                        case ["opt", opt]:
+                            pass
+                        case ["test", test]:
+                            pass
+                            # host = s
+                        case ["host", s]:
+                            host = s
+                        case ["file", fn_out]:
+                            pass
+                        case _:
+                            print(f"'{arg}' not expected")
 
     if fn == "mongo":
         client = MongoClient()
@@ -263,21 +270,40 @@ def main():
             json.dump(summaries, f, default=str)
         exit(0)
 
-    filter = filters.get_filters(opt, tags, targets, host)
+    filter = filters.get_filters(opt, tags, targets, host, test)
     filters.debug_filter(summaries, filter)
     filtered_data = filters.main_filter(summaries, filter)
+    filtered_summary = report_summaries(filtered_data)
 
     print()
     print("===================")
     print("Post Filter Summary")
     print("===================")
-    print(report_summaries(filtered_data))
+    print(filtered_summary)
     print("===================")
 
     view = views.View(opt)
     path = view.do_it(filtered_data)
     if path:
         print(f"graph was saved to {path}")
+        print(f'command line was "{command_line}"')
+
+    if save:
+        save_dir = Path.home() / ".kakapo" / str(int(time.time()))
+        print(f"command line was {command_line}")
+        print(f"save dir is  {save_dir}")
+        save_dir.mkdir(parents=True)
+
+        with open(save_dir / "command_line", "w") as f:
+            f.write(command_line)
+            f.write("\n")
+
+        with open(save_dir / "filtered_summary", "w") as f:
+            f.write(filtered_summary)
+            f.write("\n")
+
+        with open(save_dir / "summaries.json", "w") as f:
+            json.dump(filtered_data, f, default=str)
 
 
 if __name__ == "__main__":

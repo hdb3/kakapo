@@ -3,6 +3,7 @@ import json
 from datetime import datetime, date
 
 import graph2
+import barchart
 
 
 def dump_json(data, fn):
@@ -35,8 +36,22 @@ def select_multi_rate(item):
     return int(item["multi_rate"])
 
 
+def select_mean(item):
+    return int(item["mean"])
+
+
 def select_sender_count(item):
     return int(item["sender_count"])
+
+
+def int_item_selector(name):
+    def my_selector(item):
+        if name in item:
+            return int(item[name])
+        else:
+            return None
+
+    return my_selector
 
 
 def select_packed(item):
@@ -83,11 +98,20 @@ class View:
         self.plan = average
         self.filepath = "tmp.json"
         self.no_graphic = False
+        self.plot_style = "groups"
 
         # overrides
         match opt:
             case "default":
                 pass
+            case "bar":
+                self.plot_style = "bar"
+                self.plot_text["y_axis"] = "y axis label missing"
+                self.y_selector = select_mean
+                self.select_x = int_item_selector("PREFIXCOUNT")
+                self.select_subgroup = select_target
+                self.select_group = select_null
+
             case "cd" | "conditioning_duration":
                 self.y_selector = select_conditioning_duration
                 self.plot_text["y_axis"] = "mean conditioning duration (secs.)"
@@ -139,6 +163,9 @@ class View:
             group = self.select_group(p)
             subgroup = self.select_subgroup(p)
             x = self.select_x(p)
+            # TODO raise an exception log when x is None...
+            if x is None:
+                continue
             x_set.add(x)
             subgroup_set.add(subgroup)
             group_set.add(group)
@@ -229,5 +256,9 @@ class View:
         if self.no_graphic:
             dump_json(projected_data, self.filepath)
         else:
-            path = graph2.plot_groups(projected_data, self.plot_text)
+            match self.plot_style:
+                case "bar":
+                    path = barchart.plot(projected_data, self.plot_text["title"], self.plot_text["y_axis"])
+                case "groups":
+                    path = graph2.plot_groups(projected_data, self.plot_text)
             return path
