@@ -298,9 +298,6 @@ def main():
         print(f"save dir is  {save_dir}")
         save_dir.mkdir(parents=True)
 
-        figure = Path(path)
-        figure.rename(save_dir / "figure.png")
-
         with open(save_dir / "command_line", "w") as f:
             f.write(command_line)
             f.write("\n")
@@ -311,6 +308,10 @@ def main():
 
         with open(save_dir / "summaries.json", "w") as f:
             json.dump(filtered_data, f, default=str)
+
+        # last because it may fail, allowing user to fix up after successfully writing the other material
+        figure = Path(path)
+        figure.rename(save_dir / "figure.png")
 
 
 if __name__ == "__main__":
