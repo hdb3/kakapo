@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import tempfile
 
 
 def matrix_form(gxx):
@@ -49,7 +51,13 @@ premise:
 """
 
 
-def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel):
+def ceildiv(a, b):
+    assert a > 0
+    assert b > 0
+    return (a + b - 1) // b
+
+
+def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel, legend_text, bar_label=True):
 
     i_count = len(group_keys)
     j_count = len(subgroup_keys)
@@ -57,7 +65,7 @@ def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel):
 
     y_max = 0
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(layout="constrained")
 
     for j in range(j_count):
         locations = [width * (j + i * (j_count + 1)) for i in range(i_count)]
@@ -66,22 +74,44 @@ def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel):
         y_max = max((y_max, max(data)))
 
         rects = ax.bar(locations, data, width, label=attribute_label)
-        ax.bar_label(rects, rotation=45, fmt="   %.4g")
+        if bar_label:
+            ax.bar_label(rects, rotation=45, fmt="   %.4g")
         # ax.bar_label(rects, padding=3, fmt="  %.4g")
 
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.set_xticks([width * (0.5 + i * (j_count + 1)) for i in range(i_count)], group_keys)
 
-    ax.legend(loc="upper left", ncols=j_count)
-    ax.set_ylim(0, y_max + 30)
+    # # horizontal legend layouts
+    # ncols = j_count
+    # if j_count > 4:
+    #     ncols = ceildiv(j_count, 2)
+
+    # # this is the below horizontal legend box solution
+    # ax.legend(bbox_to_anchor=(0.5, -0.10), loc="upper center", ncols=ncols, title=legend_text)
+
+    # #  this is the simple horizontal version
+    # ax.legend(loc="upper left", ncols=ncols, title=legend_text)
+
+    # this is the vertical legend box solution
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), ncols=1, title=legend_text)
+
+    ax.set_ylim(0, y_max * 1.2)
     fig.show()
+    _, path = tempfile.mkstemp(
+        suffix=".png",
+    )
+    os.remove(path)
+
+    plt.savefig(path, dpi=300)
     plt.show()
 
+    return path
 
-def plot(gxx, title, ylabel):
+
+def plot(gxx, title, ylabel, legend_text, bar_label=True):
     group_keys, subgroup_keys, matrix = matrix_form(gxx)
-    return bar_plot(group_keys, subgroup_keys, matrix.T, title, ylabel)
+    return bar_plot(group_keys, subgroup_keys, matrix.T, title, ylabel, legend_text, bar_label)
 
 
 def main():
@@ -93,10 +123,11 @@ def main():
     }
     ylabel = "Length (mm)"
     title = "Penguin attributes by species"
+    legend_text = "metric"
 
     group_keys, subgroup_keys, matrix = matrix_form(pm2)
-    bar_plot(group_keys, subgroup_keys, matrix.T, title, ylabel)
-    bar_plot(subgroup_keys, group_keys, matrix, title, ylabel)
+    bar_plot(group_keys, subgroup_keys, matrix.T, title, legend_text, ylabel)
+    bar_plot(subgroup_keys, group_keys, matrix, title, legend_text, ylabel)
 
 
 if __name__ == "__main__":

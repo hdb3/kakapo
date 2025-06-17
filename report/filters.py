@@ -20,6 +20,10 @@ def get_filters(opt, tags, targets, host, test):
         filters.append(host_filter(host))
 
     match opt:
+        case "800k":
+            filters += [lambda item: item["PREFIXCOUNT"] == 800000]
+        case "1M":
+            filters += [lambda item: item["PREFIXCOUNT"] == 1000000]
         case "cpu" | "ncpus":
             has_ncpus = lambda item: "DOCKER_NCPUS" in item
             filters = [recent, include_targets(["bird2", "hbgp", "gobgp"]), has_ncpus]

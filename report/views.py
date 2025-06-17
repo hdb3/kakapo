@@ -105,6 +105,7 @@ class View:
         self.filepath = "tmp.json"
         self.no_graphic = False
         self.plot_style = "groups"
+        self.bar_label = False
 
         # overrides
         match opt:
@@ -112,10 +113,12 @@ class View:
                 pass
             case "bar":
                 self.plot_style = "bar"
-                self.plot_text["y_axis"] = "y axis label missing"
+                self.plot_text["y_axis"] = "duration (seconds)"
+                self.plot_text["title"] = "burst processing duration (seconds)"
+                self.plot_text["legend"] = "group size"
                 self.y_selector = select_mean
                 self.select_x = lambda _: 0
-                self.select_subgroup = int_item_selector("PREFIXCOUNT")
+                self.select_subgroup = int_item_selector("GROUPSIZE")
                 self.select_group = select_target
                 self.plan = average
 
@@ -267,7 +270,7 @@ class View:
         else:
             match self.plot_style:
                 case "bar":
-                    path = barchart.plot(bar_chart_prep(projected_data), self.plot_text["title"], self.plot_text["y_axis"])
+                    path = barchart.plot(bar_chart_prep(projected_data), self.plot_text["title"], self.plot_text["y_axis"], self.plot_text["legend"], self.bar_label)
                 case "groups":
                     path = graph2.plot_groups(projected_data, self.plot_text)
             return path
