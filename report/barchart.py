@@ -96,14 +96,14 @@ def bar_plot(group_keys, subgroup_keys, matrix, title, ylabel, legend_text, bar_
     # this is the vertical legend box solution
     ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), ncols=1, title=legend_text)
 
-    ax.set_ylim(0, y_max * 1.2)
+    ax.set_ylim(0, y_max * 1.1)
     fig.show()
     _, path = tempfile.mkstemp(
         suffix=".png",
     )
     os.remove(path)
 
-    plt.savefig(path, dpi=300)
+    plt.savefig(path, dpi=600)
     plt.show()
 
     return path

@@ -98,7 +98,7 @@ def plot_groups(gxx, plot_text, show_graph=True):
     )
     os.remove(path)
 
-    plt.savefig(path, dpi=300)
+    plt.savefig(path, dpi=600)
     # plt.savefig("high_res_plot.png", dpi=300)
     if show_graph:
         plt.show()

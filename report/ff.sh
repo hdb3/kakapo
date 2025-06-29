@@ -34,8 +34,12 @@ if [[ -z "$1" ]]; then
 		echo "failed to import $f"
 	fi
     done
-else
+elif [[ -d "$1" ]]; then
     for f in $(find $1 -name \*.json -not -empty); do
         import $f
     done
+elif [[ -f "$1" ]]; then
+        import $1
+else
+    echo "woe is me"
 fi

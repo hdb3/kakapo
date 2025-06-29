@@ -7,6 +7,9 @@ import views
 import filters
 import time
 from pathlib import Path
+import shutil
+
+target_subsitute = {"csmoketest": "cisco","jsmoketest": "junos"}
 
 
 def string_to_datetime(date_string):
@@ -71,16 +74,21 @@ def process_summary(item):
     time = string_to_datetime(item["time"])
     item["time"] = time
     del item["LOGTEXT"]
+    if "MAXBURSTCOUNT" in item:
+        item["BURSTSIZE"] = item["MAXBURSTCOUNT"]
+        del item["MAXBURSTCOUNT"]
     if "RATEWINDOW" in item:
         item["WINDOW"] = item["RATEWINDOW"]
         del item["RATEWINDOW"]
         found_RATEWINDOW = True
+    if substitute_target := target_subsitute.get(item["target"]):
+        item["target"] = substitute_target
 
     return item
 
 
-common_keys = ["type", "file_name", "LOGTEXT", "SEQ", "multi_rate", "single_rate", "exit_status", "conditioning_duration", "mean", "max", "min", "sd", "time", "elapsed_time", "unixtime"]
-marker_keys = ["TAG", "test_name", "target", "SPEC", "HOSTNAME"]
+common_keys = ["UUID", "type", "file_name", "LOGTEXT", "SEQ", "multi_rate", "single_rate", "exit_status", "conditioning_duration", "mean", "max", "min", "sd", "time", "elapsed_time", "unixtime"]
+marker_keys = ["TAG", "test_name", "target", "SPEC", "HOSTNAME", "BURSTSIZE", "PREFIXCOUNT", "GROUPSIZE"]
 
 
 def report_summaries(sx):
@@ -230,6 +238,7 @@ def main():
     fn_out = ""
     save = False
     test = None
+    sets = []
     if len(argv) > 2:
         for arg in argv[2:]:
             match arg:
@@ -243,6 +252,8 @@ def main():
                             targets = a.split(",")
                         case ["opt", opt]:
                             pass
+                        case ["set", x]:
+                            sets.append(x)
                         case ["test", test]:
                             pass
                             # host = s
@@ -286,11 +297,10 @@ def main():
     with open("filtered_data.json", "w") as f:
         json.dump(filtered_data, f, default=str)
 
-    view = views.View(opt)
+    view = views.View(opt, sets)
     path = view.do_it(filtered_data)
     if path:
         print(f"graph was saved to {path}")
-        print(f'command line was "{command_line}"')
 
     if save:
         save_dir = Path.home() / ".kakapo" / str(int(time.time()))
@@ -311,7 +321,8 @@ def main():
 
         # last because it may fail, allowing user to fix up after successfully writing the other material
         figure = Path(path)
-        figure.rename(save_dir / "figure.png")
+        shutil.copy2(figure, save_dir / "figure.png")
+        # figure.rename(save_dir / "figure.png")
 
 
 if __name__ == "__main__":

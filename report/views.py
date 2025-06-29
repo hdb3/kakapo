@@ -93,7 +93,7 @@ def bar_chart_prep(gxx):
 
 class View:
 
-    def __init__(self, opt):
+    def __init__(self, opt, sets):
 
         # defaults
         self.plot_text = {"title": "continuous rate test", "x_axis": "number of BGP peers", "y_axis": "update messages / second", "group_title": "cycle duration", "subgroup_title": "target"}
@@ -114,7 +114,7 @@ class View:
             case "bar":
                 self.plot_style = "bar"
                 self.plot_text["y_axis"] = "duration (seconds)"
-                self.plot_text["title"] = "burst processing duration (seconds)"
+                self.plot_text["title"] = "burst processing"
                 self.plot_text["legend"] = "group size"
                 self.y_selector = select_mean
                 self.select_x = lambda _: 0
@@ -163,6 +163,20 @@ class View:
                 self.plan = full_data_analysis
             case _:
                 print(f"*** UNKNOWN option'{opt}'")
+
+        for setx in sets:
+            match setx:
+                case "cd" | "conditioning_duration":
+                    self.y_selector = select_conditioning_duration
+                    self.plot_text["y_axis"] = "mean conditioning duration (secs.)"
+                    self.plot_text["title"] = "conditioning duration"
+                case "labels":
+                    self.bar_label = True
+                case "npeers":
+                    self.select_subgroup = select_sender_count
+                    self.plot_text["legend"] = "no. of peers"
+                case "bl" | "bar_label":
+                    self.bar_label = True
 
     def group_select(self, items):
         base = {}
