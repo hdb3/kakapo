@@ -11,6 +11,7 @@ import() {
 	tmpfile=$(mktemp --suffix=".json")
         sed -e '1 i \ [' -e '$ s/,$/\]/' $1 >$tmpfile
 	sed -i 's/,},/},/g' $tmpfile
+	sed -i 's/,}]/}]/g' $tmpfile
         if ! mongoimport --db $db --collection $collection --jsonArray --file $tmpfile ; then
             echo "failed to import from $tmpfile (orginal source $1)"
         fi
